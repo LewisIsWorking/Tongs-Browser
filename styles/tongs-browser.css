@@ -232,3 +232,19 @@
   min-width: 40px;
   min-height: 40px;
 }
+
+/*
+ * Debug outline. Marks the element the pointer currently resolves to.
+ *
+ * pointer-events: none for the same reason the cursor has it: an outline that could be hit tested
+ * would become the answer to every hit test, and the problem being diagnosed would disappear while
+ * being looked at.
+ */
+.tb-debug-outline {
+  pointer-events: none;
+  position: fixed;
+  z-index: calc(var(--tb-cursor-z-index) - 1);
+  border: 2px dashed rgb(0 200 255 / 90%);
+  background: rgb(0 200 255 / 10%);
+  box-sizing: border-box;
+}

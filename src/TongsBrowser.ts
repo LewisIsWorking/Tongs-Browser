@@ -1,4 +1,5 @@
 import { logger } from './core/Logger.js';
+import { DebugOverlay } from './debug/DebugOverlay.js';
 import { CanvasController, type CanvasLike } from './gesture/CanvasController.js';
 import { ExclusionZones } from './gesture/ExclusionZones.js';
 import { GestureController } from './gesture/GestureController.js';
@@ -22,6 +23,8 @@ export interface TongsBrowserOptions {
   readonly initialBarPosition?: BarPosition;
   readonly onBarPositionChanged?: (position: BarPosition) => void;
   readonly uiScale?: number;
+  readonly cursorSize?: number;
+  readonly debugOverlay?: boolean;
 }
 
 /**
@@ -41,12 +44,18 @@ export class TongsBrowser {
   private readonly modifierBar: ModifierBar;
   private readonly scaler: UiScaler;
   private readonly clampBinder: WindowClampBinder;
+  private readonly debug: DebugOverlay;
   private enabled = false;
 
   public constructor(private readonly options: TongsBrowserOptions) {
     const { document: doc, window: win } = options;
 
-    this.cursor = new CursorOverlay({ document: doc });
+    this.debug = new DebugOverlay({ document: doc, logger });
+
+    this.cursor = new CursorOverlay({
+      document: doc,
+      ...(options.cursorSize === undefined ? {} : { size: options.cursorSize }),
+    });
 
     /*
      * No getTransform here, deliberately, even though the interface is scaled.
@@ -65,7 +74,12 @@ export class TongsBrowser {
 
     this.pointer = new VirtualPointer({
       hitTester,
-      dispatcher: new EventDispatcher({ view: win }),
+      dispatcher: new EventDispatcher({
+        view: win,
+        onDispatch: (descriptor, target) => {
+          this.debug.onDispatch(descriptor, target);
+        },
+      }),
       cursor: this.cursor,
       initialPosition: { clientX: win.innerWidth / 2, clientY: win.innerHeight / 2 },
     });
@@ -135,6 +149,7 @@ export class TongsBrowser {
     this.binder.bind();
     this.scaler.apply();
     this.clampBinder.bind();
+    this.debug.setEnabled(this.options.debugOverlay ?? false);
 
     if (this.options.modifierBarEnabled ?? true) {
       this.modifierBar.attach();
@@ -160,6 +175,7 @@ export class TongsBrowser {
     this.modifierBar.detach();
     this.cursor.detach();
     this.clampBinder.unbind();
+    this.debug.setEnabled(false);
     // Removes the property rather than setting it back to 1, so Foundry's own layout is restored
     // exactly and nothing is left behind.
     this.scaler.remove();
@@ -194,6 +210,29 @@ export class TongsBrowser {
   public setUiScale(scale: number): void {
     this.scaler.setScale(scale);
     this.clampBinder.clampAll();
+  }
+
+  public setCursorSize(size: number): void {
+    this.cursor.setSize(size);
+  }
+
+  public setDebugOverlay(enabled: boolean): void {
+    this.debug.setEnabled(enabled);
+  }
+
+  /**
+   * Shows or hides the modifier bar without tearing the whole module down.
+   *
+   * Hiding releases whatever was held, so Foundry is never left believing a modifier is down with
+   * no visible control left to clear it.
+   */
+  public setModifierBarVisible(visible: boolean): void {
+    if (visible) {
+      this.modifierBar.attach();
+      this.synthesizer.probe();
+    } else {
+      this.modifierBar.detach();
+    }
   }
 
   /** Which strategy the keyboard probe settled on. Surfaced for diagnostics and the settings UI. */
