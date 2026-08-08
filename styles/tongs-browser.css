@@ -1,0 +1,33 @@
+/*
+ * Tongs Browser styles.
+ *
+ * Everything is namespaced under the tb- prefix or a #tongs-browser- id so this module cannot
+ * collide with Foundry core, the PF2e system, or another module's rules.
+ *
+ * Scaffold stage: only the custom properties that later branches read. The UI scaling work drives
+ * --tb-ui-scale, and the pointer core reads --tb-cursor-size.
+ */
+
+:root {
+  /* Set by the UI scaling layer. Range 0.5 to 1.0. */
+  --tb-ui-scale: 1;
+
+  /* Set from the cursorSize client setting. Range 16px to 48px. */
+  --tb-cursor-size: 28px;
+
+  /* Stacked above Foundry's interface but below its tooltip layer. */
+  --tb-cursor-z-index: 100000;
+}
+
+/*
+ * The cursor overlay must never be returned by document.elementFromPoint, or hit testing would
+ * resolve the cursor itself instead of the thing underneath it. This declaration is load bearing,
+ * not cosmetic. The pointer core branch adds a test asserting it.
+ */
+.tb-cursor {
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--tb-cursor-z-index);
+  width: var(--tb-cursor-size);
+  height: var(--tb-cursor-size);
+}

@@ -1,0 +1,24 @@
+{
+  "id": "tongs-browser",
+  "title": "Tongs Browser",
+  "description": "Virtual mouse pointer, sticky modifier keys, and mobile UI scaling for Foundry VTT on Android.",
+  "version": "0.1.0",
+  "authors": [
+    {
+      "name": "Lewis"
+    }
+  ],
+  "compatibility": {
+    "minimum": "14",
+    "verified": "14.365",
+    "maximum": "14"
+  },
+  "esmodules": ["dist/tongs-browser.js"],
+  "styles": ["dist/tongs-browser.css"],
+  "url": "https://github.com/LewisIsWorking/Tongs-Browser",
+  "manifest": "https://raw.githubusercontent.com/LewisIsWorking/Tongs-Browser/main/module.json",
+  "download": "https://github.com/LewisIsWorking/Tongs-Browser/releases/latest/download/module.zip",
+  "readme": "https://github.com/LewisIsWorking/Tongs-Browser/blob/main/README.md",
+  "bugs": "https://github.com/LewisIsWorking/Tongs-Browser/issues",
+  "license": "https://github.com/LewisIsWorking/Tongs-Browser/blob/main/LICENSE"
+}

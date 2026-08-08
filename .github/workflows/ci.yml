@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      # module.json names these files explicitly. If the build ever emits different names, Foundry
+      # loads nothing at all and does so silently, so this is checked rather than assumed.
+      - name: Verify build output filenames match the manifest
+        run: |
+          test -f dist/tongs-browser.js || { echo "Missing dist/tongs-browser.js"; exit 1; }
+          test -f dist/tongs-browser.css || { echo "Missing dist/tongs-browser.css"; exit 1; }
+          echo "Build output matches module.json."
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Derive version from tag
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # The manifest on main points download at releases/latest. The copy shipped inside the zip is
+      # rewritten to the exact tag, so an installed module reports the version it actually is and
+      # updates resolve against a fixed asset rather than a moving target.
+      - name: Rewrite version and download URL in module.json
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          REPO: ${{ github.repository }}
+        run: |
+          node --input-type=module -e '
+            import { readFileSync, writeFileSync } from "node:fs";
+            const version = process.env.VERSION;
+            const repo = process.env.REPO;
+            const manifest = JSON.parse(readFileSync("module.json", "utf8"));
+            manifest.version = version;
+            manifest.download =
+              `https://github.com/${repo}/releases/download/v${version}/module.zip`;
+            writeFileSync("module.json", `${JSON.stringify(manifest, null, 2)}\n`);
+            console.log(`module.json set to ${version} with download ${manifest.download}`);
+          '
+
+      - name: Package module.zip
+        run: zip -r module.zip module.json dist LICENSE README.md
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            module.zip module.json \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes
