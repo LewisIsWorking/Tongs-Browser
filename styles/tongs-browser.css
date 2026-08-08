@@ -21,13 +21,65 @@
 
 /*
  * The cursor overlay must never be returned by document.elementFromPoint, or hit testing would
- * resolve the cursor itself instead of the thing underneath it. This declaration is load bearing,
- * not cosmetic. The pointer core branch adds a test asserting it.
+ * resolve the cursor itself instead of the thing underneath it. That declaration is load bearing,
+ * not cosmetic, and it is also set inline by CursorOverlay so it holds even if this stylesheet
+ * loses the cascade to another module. There is a test asserting it.
  */
 .tb-cursor {
   pointer-events: none;
   position: fixed;
+  top: 0;
+  left: 0;
   z-index: var(--tb-cursor-z-index);
   width: var(--tb-cursor-size);
   height: var(--tb-cursor-size);
+
+  /*
+   * The visual hotspot is the centre of the ring, so the element is pulled back by half its size.
+   * Without this the ring would hang below and right of the point events are actually dispatched
+   * at, and every tap would feel misaligned by half a cursor.
+   */
+  margin-top: calc(var(--tb-cursor-size) / -2);
+  margin-left: calc(var(--tb-cursor-size) / -2);
+
+  border: 2px solid rgb(255 255 255 / 90%);
+  border-radius: 50%;
+  box-sizing: border-box;
+
+  /* Dark halo so the cursor stays visible against both a lit map and a black background. */
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 60%),
+    inset 0 0 0 1px rgb(0 0 0 / 40%);
+
+  /* Moved with translate3d by CursorOverlay, which keeps it on the compositor. */
+  will-change: transform;
+}
+
+/* Centre dot marking the exact hit point. */
+.tb-cursor::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  margin-top: -1.5px;
+  margin-left: -1.5px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 95%);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 60%);
+}
+
+/*
+ * Button held state. The brief calls for this to be unmistakable, because a tap then hold drag is
+ * otherwise indistinguishable from an ordinary move and the user cannot tell whether they are
+ * dragging a token or just hovering over it.
+ */
+.tb-cursor--held {
+  border-color: rgb(255 208 92 / 95%);
+  background: rgb(255 208 92 / 25%);
+}
+
+.tb-cursor--held::after {
+  background: rgb(255 208 92 / 100%);
 }
