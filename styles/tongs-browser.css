@@ -184,3 +184,51 @@
 .tb-key--locked::after {
   content: ' =';
 }
+
+/*
+ * Interface scaling.
+ *
+ * Only applied while the tb-scaled class is on the root, so removing the class restores Foundry's
+ * own layout exactly rather than leaving a scale of 1 behind.
+ *
+ * The canvas is deliberately never scaled. Foundry's own zoom already owns that transform, and
+ * scaling it here would make the board and the virtual pointer disagree about where things are.
+ *
+ * Each region carries its transform-origin inline, set by UiScaler, because the correct origin
+ * depends on which edge the region is pinned to and getting it wrong pushes the region off screen.
+ */
+.tb-scaled #ui-left,
+.tb-scaled #ui-right,
+.tb-scaled #ui-top,
+.tb-scaled #ui-bottom,
+.tb-scaled #controls,
+.tb-scaled #sidebar,
+.tb-scaled #navigation,
+.tb-scaled #players,
+.tb-scaled #hotbar {
+  transform: scale(var(--tb-ui-scale));
+}
+
+/*
+ * Application windows are scaled and constrained. The max sizes are the backstop: WindowClampBinder
+ * corrects position in JavaScript, but these keep a window from ever exceeding the viewport in the
+ * first place, including on the initial render before any hook has run.
+ */
+.tb-scaled .app.window-app,
+.tb-scaled .application {
+  transform: scale(var(--tb-ui-scale));
+  transform-origin: top left;
+  max-width: 95vw;
+  max-height: 90vh;
+}
+
+/*
+ * Touch target floor for the controls that matter most on a phone. Scaling the chrome shrinks
+ * everything including the tap targets, and a scene control button at 75 percent is below the
+ * comfortable minimum, so these are given back their size.
+ */
+.tb-scaled #controls .control-tool,
+.tb-scaled #controls .scene-control {
+  min-width: 40px;
+  min-height: 40px;
+}

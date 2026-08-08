@@ -1,22 +1,29 @@
 import type { PointerPosition } from './EventDescriptor.js';
 
 /**
- * Conversion between the coordinates the cursor is drawn at and the coordinates hit testing has to
- * use.
+ * Conversion between two coordinate spaces, for cases where the space a point is expressed in
+ * differs from the space a hit test expects.
  *
- * The UI scaling layer applies `transform: scale()` to Foundry's HTML chrome. A scaled element is
- * painted smaller but keeps its original layout box, and document.elementFromPoint works in
- * unscaled viewport coordinates. So a cursor drawn at viewport point P sits visually over a
- * different element than the one elementFromPoint reports for P, and every click lands somewhere
- * other than where the user aimed.
+ * IMPORTANT, AND CONTRARY TO WHAT YOU MIGHT ASSUME. This must NOT be wired to the CSS UI scaling.
+ * Browser hit testing is transform aware: document.elementFromPoint takes viewport coordinates and
+ * accounts for CSS transforms itself, so a cursor drawn at viewport point P and a hit test at P
+ * already agree, at any scale. Converting first would break a case that currently works.
  *
- * This is the single most likely source of that whole class of bug, so all of the arithmetic lives
- * here, behind one type, and every hit test goes through it.
+ * Verified empirically against Chromium rather than assumed. With a 400px box scaled to 0.5 about
+ * its top left, containing a child at 200,200:
+ *
+ *   elementFromPoint(120, 120)  ->  the child      (its visual position)
+ *   elementFromPoint(250, 250)  ->  nothing        (its untransformed layout position)
+ *   child.getBoundingClientRect() -> left 100, top 100, width 50, height 50, already post transform
+ *
+ * So HitTester is left on the identity transform in normal operation, and the mechanism is kept for
+ * the case that genuinely needs it: the phase 2 Android shell uses WebSettings.setInitialScale,
+ * which does decouple device coordinates from CSS pixels in a way no CSS transform does.
  *
  * The transform is affine: multiply by the scale, then add the origin. Inverting means subtracting
- * the origin first, then dividing. Doing those two steps in the wrong order is the classic mistake
- * and produces an error that is invisible at 100 percent scale and grows with distance from the
- * origin, which is exactly the kind of bug that survives a casual test.
+ * the origin first, then dividing. Doing those two steps in the wrong order produces an error that
+ * is invisible at 100 percent scale and grows with distance from the origin, which is exactly the
+ * kind of bug that survives a casual test, hence the tests at three scales.
  */
 export interface ScaleTransform {
   /** Uniform scale factor. 1 means no scaling. */

@@ -10,6 +10,8 @@ import { CursorOverlay } from './pointer/CursorOverlay.js';
 import { EventDispatcher } from './pointer/EventDispatcher.js';
 import { HitTester } from './pointer/HitTester.js';
 import { VirtualPointer } from './pointer/VirtualPointer.js';
+import { UiScaler } from './scaling/UiScaler.js';
+import { WindowClampBinder } from './scaling/WindowClampBinder.js';
 
 export interface TongsBrowserOptions {
   readonly document: Document;
@@ -19,6 +21,7 @@ export interface TongsBrowserOptions {
   readonly modifierBarEnabled?: boolean;
   readonly initialBarPosition?: BarPosition;
   readonly onBarPositionChanged?: (position: BarPosition) => void;
+  readonly uiScale?: number;
 }
 
 /**
@@ -36,6 +39,8 @@ export class TongsBrowser {
   private readonly binder: TouchBinder;
   private readonly synthesizer: KeyboardSynthesizer;
   private readonly modifierBar: ModifierBar;
+  private readonly scaler: UiScaler;
+  private readonly clampBinder: WindowClampBinder;
   private enabled = false;
 
   public constructor(private readonly options: TongsBrowserOptions) {
@@ -43,6 +48,14 @@ export class TongsBrowser {
 
     this.cursor = new CursorOverlay({ document: doc });
 
+    /*
+     * No getTransform here, deliberately, even though the interface is scaled.
+     *
+     * Browser hit testing is transform aware: elementFromPoint takes viewport coordinates and
+     * accounts for CSS transforms itself, so the cursor and the hit test already agree at any
+     * scale. Verified against Chromium rather than assumed. Feeding the UI scale in here would
+     * convert coordinates that are already correct and break a case that currently works.
+     */
     const hitTester = new HitTester({
       // Bound to the document rather than passed as a reference, because elementFromPoint throws
       // if it loses its receiver.
@@ -95,6 +108,13 @@ export class TongsBrowser {
         : { onPositionChanged: options.onBarPositionChanged }),
     });
 
+    this.scaler = new UiScaler({
+      document: doc,
+      ...(options.uiScale === undefined ? {} : { initialScale: options.uiScale }),
+    });
+
+    this.clampBinder = new WindowClampBinder({ document: doc, window: win, logger });
+
     this.binder = new TouchBinder({
       target: doc,
       exclusions: new ExclusionZones(),
@@ -113,6 +133,8 @@ export class TongsBrowser {
     this.enabled = true;
     this.cursor.attach();
     this.binder.bind();
+    this.scaler.apply();
+    this.clampBinder.bind();
 
     if (this.options.modifierBarEnabled ?? true) {
       this.modifierBar.attach();
@@ -137,6 +159,10 @@ export class TongsBrowser {
     // visible control left to clear it.
     this.modifierBar.detach();
     this.cursor.detach();
+    this.clampBinder.unbind();
+    // Removes the property rather than setting it back to 1, so Foundry's own layout is restored
+    // exactly and nothing is left behind.
+    this.scaler.remove();
     logger.info('Disabled.');
   }
 
@@ -158,6 +184,16 @@ export class TongsBrowser {
 
   public getModifierBar(): ModifierBar {
     return this.modifierBar;
+  }
+
+  public getScaler(): UiScaler {
+    return this.scaler;
+  }
+
+  /** Rescales and re-clamps, since a scale change moves where every window sits. */
+  public setUiScale(scale: number): void {
+    this.scaler.setScale(scale);
+    this.clampBinder.clampAll();
   }
 
   /** Which strategy the keyboard probe settled on. Surfaced for diagnostics and the settings UI. */
