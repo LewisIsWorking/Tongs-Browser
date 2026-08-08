@@ -53,6 +53,9 @@ export default tseslint.config(
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
+      // Asserting on a mock means passing the method itself, unbound, to expect. That is the
+      // intended shape of a mock assertion rather than an accidental loss of this.
+      '@typescript-eslint/unbound-method': 'off',
     },
   },
 
