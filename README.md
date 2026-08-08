@@ -9,6 +9,31 @@ the interface for small screens.
 
 Status: early development. Not yet released.
 
+## Development
+
+Requires Node 22 or newer.
+
+```
+npm ci
+npm run verify     # lint, typecheck, test, build
+```
+
+Individual steps: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`.
+Use `npm run dev` for a watching build while working against a live Foundry instance.
+
+### Releases
+
+Versioning runs on [Changesets](https://github.com/changesets/changesets). Every pull request that
+changes behaviour should include one:
+
+```
+npm run changeset
+```
+
+Merging to `main` opens a "Version Packages" pull request that bumps the version and writes
+`CHANGELOG.md`. Merging that creates a `v*` tag, which triggers CI to build `module.zip`, stamp the
+matching version and download URL into `module.json`, and publish a GitHub release.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

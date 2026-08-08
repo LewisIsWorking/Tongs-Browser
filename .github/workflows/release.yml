@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Only one versioning run at a time, so two quick merges cannot race and produce a mangled
+# Version Packages pull request.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Version or tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Changesets needs history to work out what has already been released.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Two outcomes, decided by whether unreleased changesets are pending.
+      #
+      # Pending changesets: opens or updates a "Version Packages" pull request that bumps
+      # package.json and writes CHANGELOG.md. Nothing is released yet.
+      #
+      # No pending changesets, meaning that pull request was just merged: runs the tag command,
+      # which creates a v* git tag. The action pushes it, and that tag triggers the release job in
+      # ci.yml which builds and publishes module.zip.
+      - name: Create version pull request or tag the release
+        uses: changesets/action@v1
+        with:
+          version: npm run changeset:version
+          publish: npm run changeset:tag
+          commit: 'chore: version packages'
+          title: 'chore: version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
