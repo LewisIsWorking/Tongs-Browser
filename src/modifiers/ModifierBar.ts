@@ -1,0 +1,308 @@
+import type { KeyboardSynthesizer } from './KeyboardSynthesizer.js';
+import {
+  ALL_OFF,
+  KeyLatch,
+  diff,
+  toModifierFlags,
+  toggle,
+  type KeyLatchValue,
+  type ModifierCode,
+  type ModifierLatchMap,
+} from './ModifierState.js';
+import { MODIFIER_KEYS, MOMENTARY_KEYS, type KeyDefinition } from './keyDefinitions.js';
+import type { ModifierFlags } from '../pointer/ModifierFlags.js';
+
+export interface BarPosition {
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface ModifierBarOptions {
+  readonly document: Document;
+  readonly synthesizer: KeyboardSynthesizer;
+  /** Called whenever the held modifiers change, so the pointer can carry the new flags. */
+  readonly onFlagsChanged: (flags: ModifierFlags) => void;
+  readonly initialPosition?: BarPosition;
+  readonly onPositionChanged?: (position: BarPosition) => void;
+  readonly initialCollapsed?: boolean;
+  readonly onCollapsedChanged?: (collapsed: boolean) => void;
+}
+
+const LATCH_CLASS: Readonly<Record<KeyLatchValue, string>> = {
+  [KeyLatch.OFF]: 'tb-key--off',
+  [KeyLatch.LATCHED]: 'tb-key--latched',
+  [KeyLatch.LOCKED]: 'tb-key--locked',
+};
+
+/**
+ * The floating modifier key bar.
+ *
+ * Rendered into body rather than Foundry's #interface, because that subtree is torn down and
+ * rebuilt constantly as applications render. A bar living inside it would vanish mid session.
+ *
+ * The bar binds its own pointerdown handlers and marks itself with the ignore attribute, so the
+ * gesture layer leaves it alone entirely. Driving the bar through the virtual pointer would be
+ * circular: you would need a modifier held to press the key that holds the modifier.
+ */
+export class ModifierBar {
+  private readonly root: HTMLDivElement;
+  private readonly keysContainer: HTMLDivElement;
+  private readonly buttons = new Map<string, HTMLButtonElement>();
+  private latches: ModifierLatchMap = ALL_OFF;
+  private position: BarPosition;
+  private collapsed: boolean;
+  private attached = false;
+
+  private dragPointerId: number | null = null;
+  private dragOffset: BarPosition = { x: 0, y: 0 };
+
+  public constructor(private readonly options: ModifierBarOptions) {
+    this.position = options.initialPosition ?? { x: 16, y: 120 };
+    this.collapsed = options.initialCollapsed ?? false;
+
+    const doc = options.document;
+    this.root = doc.createElement('div');
+    this.root.className = 'tb-modifier-bar';
+    // Tells the gesture layer to keep away. Without this, tapping a key would be routed through the
+    // virtual pointer, which is exactly the thing the key is meant to modify.
+    this.root.setAttribute('data-tongs-browser', 'ignore');
+
+    const handle = doc.createElement('div');
+    handle.className = 'tb-modifier-bar__handle';
+    handle.title = 'Drag to move';
+    handle.addEventListener('pointerdown', this.onHandlePointerDown);
+    handle.addEventListener('pointermove', this.onHandlePointerMove);
+    handle.addEventListener('pointerup', this.onHandlePointerUp);
+    handle.addEventListener('pointercancel', this.onHandlePointerUp);
+    this.root.append(handle);
+
+    const collapseButton = doc.createElement('button');
+    collapseButton.type = 'button';
+    collapseButton.className = 'tb-modifier-bar__collapse';
+    collapseButton.textContent = '<';
+    collapseButton.setAttribute('aria-label', 'Collapse modifier bar');
+    collapseButton.addEventListener('click', () => {
+      this.setCollapsed(!this.collapsed);
+    });
+    this.root.append(collapseButton);
+
+    this.keysContainer = doc.createElement('div');
+    this.keysContainer.className = 'tb-modifier-bar__keys';
+    this.root.append(this.keysContainer);
+
+    for (const definition of MODIFIER_KEYS) {
+      this.keysContainer.append(this.createStickyButton(definition));
+    }
+    for (const definition of MOMENTARY_KEYS) {
+      this.keysContainer.append(this.createMomentaryButton(definition));
+    }
+
+    this.applyPosition();
+    this.applyCollapsed();
+    this.render();
+  }
+
+  public attach(): void {
+    if (this.attached) {
+      return;
+    }
+    this.options.document.body.append(this.root);
+    this.attached = true;
+  }
+
+  public detach(): void {
+    if (!this.attached) {
+      return;
+    }
+    // Release anything held before disappearing, or Foundry is left believing shift is down with
+    // no visible way for the user to clear it.
+    this.clearAll();
+    this.root.remove();
+    this.attached = false;
+  }
+
+  public isAttached(): boolean {
+    return this.attached;
+  }
+
+  public getElement(): HTMLDivElement {
+    return this.root;
+  }
+
+  public getLatches(): ModifierLatchMap {
+    return this.latches;
+  }
+
+  public getPosition(): BarPosition {
+    return this.position;
+  }
+
+  public isCollapsed(): boolean {
+    return this.collapsed;
+  }
+
+  public getFlags(): ModifierFlags {
+    return toModifierFlags(this.latches);
+  }
+
+  public setPosition(position: BarPosition): void {
+    this.position = position;
+    this.applyPosition();
+    this.options.onPositionChanged?.(position);
+  }
+
+  public setCollapsed(collapsed: boolean): void {
+    this.collapsed = collapsed;
+    this.applyCollapsed();
+    this.options.onCollapsedChanged?.(collapsed);
+  }
+
+  /** Releases every held modifier and returns the bar to a clean state. */
+  public clearAll(): void {
+    const next = ALL_OFF;
+    this.applyLatches(next);
+  }
+
+  private createStickyButton(definition: KeyDefinition): HTMLButtonElement {
+    const button = this.options.document.createElement('button');
+    button.type = 'button';
+    button.className = 'tb-key tb-key--sticky';
+    button.dataset['code'] = definition.code;
+    button.textContent = definition.label;
+    button.addEventListener('click', () => {
+      this.applyLatches(toggle(this.latches, definition.code as ModifierCode));
+    });
+    this.buttons.set(definition.code, button);
+    return button;
+  }
+
+  private createMomentaryButton(definition: KeyDefinition): HTMLButtonElement {
+    const button = this.options.document.createElement('button');
+    button.type = 'button';
+    button.className = 'tb-key tb-key--momentary';
+    button.dataset['code'] = definition.code;
+    button.textContent = definition.label;
+    button.addEventListener('click', () => {
+      /*
+       * A full press and release on tap. These keys carry whatever modifiers are currently latched,
+       * which is what makes combinations reachable: latch Ctrl, then tap Delete.
+       */
+      this.options.synthesizer.tap(definition);
+      this.consumeLatchedAfterAction();
+    });
+    this.buttons.set(definition.code, button);
+    return button;
+  }
+
+  /**
+   * Applies a new latch map, dispatching only the keys that actually changed.
+   *
+   * Diffing rather than replaying everything matters: re-pressing an already held key would send a
+   * duplicate keydown, and Foundry treats a repeated keydown as auto repeat.
+   */
+  private applyLatches(next: ModifierLatchMap): void {
+    const changes = diff(this.latches, next);
+    this.latches = next;
+
+    for (const change of changes) {
+      const definition = MODIFIER_KEYS.find((candidate) => candidate.code === change.code);
+      if (definition === undefined) {
+        continue;
+      }
+      if (change.held) {
+        this.options.synthesizer.press(definition);
+      } else {
+        this.options.synthesizer.release(definition);
+      }
+    }
+
+    this.render();
+    this.options.onFlagsChanged(this.getFlags());
+  }
+
+  /**
+   * Clears latched keys after a momentary key has used them, leaving locked ones held. This is what
+   * makes LATCHED mean "for the next action only".
+   */
+  private consumeLatchedAfterAction(): void {
+    const next: Record<ModifierCode, KeyLatchValue> = { ...this.latches };
+    let changed = false;
+    for (const definition of MODIFIER_KEYS) {
+      const code = definition.code as ModifierCode;
+      if (this.latches[code] === KeyLatch.LATCHED) {
+        next[code] = KeyLatch.OFF;
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.applyLatches(Object.freeze(next));
+    }
+  }
+
+  private render(): void {
+    for (const definition of MODIFIER_KEYS) {
+      const button = this.buttons.get(definition.code);
+      if (button === undefined) {
+        continue;
+      }
+      const latch = this.latches[definition.code as ModifierCode];
+      button.classList.remove(...Object.values(LATCH_CLASS));
+      button.classList.add(LATCH_CLASS[latch]);
+      button.setAttribute('aria-pressed', latch === KeyLatch.OFF ? 'false' : 'true');
+      // The three states must be distinguishable without relying on colour alone.
+      button.dataset['latch'] = latch;
+    }
+  }
+
+  private applyPosition(): void {
+    this.root.style.left = `${String(this.position.x)}px`;
+    this.root.style.top = `${String(this.position.y)}px`;
+  }
+
+  private applyCollapsed(): void {
+    this.root.classList.toggle('tb-modifier-bar--collapsed', this.collapsed);
+    this.keysContainer.style.display = this.collapsed ? 'none' : '';
+  }
+
+  private readonly onHandlePointerDown = (event: PointerEvent): void => {
+    this.dragPointerId = event.pointerId;
+    this.dragOffset = {
+      x: event.clientX - this.position.x,
+      y: event.clientY - this.position.y,
+    };
+    /*
+     * Capture, so the drag survives the finger leaving the small handle. Without it, moving faster
+     * than the bar follows drops the drag immediately.
+     *
+     * Feature detected rather than trusted from the type: lib.dom declares pointer capture as always
+     * present on Element, but jsdom does not implement it, and calling it blind would throw in tests.
+     */
+    const handle = event.currentTarget as Element;
+    if (typeof handle.setPointerCapture === 'function') {
+      handle.setPointerCapture(event.pointerId);
+    }
+    event.preventDefault();
+  };
+
+  private readonly onHandlePointerMove = (event: PointerEvent): void => {
+    if (this.dragPointerId !== event.pointerId) {
+      return;
+    }
+    this.setPosition({
+      x: event.clientX - this.dragOffset.x,
+      y: event.clientY - this.dragOffset.y,
+    });
+    event.preventDefault();
+  };
+
+  private readonly onHandlePointerUp = (event: PointerEvent): void => {
+    if (this.dragPointerId !== event.pointerId) {
+      return;
+    }
+    const handle = event.currentTarget as Element;
+    if (typeof handle.releasePointerCapture === 'function') {
+      handle.releasePointerCapture(event.pointerId);
+    }
+    this.dragPointerId = null;
+  };
+}

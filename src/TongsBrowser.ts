@@ -4,6 +4,8 @@ import { ExclusionZones } from './gesture/ExclusionZones.js';
 import { GestureController } from './gesture/GestureController.js';
 import { TouchBinder } from './gesture/TouchBinder.js';
 import type { GestureConfig } from './gesture/GestureTypes.js';
+import { KeyboardSynthesizer, type KeyboardManagerLike } from './modifiers/KeyboardSynthesizer.js';
+import { ModifierBar, type BarPosition } from './modifiers/ModifierBar.js';
 import { CursorOverlay } from './pointer/CursorOverlay.js';
 import { EventDispatcher } from './pointer/EventDispatcher.js';
 import { HitTester } from './pointer/HitTester.js';
@@ -14,6 +16,9 @@ export interface TongsBrowserOptions {
   readonly window: Window;
   readonly gestureConfig?: Partial<GestureConfig>;
   readonly suppressNativeTouch?: () => boolean;
+  readonly modifierBarEnabled?: boolean;
+  readonly initialBarPosition?: BarPosition;
+  readonly onBarPositionChanged?: (position: BarPosition) => void;
 }
 
 /**
@@ -29,6 +34,8 @@ export class TongsBrowser {
   private readonly pointer: VirtualPointer;
   private readonly gestures: GestureController;
   private readonly binder: TouchBinder;
+  private readonly synthesizer: KeyboardSynthesizer;
+  private readonly modifierBar: ModifierBar;
   private enabled = false;
 
   public constructor(private readonly options: TongsBrowserOptions) {
@@ -66,6 +73,28 @@ export class TongsBrowser {
       },
     });
 
+    this.synthesizer = new KeyboardSynthesizer({
+      document: doc,
+      getKeyboardManager: () => this.resolveKeyboardManager(),
+      logger,
+    });
+
+    this.modifierBar = new ModifierBar({
+      document: doc,
+      synthesizer: this.synthesizer,
+      // Held modifiers must reach the pointer too. Foundry reads its own keyboard state for some
+      // decisions and the event flags for others, so both paths have to agree.
+      onFlagsChanged: (flags) => {
+        this.pointer.setModifiers(flags);
+      },
+      ...(options.initialBarPosition === undefined
+        ? {}
+        : { initialPosition: options.initialBarPosition }),
+      ...(options.onBarPositionChanged === undefined
+        ? {}
+        : { onPositionChanged: options.onBarPositionChanged }),
+    });
+
     this.binder = new TouchBinder({
       target: doc,
       exclusions: new ExclusionZones(),
@@ -84,6 +113,14 @@ export class TongsBrowser {
     this.enabled = true;
     this.cursor.attach();
     this.binder.bind();
+
+    if (this.options.modifierBarEnabled ?? true) {
+      this.modifierBar.attach();
+      // Probed after attaching, and only once, because the answer decides whether the bar can work
+      // at all. A warning at this point is the earliest honest signal available.
+      this.synthesizer.probe();
+    }
+
     logger.info('Enabled.');
   }
 
@@ -96,6 +133,9 @@ export class TongsBrowser {
     // Foundry still believing a button is held.
     this.gestures.reset();
     this.binder.unbind();
+    // Detaching releases anything held, so Foundry is not left believing a modifier is down with no
+    // visible control left to clear it.
+    this.modifierBar.detach();
     this.cursor.detach();
     logger.info('Disabled.');
   }
@@ -114,6 +154,22 @@ export class TongsBrowser {
 
   public getCursor(): CursorOverlay {
     return this.cursor;
+  }
+
+  public getModifierBar(): ModifierBar {
+    return this.modifierBar;
+  }
+
+  /** Which strategy the keyboard probe settled on. Surfaced for diagnostics and the settings UI. */
+  public getKeyboardStrategy(): string {
+    return this.synthesizer.getStrategy();
+  }
+
+  private resolveKeyboardManager(): KeyboardManagerLike | null {
+    if (typeof game === 'undefined') {
+      return null;
+    }
+    return game.keyboard ?? null;
   }
 
   /**

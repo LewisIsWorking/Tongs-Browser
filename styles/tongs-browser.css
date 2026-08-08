@@ -83,3 +83,104 @@
 .tb-cursor--held::after {
   background: rgb(255 208 92 / 100%);
 }
+
+/*
+ * Modifier key bar.
+ *
+ * Lives outside Foundry's #interface so it survives application re-renders, and carries the ignore
+ * attribute so the gesture layer never routes its own taps through the virtual pointer. Driving the
+ * bar through the pointer would be circular: you would need a modifier held to press the key that
+ * holds the modifier.
+ */
+.tb-modifier-bar {
+  position: fixed;
+  z-index: calc(var(--tb-cursor-z-index) - 10);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgb(0 0 0 / 60%);
+  border-radius: 6px;
+  background: rgb(28 28 32 / 92%);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 45%);
+  font-family: sans-serif;
+  user-select: none;
+  touch-action: none;
+}
+
+.tb-modifier-bar__handle {
+  width: 14px;
+  align-self: stretch;
+  border-radius: 4px;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgb(255 255 255 / 35%) 0 2px,
+    transparent 2px 5px
+  );
+  cursor: grab;
+  flex: 0 0 auto;
+}
+
+.tb-modifier-bar__collapse {
+  min-width: 22px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 10%);
+  color: rgb(255 255 255 / 85%);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.tb-modifier-bar--collapsed .tb-modifier-bar__collapse {
+  transform: scaleX(-1);
+}
+
+.tb-modifier-bar__keys {
+  display: flex;
+  gap: 4px;
+}
+
+.tb-key {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 5px;
+  background: rgb(255 255 255 / 8%);
+  color: rgb(255 255 255 / 90%);
+  font-size: 13px;
+  line-height: 1;
+}
+
+/*
+ * The three latch states have to be distinguishable without relying on colour alone, so each also
+ * differs in border weight and adds a marker glyph.
+ */
+.tb-key--off {
+  border-style: solid;
+  border-width: 1px;
+}
+
+.tb-key--latched {
+  border-color: rgb(255 208 92 / 95%);
+  border-width: 2px;
+  background: rgb(255 208 92 / 22%);
+  color: rgb(255 232 170 / 100%);
+}
+
+.tb-key--latched::after {
+  content: ' .';
+}
+
+.tb-key--locked {
+  border-color: rgb(120 220 140 / 95%);
+  border-width: 3px;
+  border-style: double;
+  background: rgb(120 220 140 / 26%);
+  color: rgb(200 255 210 / 100%);
+}
+
+.tb-key--locked::after {
+  content: ' =';
+}
