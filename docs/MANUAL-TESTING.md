@@ -55,10 +55,21 @@ finding rather than a broken module. Measured 2026-08-09 on 14.365, see
 - The PIXI canvas tracks a synthesised pointer move, judged by `canvas.mousePosition`.
 - The module raises no page errors through init, enable and a canvas draw.
 
-**Not covered by any of that**, so these remain entirely on you: touch input and the gesture state
-machine, since the check drives the pointer directly and has never seen a finger; whether hover
-actually produces nameplates, tooltips and PF2e HUD panels, as opposed to the position merely
-tracking; and everything Android specific.
+`npm run check:touch` adds the touch half, using trusted touch injected through CDP so the browser
+emits its own compatibility events exactly as a tablet does. Measured 2026-08-09, see
+[ADR 0006](adr/0006-real-touch-input-drives-the-gesture-machine.md):
+
+- One finger drag moves the pointer, at the configured 1.5x sensitivity.
+- **Tap clicks at the pointer, not the finger.** Pointer parked on a sidebar tab, finger tapped far
+  away over the canvas, tab changed. This is the trackpad model working.
+- Long press produces a right click at the pointer, under real event timing.
+- The browser's own touch derived pointer events never reach Foundry, so no gesture is acted on twice.
+
+**Not covered by any of that**, so these remain entirely on you: multi touch, meaning two finger pan,
+pinch zoom and the exclusion zones, since only one finger is injected; whether hover actually produces
+nameplates, tooltips and PF2e HUD panels, as opposed to the position merely tracking; everything
+Android specific, including the real module stack this is built for; and ergonomics, which is the
+reason the module exists and which no automated check can judge.
 
 ## Pointer basics
 

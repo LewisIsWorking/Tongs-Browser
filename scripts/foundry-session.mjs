@@ -54,10 +54,10 @@ export async function waitForReady(page) {
  * escape hatch when the pinned build is missing. A half finished `playwright install` otherwise
  * presents as an opaque "executable doesn't exist".
  */
-export async function launchBrowser() {
+export async function launchBrowser({ hasTouch = false } = {}) {
   const channel = process.env.PLAYWRIGHT_CHANNEL;
   const browser = await chromium.launch({ headless: true, ...(channel ? { channel } : {}) });
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, hasTouch });
   return { browser, page };
 }
 
