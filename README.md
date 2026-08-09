@@ -118,6 +118,10 @@ npm run verify     # lint, typecheck, test, build
 Individual steps: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`.
 Use `npm run dev` for a watching build while working against a live Foundry instance.
 
+See [docs/LOCAL-SETUP.md](docs/LOCAL-SETUP.md) for wiring a checkout into a local Foundry with a
+symlink, which removes the build, zip and reinstall cycle entirely, and for attaching an Android
+device over USB to read its console.
+
 The test suite splits into two projects on purpose. The `unit` project runs in plain node with no DOM
 at all, which structurally enforces that the event sequence builders and the gesture state machine
 stay pure: if one reaches for `document`, its test fails immediately rather than passing quietly. The
