@@ -29,16 +29,20 @@
     "verify": "npm run lint && npm run typecheck && npm run test && npm run build",
     "changeset": "changeset",
     "changeset:version": "changeset version",
-    "changeset:tag": "changeset tag"
+    "changeset:tag": "changeset tag",
+    "test:browser": "playwright test",
+    "test:all": "npm run test && npm run test:browser"
   },
   "devDependencies": {
     "@changesets/changelog-github": "0.7.0",
     "@changesets/cli": "2.31.1",
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.56.1",
     "@types/node": "22.20.1",
     "@vitest/coverage-v8": "4.1.10",
     "eslint": "10.8.1",
     "globals": "17.9.0",
+    "http-server": "14.1.1",
     "jsdom": "30.0.1",
     "prettier": "3.9.6",
     "typescript": "6.0.3",
