@@ -1,6 +1,6 @@
 {
   "name": "tongs-browser",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Virtual mouse pointer, sticky modifier keys, and mobile UI scaling for Foundry VTT on Android",
   "type": "module",
   "private": true,
