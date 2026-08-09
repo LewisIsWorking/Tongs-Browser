@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tongs Browser browser test fixture</title>
+    <link rel="stylesheet" href="/dist/tongs-browser.css" />
+    <style>
+      /*
+       * A deliberately crude stand in for Foundry's layout. Only the structure the module reaches
+       * for matters: the region ids it scales, and elements with real geometry to hit test against.
+       */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      #board {
+        position: absolute;
+        inset: 0;
+        background: #223;
+      }
+      .token {
+        position: absolute;
+        width: 100px;
+        height: 100px;
+        background: #a44;
+      }
+      /*
+       * Placed well below y=120, because the modifier bar defaults to 16,120 and floats above the
+       * canvas. A token under the bar is genuinely unclickable, exactly as it would be under any
+       * floating panel with a real mouse, so the fixture keeps the test targets clear of it.
+       */
+      #token-a {
+        left: 100px;
+        top: 300px;
+      }
+      #token-b {
+        left: 300px;
+        top: 300px;
+      }
+      #ui-right {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 300px;
+        height: 100%;
+        background: #333;
+      }
+      #ui-left {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 60px;
+        height: 100%;
+        background: #2a2a2a;
+      }
+      #chat-log {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 300px;
+        height: 400px;
+        overflow-y: scroll;
+        background: #2b2b2b;
+      }
+      #chat-log .message {
+        height: 80px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="board"></div>
+    <div id="token-a" class="token"></div>
+    <div id="token-b" class="token"></div>
+    <div id="ui-left"></div>
+    <div id="ui-right">
+      <ol id="chat-log">
+        <li class="message"><span id="chat-message-inner">rolled 17</span></li>
+        <li class="message"></li>
+        <li class="message"></li>
+        <li class="message"></li>
+        <li class="message"></li>
+      </ol>
+      <input id="chat-input" type="text" />
+    </div>
+
+    <script type="module">
+      /**
+       * Minimal Foundry stand in.
+       *
+       * Defined before the module is imported, because the module reads these globals during init
+       * and ready. Only the surface the module actually touches is provided, which is the same
+       * surface described in src/types/foundry.d.ts.
+       */
+      const hooks = new Map();
+      const settingsStore = new Map();
+      const settingsConfig = new Map();
+
+      globalThis.Hooks = {
+        on(name, callback) {
+          if (!hooks.has(name)) hooks.set(name, []);
+          hooks.get(name).push(callback);
+          return hooks.get(name).length;
+        },
+        once(name, callback) {
+          return globalThis.Hooks.on(name, callback);
+        },
+        off() {},
+        callAll(name, ...args) {
+          for (const callback of hooks.get(name) ?? []) callback(...args);
+          return true;
+        },
+      };
+
+      const moduleEntry = { id: 'tongs-browser', active: true };
+
+      globalThis.game = {
+        ready: true,
+        i18n: { localize: (k) => k, format: (k) => k },
+        modules: new Map([['tongs-browser', moduleEntry]]),
+        settings: {
+          register(namespace, key, data) {
+            settingsConfig.set(`${namespace}.${key}`, data);
+            if (!settingsStore.has(`${namespace}.${key}`)) {
+              settingsStore.set(`${namespace}.${key}`, data.default);
+            }
+          },
+          get(namespace, key) {
+            return settingsStore.get(`${namespace}.${key}`);
+          },
+          set(namespace, key, value) {
+            settingsStore.set(`${namespace}.${key}`, value);
+            settingsConfig.get(`${namespace}.${key}`)?.onChange?.(value);
+            return Promise.resolve(value);
+          },
+        },
+        // Deliberately absent by default so the keyboard probe reports "unknown". Individual tests
+        // install their own keyboard manager to exercise the events and direct strategies.
+        keyboard: undefined,
+      };
+
+      globalThis.canvas = {
+        ready: true,
+        panCalls: [],
+        pan(options) {
+          globalThis.canvas.panCalls.push(options);
+        },
+      };
+
+      globalThis.CONFIG = { Canvas: { minZoom: 0.1, maxZoom: 10 } };
+
+      // Recorder for everything the module dispatches, so tests can assert on real event streams.
+      globalThis.recorded = [];
+      const RECORDED_TYPES = [
+        'pointerover',
+        'pointerenter',
+        'pointerdown',
+        'pointermove',
+        'pointerup',
+        'pointerout',
+        'pointerleave',
+        'pointercancel',
+        'mouseover',
+        'mouseenter',
+        'mousedown',
+        'mousemove',
+        'mouseup',
+        'mouseout',
+        'mouseleave',
+        'click',
+        'dblclick',
+        'contextmenu',
+        'wheel',
+        'keydown',
+        'keyup',
+      ];
+      for (const type of RECORDED_TYPES) {
+        document.addEventListener(
+          type,
+          (event) => {
+            globalThis.recorded.push({
+              type: event.type,
+              target: event.target?.id ?? '',
+              buttons: event.buttons ?? null,
+              button: event.button ?? null,
+              clientX: event.clientX ?? null,
+              clientY: event.clientY ?? null,
+              code: event.code ?? null,
+              shiftKey: event.shiftKey ?? null,
+              ctrlKey: event.ctrlKey ?? null,
+              isTrusted: event.isTrusted,
+              hasView: 'view' in event ? event.view !== null : null,
+            });
+          },
+          true
+        );
+      }
+
+      globalThis.tbReady = (async () => {
+        await import('/dist/tongs-browser.js');
+        globalThis.Hooks.callAll('init');
+        globalThis.Hooks.callAll('ready');
+        globalThis.tongs = moduleEntry.api;
+        return true;
+      })();
+    </script>
+  </body>
+</html>
