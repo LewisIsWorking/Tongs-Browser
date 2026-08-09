@@ -94,6 +94,29 @@ Tongs Browser | Ready. Keyboard strategy: <events|direct|unknown>.
 this Foundry build honours synthesised keyboard events, which decides whether the modifier bar works
 at all. Record it in `docs/MANUAL-TESTING.md`.
 
+On Foundry 14.365 the answer is `events`, measured 2026-08-09. See
+[ADR 0004](adr/0004-foundry-honours-synthetic-keyboard-events.md).
+
+## Getting that answer without clicking
+
+```
+npm run probe:foundry
+```
+
+Drives a headless browser into a running world, enables the module if it is off, and prints the
+strategy alongside an independent measurement of the same thing. Set `PLAYWRIGHT_CHANNEL=chrome` to
+use the installed Chrome instead of a downloaded Chromium.
+
+It needs a world already launched. The quickest way to get one, with no Electron window in the way:
+
+```powershell
+node "C:\Program Files\Foundry Virtual Tabletop\resources\app\main.mjs" `
+  --dataPath="C:/Users/Lewis/AppData/Local/FoundryVTT" --world=<world-id>
+```
+
+Launching a world runs any pending system data migration on it, so point that at a world you are
+willing to migrate.
+
 ## Running the browser tests locally
 
 ```

@@ -1,0 +1,24 @@
+# Line endings, added 2026-08-09.
+#
+# Without this file, Git for Windows checks out with core.autocrlf=true and rewrites every LF to
+# CRLF in the working tree. Prettier is configured with "endOfLine": "lf", so it then reports all
+# 76 text files as badly formatted and `npm run verify` fails on a clean clone. Nothing is actually
+# wrong with the content: every newline in the affected files is a CRLF pair, and the same files
+# pass with --end-of-line auto.
+#
+# CI could never catch this. It runs on ubuntu-latest, which performs no conversion, so the
+# pipeline is structurally blind to it while docs/LOCAL-SETUP.md promises a green verify on Windows.
+#
+# eol=lf makes the working tree match the repository on every platform, which is what Prettier,
+# ESLint and the Vite build all already assume.
+* text=auto eol=lf
+
+# Binary, so never touched by the above.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.zip binary

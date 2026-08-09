@@ -32,6 +32,34 @@ all. `events` means Foundry honours synthesised keyboard events and nothing furt
 `unknown` means the probe could not run, usually because you were holding shift on a physical
 keyboard at the time.
 
+> **Already answered on desktop: `events`.** Measured 2026-08-09 on Foundry 14.365 in headless
+> Chrome, with `isTrusted: false` confirmed on the event and `downKeys` confirmed still to be a `Set`.
+> See [ADR 0004](adr/0004-foundry-honours-synthetic-keyboard-events.md). The result is expected to
+> carry to Android, since `isTrusted` behaves the same in every browser and `KeyboardManager` is the
+> same code, but expected is not measured, so still record what the device says. A `direct` or
+> `unknown` reading on the tablet when desktop says `events` is a real finding, not a nuisance.
+
+Run `npm run probe:foundry` against any running Foundry to get this answer without a device. It joins
+the world, enables the module if needed, and takes its own independent measurement rather than
+trusting the module's own report.
+
+## What is already verified against a real Foundry
+
+`npm run check:foundry` covers these on desktop, so a failure on the tablet is a **device specific**
+finding rather than a broken module. Measured 2026-08-09 on 14.365, see
+[ADR 0005](adr/0005-both-interaction-surfaces-accept-the-virtual-pointer.md):
+
+- The cursor and modifier bar attach, and the cursor is never what the hit test finds, on real
+  Foundry layout rather than a stub.
+- Foundry's HTML chrome accepts a synthesised click, judged by `ui.sidebar.tabGroups`.
+- The PIXI canvas tracks a synthesised pointer move, judged by `canvas.mousePosition`.
+- The module raises no page errors through init, enable and a canvas draw.
+
+**Not covered by any of that**, so these remain entirely on you: touch input and the gesture state
+machine, since the check drives the pointer directly and has never seen a finger; whether hover
+actually produces nameplates, tooltips and PF2e HUD panels, as opposed to the position merely
+tracking; and everything Android specific.
+
 ## Pointer basics
 
 - [ ] One finger drag moves the pointer, and it stays where you leave it.
