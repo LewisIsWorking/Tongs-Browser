@@ -98,6 +98,31 @@ Hooks.once('init', () => {
     onChanged: applySetting,
   });
   store.registerAll();
+
+  /*
+   * Bound at init, NOT at ready, and that is load bearing.
+   *
+   * Foundry builds the scene controls exactly once. Its own scene-controls.mjs says so on
+   * #prepareControls: "This is only done once when the application is first rendered. Subsequent
+   * renders reuse this data structure." A hook registered at ready has already missed it, and no
+   * amount of re-rendering brings it back, so the button simply never existed on Foundry 14.
+   *
+   * Measured on 14.365 before this change: the hook fired zero times for a listener added at ready,
+   * even after ui.controls.render({force: true}).
+   *
+   * The callbacks read `instance` and `store` when they are invoked rather than capturing them, so
+   * binding before either exists is safe. isActive falls back to the stored setting, which is the
+   * honest answer while the module is still starting.
+   */
+  const toggle = new SceneControlToggle({
+    isActive: () => instance?.isEnabled() ?? store?.getBoolean(SettingKey.ENABLED) ?? false,
+    onToggle: () => {
+      // Writing the setting rather than calling enable directly, so the scene control and the
+      // settings dialog cannot disagree about what is on.
+      store?.set(SettingKey.ENABLED, !(instance?.isEnabled() ?? false));
+    },
+  });
+  toggle.bind();
 });
 
 Hooks.once('ready', () => {
@@ -125,16 +150,6 @@ Hooks.once('ready', () => {
       settings.setBarPosition(position);
     },
   });
-
-  const toggle = new SceneControlToggle({
-    isActive: () => instance?.isEnabled() ?? false,
-    onToggle: () => {
-      // Writing the setting rather than calling enable directly, so the scene control and the
-      // settings dialog cannot disagree about what is on.
-      settings.set(SettingKey.ENABLED, !(instance?.isEnabled() ?? false));
-    },
-  });
-  toggle.bind();
 
   if (settings.getBoolean(SettingKey.ENABLED)) {
     instance.enable();

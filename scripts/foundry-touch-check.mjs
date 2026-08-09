@@ -236,6 +236,82 @@ async function checkNativeTouchSuppressed(page, finger, board) {
   );
 }
 
+/**
+ * Touching the chat log must leave the pointer where it is.
+ *
+ * The exclusion zones exist so the parts of Foundry that already work on a touch screen keep
+ * working: native momentum scrolling in the chat log cannot be reproduced convincingly by
+ * synthesising wheel events. If the module swallows those touches, scrolling chat stops working and
+ * the pointer wanders every time you try.
+ *
+ * Asserted behaviourally rather than by checking a selector list, because a selector list can agree
+ * with itself while matching nothing. Auditing those selectors against a live 14.365 on 2026-08-09
+ * found exactly that: `#chat-log` matched zero elements, since v14 renders `<ol class="chat-log">`
+ * and the id belongs to the v12 markup. The behaviour had survived only because `.chat-scroll`
+ * happens to wrap the log.
+ */
+async function checkChatLogIsExcluded(page, finger) {
+  // An earlier check parks the sidebar on the combat tab, which hides the chat log entirely. Without
+  // this the check reported "no visible chat log found", which reads as a missing element rather
+  // than as a test ordering problem.
+  await page.evaluate(() => {
+    ui.sidebar.changeTab('chat', 'primary');
+  });
+  await page
+    .waitForFunction(
+      () => {
+        const log = document.querySelector('.chat-log, #chat-log');
+        return log !== null && log.getBoundingClientRect().height > 10;
+      },
+      undefined,
+      { timeout: 5000 }
+    )
+    .catch(() => undefined);
+
+  /*
+   * The first candidate with real geometry wins, rather than the first that exists.
+   *
+   * `.chat-log` on 14.365 resolves to an <ol> that reports a height of ZERO even with the chat tab
+   * active and the sidebar expanded, while `.chat-scroll` around it has the real box. Asking only
+   * for the log therefore reported "no chat log found", which reads as a missing element rather
+   * than as the wrong one of two.
+   */
+  const box = await page.evaluate(() => {
+    for (const selector of ['.chat-scroll', '.chat-log', '#chat-log', '#chat']) {
+      const element = document.querySelector(selector);
+      if (element === null) continue;
+      const rect = element.getBoundingClientRect();
+      if (rect.width >= 10 && rect.height >= 10) {
+        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, via: selector };
+      }
+    }
+    return null;
+  });
+
+  if (box === null) {
+    record(
+      'touching the chat log leaves the pointer alone',
+      false,
+      'no chat region with a usable box, so the exclusion could not be exercised'
+    );
+    return;
+  }
+
+  const before = await pointerPosition(page);
+  await finger.drag(box.x, box.y, 0, -60, 6);
+  const after = await pointerPosition(page);
+
+  const movedX = Math.abs(after.x - before.x);
+  const movedY = Math.abs(after.y - before.y);
+
+  record(
+    'touching the chat log leaves the pointer alone',
+    movedX < 1 && movedY < 1,
+    `dragged 60px up inside ${box.via} and the pointer moved (${movedX.toFixed(1)}, ` +
+      `${movedY.toFixed(1)}), which should be zero`
+  );
+}
+
 async function ensureActiveScene(page) {
   if (await page.evaluate(() => globalThis.canvas?.ready === true)) {
     return null;
@@ -290,6 +366,7 @@ async function main() {
     await checkTapClicksAtPointerNotFinger(page, finger, board);
     await checkLongPressRightClicks(page, finger, board);
     await checkNativeTouchSuppressed(page, finger, board);
+    await checkChatLogIsExcluded(page, finger);
 
     const errors = log.filter((line) => line.startsWith('pageerror') || line.startsWith('error'));
     record('no page errors from the module', errors.length === 0, errors.join(' | ') || 'none');

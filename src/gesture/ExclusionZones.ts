@@ -18,7 +18,13 @@ const EXCLUDED_SELECTORS: readonly string[] = [
   'option',
   '[contenteditable]:not([contenteditable="false"])',
   // Foundry's chat log and sidebar scroll regions, across both the legacy and ApplicationV2 markup.
+  //
+  // ⚠️ `.chat-log` added 2026-08-09 after auditing these against a live 14.365. The id form matched
+  // NOTHING on that build: the log is `<ol class="chat-log">`, a class, and the id belongs to the
+  // v12 markup. The behaviour survived only because `.chat-scroll` wraps the log and `closest` found
+  // that instead, which is luck rather than design. The id is kept for older versions.
   '#chat-log',
+  '.chat-log',
   '#chat-message',
   '.chat-scroll',
   '#sidebar',

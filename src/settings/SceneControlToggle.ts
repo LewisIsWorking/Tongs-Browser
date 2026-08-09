@@ -16,6 +16,8 @@ interface SceneControlTool {
   toggle: boolean;
   active: boolean;
   visible?: boolean;
+  /** Foundry 14 sorts tools by this. Without it the button lands in an arbitrary position. */
+  order?: number;
   onClick?: () => void;
   onChange?: () => void;
   button?: boolean;
@@ -25,6 +27,16 @@ interface SceneControl {
   name?: string;
   tools?: SceneControlTool[] | Record<string, SceneControlTool>;
 }
+
+/**
+ * Names the token control group has gone by, newest first.
+ *
+ * Foundry 14 calls it `tokens`. Its own documented example for this hook writes to
+ * `controls.tokens.tools.myTool`, and `ui.controls.controls` on a live 14.365 has the keys
+ * regions, drawings, tiles, walls, tokens, sounds, lighting, notes. Older versions used the
+ * singular, which is kept so this does not break if the module is run against one.
+ */
+const TOKEN_GROUP_NAMES: readonly string[] = ['tokens', 'token'];
 
 /**
  * Adds a one tap on and off switch to the scene controls.
@@ -73,6 +85,10 @@ export class SceneControlToggle {
       return;
     }
 
+    const existingCount = Array.isArray(group.tools)
+      ? group.tools.length
+      : Object.keys(group.tools ?? {}).length;
+
     const tool: SceneControlTool = {
       name: MODULE_ID,
       title: 'Tongs Browser',
@@ -80,6 +96,9 @@ export class SceneControlToggle {
       toggle: true,
       active: this.options.isActive(),
       visible: true,
+      // Appended rather than interleaved with Foundry's own tools, which is what its documented
+      // example does. Without an order the button lands wherever the sort happens to put it.
+      order: existingCount,
       onClick: () => {
         this.options.onToggle();
       },
@@ -98,25 +117,53 @@ export class SceneControlToggle {
       return;
     }
 
-    if (typeof group.tools === 'object') {
+    /*
+     * Created when absent rather than skipped. Foundry's own #prepareControls does `control.tools
+     * ??= {}` AFTER calling this hook, so a group with no tools of its own arrives here with tools
+     * undefined. The previous `typeof group.tools === 'object'` test failed on undefined and
+     * silently wrote nothing, which is the same invisible outcome as not being called at all.
+     */
+    group.tools ??= {};
+    if (!Array.isArray(group.tools)) {
       group.tools[MODULE_ID] = tool;
     }
   }
 
+  /**
+   * Finds the token control group, and returns null rather than guessing.
+   *
+   * ⚠️ There used to be a fallback here that took the FIRST group when no token group was found,
+   * and it was actively harmful. On Foundry 14 the group is called `tokens`, this looked for
+   * `token`, and the fallback therefore put the button silently into `regions`. Measured on 14.365,
+   * the group keys are regions, drawings, tiles, walls, tokens, sounds, lighting, notes, so the
+   * first group is the one furthest from where a user would look.
+   *
+   * A button in the wrong toolbar is worse than no button, because this is the escape hatch for
+   * when the pointer is misbehaving: someone hunting for it needs it where it was documented to be,
+   * not somewhere plausible. Returning null makes a future rename a visible absence rather than a
+   * silent relocation.
+   */
   private findTokenGroup(controls: unknown): SceneControl | null {
     if (Array.isArray(controls)) {
-      const found = (controls as SceneControl[]).find((control) => control.name === 'token');
-      return found ?? (controls as SceneControl[])[0] ?? null;
+      const groups = controls as SceneControl[];
+      for (const name of TOKEN_GROUP_NAMES) {
+        const found = groups.find((control) => control.name === name);
+        if (found !== undefined) {
+          return found;
+        }
+      }
+      return null;
     }
 
     if (typeof controls === 'object' && controls !== null) {
       const record = controls as Record<string, SceneControl>;
-      const token = record['token'];
-      if (token !== undefined) {
-        return token;
+      for (const name of TOKEN_GROUP_NAMES) {
+        const found = record[name];
+        if (found !== undefined) {
+          return found;
+        }
       }
-      const first = Object.values(record)[0];
-      return first ?? null;
+      return null;
     }
 
     return null;
