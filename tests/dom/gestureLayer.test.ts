@@ -270,9 +270,37 @@ describe('TouchBinder native pointer suppression', () => {
 
 describe('CanvasController', () => {
   type PanFn = (options: { x?: number; y?: number; scale?: number }) => void;
+  type FakeCanvas = CanvasLike & { pan: ReturnType<typeof vi.fn<PanFn>>; scale: number };
 
-  function fakeCanvas(ready = true): CanvasLike & { pan: ReturnType<typeof vi.fn<PanFn>> } {
-    return { ready, pan: vi.fn<PanFn>() };
+  /**
+   * The fake applies scale changes to itself, rather than merely recording the call.
+   *
+   * That is not the fake growing a field to satisfy a test. A real canvas is where the scale lives,
+   * and pan is what changes it, so a fake that accepts a scale and then keeps reporting the old one
+   * is a fake that cannot express the bug these tests exist for.
+   */
+  function fakeCanvas(ready = true, initialScale = 1): FakeCanvas {
+    const canvas: FakeCanvas = {
+      ready,
+      scale: initialScale,
+      pan: vi.fn<PanFn>((options) => {
+        if (options.scale !== undefined) {
+          canvas.scale = options.scale;
+        }
+      }),
+    };
+    return canvas;
+  }
+
+  function controllerFor(
+    canvas: FakeCanvas,
+    extra: Partial<ConstructorParameters<typeof CanvasController>[0]> = {}
+  ) {
+    return new CanvasController({
+      getCanvas: () => canvas,
+      getScale: () => canvas.scale,
+      ...extra,
+    });
   }
 
   /**
@@ -281,7 +309,7 @@ describe('CanvasController', () => {
    */
   it('inverts the pan delta so the map follows the fingers', () => {
     const canvas = fakeCanvas();
-    const controller = new CanvasController({ getCanvas: () => canvas });
+    const controller = controllerFor(canvas);
 
     expect(controller.panBy(30, 20)).toBe(true);
     expect(canvas.pan).toHaveBeenCalledWith({ x: -30, y: -20 });
@@ -289,10 +317,7 @@ describe('CanvasController', () => {
 
   it('reports failure and signals the caller when the canvas is not ready', () => {
     const onUnavailable = vi.fn();
-    const controller = new CanvasController({
-      getCanvas: () => fakeCanvas(false),
-      onUnavailable,
-    });
+    const controller = controllerFor(fakeCanvas(false), { onUnavailable });
 
     expect(controller.panBy(10, 10)).toBe(false);
     expect(onUnavailable).toHaveBeenCalledOnce();
@@ -300,7 +325,7 @@ describe('CanvasController', () => {
 
   it('applies a relative zoom ratio to the running scale', () => {
     const canvas = fakeCanvas();
-    const controller = new CanvasController({ getCanvas: () => canvas });
+    const controller = controllerFor(canvas);
 
     controller.zoomBy(2);
     expect(canvas.pan).toHaveBeenCalledWith({ scale: 2 });
@@ -310,13 +335,61 @@ describe('CanvasController', () => {
   });
 
   /**
+   * The regression test for the first pinch of a session, measured against a real Foundry on
+   * 2026-08-09 before the fix.
+   *
+   * The controller used to seed its own scale to 1 and correct it only through a syncScale method
+   * that nothing called. Foundry fits a scene to the viewport on load, so a scene sitting at 0.5
+   * took a 1.6x pinch and jumped straight to 1.6 rather than to 0.8. The error is exactly
+   * 1/initialScale, which makes it worst on the scenes that are zoomed furthest out, and it fired on
+   * the very first pinch every session.
+   */
+  it('builds the pinch on the scale the canvas is actually at', () => {
+    const canvas = fakeCanvas(true, 0.5);
+    const controller = controllerFor(canvas);
+
+    controller.zoomBy(1.6);
+
+    expect(canvas.pan).toHaveBeenCalledWith({ scale: 0.8 });
+  });
+
+  /**
+   * The same bug from the other side. Anything that zooms without going through this controller,
+   * Foundry's own zoom buttons, the mouse wheel, or switching scene, would leave a cached value
+   * stale, and the next pinch would lurch back to wherever the module last thought it was.
+   */
+  it('follows a zoom that happened outside the module', () => {
+    const canvas = fakeCanvas(true, 1);
+    const controller = controllerFor(canvas);
+
+    controller.zoomBy(2);
+    expect(canvas.pan).toHaveBeenLastCalledWith({ scale: 2 });
+
+    canvas.scale = 4;
+    controller.zoomBy(2);
+
+    expect(canvas.pan).toHaveBeenLastCalledWith({ scale: 8 });
+  });
+
+  it('falls back to the last applied scale when the live scale cannot be read', () => {
+    const canvas = fakeCanvas();
+    const controller = new CanvasController({ getCanvas: () => canvas, getScale: () => null });
+
+    controller.zoomBy(2);
+    expect(canvas.pan).toHaveBeenLastCalledWith({ scale: 2 });
+    expect(controller.getLastAppliedScale()).toBe(2);
+
+    controller.zoomBy(2);
+    expect(canvas.pan).toHaveBeenLastCalledWith({ scale: 4 });
+  });
+
+  /**
    * An unclamped pinch can drive the scale to a value Foundry refuses, after which the canvas stops
    * responding to zoom at all until the scene is reloaded.
    */
   it('clamps to the configured zoom bounds', () => {
     const canvas = fakeCanvas();
-    const controller = new CanvasController({
-      getCanvas: () => canvas,
+    const controller = controllerFor(canvas, {
       getZoomLimits: () => ({ minimum: 0.5, maximum: 2 }),
     });
 
@@ -329,7 +402,7 @@ describe('CanvasController', () => {
 
   it('falls back to wide bounds when Foundry exposes no zoom limits', () => {
     const canvas = fakeCanvas();
-    const controller = new CanvasController({ getCanvas: () => canvas });
+    const controller = controllerFor(canvas);
 
     controller.zoomBy(1000);
     expect(canvas.pan).toHaveBeenLastCalledWith({ scale: 10 });
@@ -337,8 +410,7 @@ describe('CanvasController', () => {
 
   it('does not call pan again once already at the limit', () => {
     const canvas = fakeCanvas();
-    const controller = new CanvasController({
-      getCanvas: () => canvas,
+    const controller = controllerFor(canvas, {
       getZoomLimits: () => ({ minimum: 0.5, maximum: 2 }),
     });
 
@@ -351,7 +423,7 @@ describe('CanvasController', () => {
 
   it.each([0, -1, Number.NaN])('ignores %s as a zoom ratio', (ratio) => {
     const canvas = fakeCanvas();
-    const controller = new CanvasController({ getCanvas: () => canvas });
+    const controller = controllerFor(canvas);
 
     expect(controller.zoomBy(ratio)).toBe(false);
     expect(canvas.pan).not.toHaveBeenCalled();
