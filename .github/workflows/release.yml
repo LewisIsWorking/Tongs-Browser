@@ -3,6 +3,14 @@ name: Release
 on:
   push:
     branches: [main]
+  # Manual path, for attaching module.zip to a tag that already exists. Needed because a release
+  # can be created without its asset if the packaging step is skipped or fails.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and attach module.zip to, for example v0.2.0'
+        required: true
+        type: string
 
 # Only one versioning run at a time, so two quick merges cannot race and produce a mangled
 # Version Packages pull request.
@@ -15,7 +23,8 @@ permissions:
 
 jobs:
   version:
-    name: Version or tag
+    name: Version or release
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -40,9 +49,10 @@ jobs:
       # package.json and writes CHANGELOG.md. Nothing is released yet.
       #
       # No pending changesets, meaning that pull request was just merged: runs the tag command,
-      # which creates a v* git tag. The action pushes it, and that tag triggers the release job in
-      # ci.yml which builds and publishes module.zip.
+      # which creates a v* git tag and a GitHub release carrying the changelog. The packaging step
+      # below then attaches module.zip to it.
       - name: Create version pull request or tag the release
+        id: changesets
         uses: changesets/action@v1
         with:
           version: npm run changeset:version
@@ -51,3 +61,57 @@ jobs:
           title: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Packaging runs here, in the same job that created the tag, rather than in a separate
+      # workflow triggered by the tag.
+      #
+      # A tag pushed using GITHUB_TOKEN does not trigger any workflow. GitHub blocks that
+      # deliberately to prevent recursive runs. An earlier version of this pipeline relied on a
+      # tag trigger and produced a release with no module.zip attached, which left the manifest's
+      # download URL returning 404 and the module uninstallable.
+      - name: Package and attach module.zip
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          export VERSION
+          npm run build
+          node scripts/stamp-manifest.mjs
+          zip -r module.zip module.json dist LICENSE README.md
+          gh release upload "v${VERSION}" module.zip --clobber
+          echo "Attached module.zip to v${VERSION}."
+
+  attach:
+    name: Attach module.zip to an existing tag
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package and attach module.zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          VERSION="${TAG#v}"
+          export VERSION
+          npm run build
+          node scripts/stamp-manifest.mjs
+          zip -r module.zip module.json dist LICENSE README.md
+          gh release upload "$TAG" module.zip --clobber
+          echo "Attached module.zip to ${TAG}."
