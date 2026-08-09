@@ -9,106 +9,18 @@
  *
  * Run: npm run probe:foundry     (a Foundry must be running with a world launched)
  *
- * The approach is lifted from ComeOnOverFoundry's tools/foundry-session.ts, whose comments record why
- * each step is shaped this way. Three of them are load bearing:
- *
- *   - Join by POSTing to /join, not by driving the form. Foundry disables the <option> for a user who
- *     is already connected, so the form path fails exactly when someone has the world open.
- *   - Wait on game.ready, not on a selector. The UI paints well before the world is usable.
- *   - Use a 1600x1000 viewport. Foundry refuses to boot below 1366x768, and the resulting failure does
- *     not mention resolution.
+ * The answer as of 2026-08-09 on 14.365 is `events`. See ADR 0004. The session handling lives in
+ * foundry-session.mjs, which records why each step of the login is shaped the way it is.
  */
-import { chromium } from 'playwright';
-
-const BASE = process.env.FOUNDRY_URL ?? 'http://localhost:30000';
-const USER = process.env.FOUNDRY_USER ?? 'Gamemaster';
-const PASSWORD = process.env.FOUNDRY_PASSWORD ?? '';
-const MODULE_ID = 'tongs-browser';
-
-/**
- * A server answering is not a world being loaded, and only /api/status distinguishes them. Both /join
- * and /game return 200 either way, so probing those reports a healthy world when there is none.
- */
-async function requireActiveWorld() {
-  let status;
-  try {
-    const res = await fetch(`${BASE}/api/status`, { signal: AbortSignal.timeout(5000) });
-    status = await res.json();
-  } catch {
-    throw new Error(`nothing is answering on ${BASE}. Start Foundry and launch a world.`);
-  }
-  if (status.active !== true) {
-    throw new Error(`${BASE} is up but no world is launched. Launch one, then run this again.`);
-  }
-  return status;
-}
-
-async function waitForReady(page) {
-  await page.waitForFunction(() => globalThis.game?.ready === true, undefined, {
-    timeout: 120_000,
-  });
-}
-
-/** Resolve the user id from the name, then post the join directly. */
-async function joinWorld(page) {
-  await page.goto(`${BASE}/join`, { waitUntil: 'networkidle', timeout: 60_000 });
-
-  const userId = await page.evaluate((name) => {
-    const options = [...document.querySelectorAll("select[name='userid'] option")];
-    return options.find((o) => (o.textContent ?? '').trim() === name)?.value ?? null;
-  }, USER);
-
-  if (userId === null) {
-    const available = await page.evaluate(() =>
-      [...document.querySelectorAll("select[name='userid'] option")]
-        .map((o) => (o.textContent ?? '').trim())
-        .filter(Boolean)
-    );
-    throw new Error(`no user named '${USER}'. This world offers: ${available.join(', ')}`);
-  }
-
-  const result = await page.evaluate(
-    async ({ id, secret }) => {
-      const res = await fetch('/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'join', userid: id, password: secret }),
-      });
-      return res.json();
-    },
-    { id: userId, secret: PASSWORD }
-  );
-
-  if (result.status !== 'success') {
-    throw new Error(`join refused: ${result.message ?? JSON.stringify(result)}`);
-  }
-
-  await page.goto(`${BASE}/game`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await waitForReady(page);
-}
-
-/**
- * Turn the module on if it is off, then reload so it actually initialises.
- *
- * Activation is written through the settings API rather than the Manage Modules dialog because the
- * dialog needs a click that Foundry's tour overlay intercepts, and because a setting write is
- * idempotent while a checkbox toggle is not.
- */
-async function ensureModuleEnabled(page) {
-  const alreadyOn = await page.evaluate((id) => game.modules.get(id)?.active === true, MODULE_ID);
-  if (alreadyOn) {
-    return false;
-  }
-
-  await page.evaluate(async (id) => {
-    const config = { ...game.settings.get('core', 'moduleConfiguration'), [id]: true };
-    await game.settings.set('core', 'moduleConfiguration', config);
-  }, MODULE_ID);
-
-  await page.reload({ waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await waitForReady(page);
-  return true;
-}
+import {
+  BASE,
+  MODULE_ID,
+  captureModuleLog,
+  ensureModuleEnabled,
+  joinWorld,
+  launchBrowser,
+  requireActiveWorld,
+} from './foundry-session.mjs';
 
 /**
  * Measure the same thing the module measures, without asking the module.
@@ -120,8 +32,7 @@ async function ensureModuleEnabled(page) {
  */
 async function independentProbe(page) {
   return page.evaluate(() => {
-    const manager = game.keyboard;
-    const downKeys = manager?.downKeys;
+    const downKeys = game.keyboard?.downKeys;
     if (downKeys === undefined) {
       return { measurable: false, reason: 'game.keyboard.downKeys does not exist on this build' };
     }
@@ -158,22 +69,8 @@ async function independentProbe(page) {
 
 async function main() {
   const status = await requireActiveWorld();
-
-  // PLAYWRIGHT_CHANNEL=chromium runs the full browser instead of the headless shell, which is the
-  // escape hatch when only one of the two is downloaded. The shell is the default because it starts
-  // faster, and a half finished `playwright install` is otherwise an opaque "executable doesn't exist".
-  const channel = process.env.PLAYWRIGHT_CHANNEL;
-  const browser = await chromium.launch({ headless: true, ...(channel ? { channel } : {}) });
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-
-  const log = [];
-  page.on('console', (message) => {
-    const text = message.text();
-    if (text.includes('Tongs Browser')) {
-      log.push(`${message.type()}: ${text}`);
-    }
-  });
-  page.on('pageerror', (error) => log.push(`pageerror: ${error.message}`));
+  const { browser, page } = await launchBrowser();
+  const log = captureModuleLog(page);
 
   try {
     await joinWorld(page);

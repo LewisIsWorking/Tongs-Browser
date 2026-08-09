@@ -71,15 +71,22 @@ export default tseslint.config(
     },
   },
 
-  // The Foundry probe is the one file that is genuinely both, added 2026-08-09. It runs under node,
-  // but every function body handed to page.evaluate executes in the browser inside a live Foundry, so
-  // document, KeyboardEvent and Foundry's own game global are all legitimate references in it. Scoped
-  // to the single file rather than to scripts/**, so no other tool file silently gains browser globals
+  // The Foundry tools are genuinely both, added 2026-08-09. They run under node, but every function
+  // body handed to page.evaluate executes in the browser inside a live Foundry, so document,
+  // KeyboardEvent and Foundry's own globals are all legitimate references in them. Scoped to
+  // foundry-*.mjs rather than to scripts/**, so no unrelated tool file silently gains browser globals
   // it has no business using.
   {
-    files: ['scripts/foundry-probe.mjs'],
+    files: ['scripts/foundry-*.mjs'],
     languageOptions: {
-      globals: { ...globals.node, ...globals.browser, game: 'readonly' },
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+        game: 'readonly',
+        ui: 'readonly',
+        canvas: 'readonly',
+        Scene: 'readonly',
+      },
     },
   }
 );
