@@ -69,5 +69,17 @@ export default tseslint.config(
     rules: {
       'no-console': 'off',
     },
+  },
+
+  // The Foundry probe is the one file that is genuinely both, added 2026-08-09. It runs under node,
+  // but every function body handed to page.evaluate executes in the browser inside a live Foundry, so
+  // document, KeyboardEvent and Foundry's own game global are all legitimate references in it. Scoped
+  // to the single file rather than to scripts/**, so no other tool file silently gains browser globals
+  // it has no business using.
+  {
+    files: ['scripts/foundry-probe.mjs'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser, game: 'readonly' },
+    },
   }
 );

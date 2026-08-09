@@ -32,6 +32,17 @@ all. `events` means Foundry honours synthesised keyboard events and nothing furt
 `unknown` means the probe could not run, usually because you were holding shift on a physical
 keyboard at the time.
 
+> **Already answered on desktop: `events`.** Measured 2026-08-09 on Foundry 14.365 in headless
+> Chrome, with `isTrusted: false` confirmed on the event and `downKeys` confirmed still to be a `Set`.
+> See [ADR 0004](adr/0004-foundry-honours-synthetic-keyboard-events.md). The result is expected to
+> carry to Android, since `isTrusted` behaves the same in every browser and `KeyboardManager` is the
+> same code, but expected is not measured, so still record what the device says. A `direct` or
+> `unknown` reading on the tablet when desktop says `events` is a real finding, not a nuisance.
+
+Run `npm run probe:foundry` against any running Foundry to get this answer without a device. It joins
+the world, enables the module if needed, and takes its own independent measurement rather than
+trusting the module's own report.
+
 ## Pointer basics
 
 - [ ] One finger drag moves the pointer, and it stays where you leave it.

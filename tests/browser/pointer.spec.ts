@@ -277,7 +277,6 @@ test.describe('interface scaling', () => {
     });
 
     const transform = await page.evaluate(
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       () => getComputedStyle(document.querySelector('#board')!).transform
     );
     expect(['none', 'matrix(1, 0, 0, 1, 0, 0)']).toContain(transform);

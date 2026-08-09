@@ -23,6 +23,7 @@
     "lint:prose": "node scripts/check-em-dashes.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "probe:foundry": "node scripts/foundry-probe.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
