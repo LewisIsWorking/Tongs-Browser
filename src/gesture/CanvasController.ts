@@ -8,6 +8,24 @@ export interface CanvasLike {
 export interface CanvasControllerOptions {
   /** Returns Foundry's canvas, or null when it is unavailable or not yet ready. */
   readonly getCanvas: () => CanvasLike | null;
+  /**
+   * The scale the canvas is ACTUALLY at, or null when it cannot be read.
+   *
+   * Required rather than optional, deliberately, added 2026-08-09. This controller used to keep its
+   * own `currentScale`, seeded to 1, with a `syncScale` method to correct it that nothing ever
+   * called. Foundry fits a scene to the viewport on load, so the real scale is almost never 1, and
+   * the first pinch of a session therefore multiplied the ratio onto the wrong base and applied it
+   * absolutely.
+   *
+   * Measured against a real Foundry: a scene sitting at 0.5 with a 1.6x pinch jumped to 1.6 instead
+   * of 0.8, a 3.2x lurch. The error is exactly 1/initialScale, so it is worst on the scenes that are
+   * zoomed furthest out.
+   *
+   * An optional callback would have let a call site forget it and silently reintroduce the same bug,
+   * which is precisely how the first version survived. Making it required means every caller has to
+   * answer the question.
+   */
+  readonly getScale: () => number | null;
   /** Returns the configured zoom bounds, if the running Foundry exposes them. */
   readonly getZoomLimits?: () => { minimum: number; maximum: number };
   readonly logger?: Logger;
@@ -31,7 +49,13 @@ const FALLBACK_MAX_ZOOM = 10;
  * unavailable, for instance in a world with no scene loaded.
  */
 export class CanvasController {
-  private currentScale = 1;
+  /**
+   * Only a fallback, for when the live scale cannot be read at all. It is never the preferred
+   * source, because a cached scale is exactly what went wrong before: anything that zooms the canvas
+   * without going through this controller, which includes Foundry's own zoom controls, the mouse
+   * wheel and a scene change, leaves it stale.
+   */
+  private lastAppliedScale = 1;
 
   public constructor(private readonly options: CanvasControllerOptions) {}
 
@@ -78,26 +102,24 @@ export class CanvasController {
       maximum: FALLBACK_MAX_ZOOM,
     };
 
-    const requested = this.currentScale * ratio;
+    // The live scale wins whenever it can be read. The cached one is a last resort, not a cache.
+    const live = this.options.getScale();
+    const base = live !== null && Number.isFinite(live) && live > 0 ? live : this.lastAppliedScale;
+
+    const requested = base * ratio;
     const clamped = Math.min(Math.max(requested, limits.minimum), limits.maximum);
 
-    if (clamped === this.currentScale) {
+    if (clamped === base) {
       return false;
     }
 
-    this.currentScale = clamped;
+    this.lastAppliedScale = clamped;
     canvas.pan({ scale: clamped });
     return true;
   }
 
-  /** Keeps the controller's idea of the scale in step with the canvas, after an external zoom. */
-  public syncScale(scale: number): void {
-    if (Number.isFinite(scale) && scale > 0) {
-      this.currentScale = scale;
-    }
-  }
-
-  public getScale(): number {
-    return this.currentScale;
+  /** The last scale this controller applied. The canvas is the authority, not this. */
+  public getLastAppliedScale(): number {
+    return this.lastAppliedScale;
   }
 }

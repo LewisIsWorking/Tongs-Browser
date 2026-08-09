@@ -86,6 +86,7 @@ export class TongsBrowser {
 
     const canvasController = new CanvasController({
       getCanvas: () => this.resolveCanvas(),
+      getScale: () => this.resolveCanvasScale(),
       getZoomLimits: () => this.resolveZoomLimits(),
       logger,
     });
@@ -256,6 +257,21 @@ export class TongsBrowser {
       return null;
     }
     return canvas;
+  }
+
+  /**
+   * How far the canvas is actually zoomed, straight from PIXI's root container.
+   *
+   * Read fresh on every pinch rather than cached. Foundry fits a scene to the viewport on load, and
+   * the user can also zoom with the wheel or Foundry's own controls, so any remembered value is
+   * wrong the moment something else touches it. Returning null when it cannot be read lets the
+   * controller fall back rather than build a pinch on NaN.
+   */
+  private resolveCanvasScale(): number | null {
+    if (typeof canvas === 'undefined') {
+      return null;
+    }
+    return canvas.stage?.scale?.x ?? null;
   }
 
   /**

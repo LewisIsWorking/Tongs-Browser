@@ -65,11 +65,20 @@ emits its own compatibility events exactly as a tablet does. Measured 2026-08-09
 - Long press produces a right click at the pointer, under real event timing.
 - The browser's own touch derived pointer events never reach Foundry, so no gesture is acted on twice.
 
-**Not covered by any of that**, so these remain entirely on you: multi touch, meaning two finger pan,
-pinch zoom and the exclusion zones, since only one finger is injected; whether hover actually produces
-nameplates, tooltips and PF2e HUD panels, as opposed to the position merely tracking; everything
-Android specific, including the real module stack this is built for; and ergonomics, which is the
-reason the module exists and which no automated check can judge.
+`npm run check:multitouch` adds two fingers. It found a real bug the first time it ran, fixed in
+[ADR 0007](adr/0007-pinch-must-build-on-the-canvas-actual-scale.md): the pinch built on a remembered
+scale of 1 rather than the scale the canvas was at, so on a scene loaded at 0.5 the first pinch
+jumped 3.2x instead of 1.6x. **If you tested a build before 2026-08-09 and the first pinch felt
+violent, that was this and it is fixed.**
+
+- Two finger drag pans the canvas, map moving with the fingers, without changing the zoom.
+- Pinch scales relative to wherever the canvas already is, and pinching back in returns to the start.
+
+**Not covered by any of that**, so these remain entirely on you: whether hover actually produces
+nameplates, tooltips and PF2e HUD panels, as opposed to the position merely tracking; the exclusion
+zones under real fingers, since the harness never taps a chat log or a text input; everything Android
+specific, including the real module stack this is built for; and ergonomics, which is the reason the
+module exists and which no automated check can judge.
 
 ## Pointer basics
 

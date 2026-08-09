@@ -84,9 +84,18 @@ declare global {
     view: HTMLCanvasElement;
   }
 
+  /**
+   * PIXI's root container. Declared only as far as the scale, which is the canvas's own authority on
+   * how far it is zoomed, and the value the pinch gesture has to build on. Added 2026-08-09.
+   */
+  interface FoundryCanvasStage {
+    scale?: { x?: number; y?: number };
+  }
+
   interface FoundryCanvas {
     ready: boolean;
     app?: FoundryCanvasApp;
+    stage?: FoundryCanvasStage;
     pan(options: FoundryCanvasPanOptions): void;
   }
 
