@@ -30,9 +30,12 @@
         background: #a44;
       }
       /*
-       * Placed well below y=120, because the modifier bar defaults to 16,120 and floats above the
+       * Placed well below y=120, because the modifier bar defaults to 88,120 and floats above the
        * canvas. A token under the bar is genuinely unclickable, exactly as it would be under any
        * floating panel with a real mouse, so the fixture keeps the test targets clear of it.
+       *
+       * The x moved from 16 to 88 on 2026-08-09, after measuring that 16 put the bar on top of
+       * Foundry's scene control toolbar. Only the y matters for this fixture.
        */
       #token-a {
         left: 100px;

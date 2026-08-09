@@ -6,6 +6,7 @@ import { SceneControlToggle } from '../../src/settings/SceneControlToggle.js';
 interface Tool {
   name: string;
   active: boolean;
+  order?: number;
   onClick?: () => void;
   onChange?: () => void;
 }
@@ -41,7 +42,23 @@ describe('SceneControlToggle injection', () => {
     expect(controls[1]?.tools).toEqual([]);
   });
 
-  it('adds the tool to the token group in the record shape', () => {
+  /**
+   * Foundry 14 calls the group `tokens`. Verified against a live 14.365, whose group keys are
+   * regions, drawings, tiles, walls, tokens, sounds, lighting, notes, and whose own documented hook
+   * example writes to controls.tokens.tools.
+   */
+  it('adds the tool to the tokens group Foundry 14 actually uses', () => {
+    const controls: Record<string, { tools: Record<string, Tool> }> = {
+      regions: { tools: {} },
+      tokens: { tools: {} },
+    };
+    toggle().inject(controls);
+
+    expect(Object.keys(controls['tokens']?.tools ?? {})).toEqual([MODULE_ID]);
+    expect(Object.keys(controls['regions']?.tools ?? {})).toEqual([]);
+  });
+
+  it('still finds the singular token group older versions used', () => {
     const controls: Record<string, { tools: Record<string, Tool> }> = {
       token: { tools: {} },
       measure: { tools: {} },
@@ -52,11 +69,53 @@ describe('SceneControlToggle injection', () => {
     expect(Object.keys(controls['measure']?.tools ?? {})).toEqual([]);
   });
 
-  it('falls back to the first group when there is no token group', () => {
-    const controls = [{ name: 'unexpected', tools: [] as Tool[] }];
+  /**
+   * There used to be a fallback here that took the first group, and it was actively harmful.
+   *
+   * On Foundry 14 the group is `tokens`, the lookup was for `token`, and the fallback therefore put
+   * the button silently into `regions`, the first key in the record. A button in the wrong toolbar
+   * is worse than no button: this is the escape hatch for when the pointer is misbehaving, so
+   * someone hunting for it needs it where it is documented to be. An absence is diagnosable, a
+   * silent relocation is not.
+   */
+  it('injects nowhere at all rather than guessing when no token group exists', () => {
+    const array = [{ name: 'unexpected', tools: [] as Tool[] }];
+    toggle().inject(array);
+    expect(array[0]?.tools).toHaveLength(0);
+
+    const record: Record<string, { tools: Record<string, Tool> }> = {
+      regions: { tools: {} },
+      drawings: { tools: {} },
+    };
+    toggle().inject(record);
+    expect(Object.keys(record['regions']?.tools ?? {})).toEqual([]);
+    expect(Object.keys(record['drawings']?.tools ?? {})).toEqual([]);
+  });
+
+  /**
+   * Foundry's own #prepareControls does `control.tools ??= {}` AFTER calling this hook, so a group
+   * that defines no tools of its own arrives with tools undefined. The previous code tested
+   * `typeof group.tools === 'object'`, which is false for undefined, and wrote nothing at all.
+   */
+  it('creates the tools collection when the group arrives without one', () => {
+    const controls: Record<string, { tools?: Record<string, Tool> }> = { tokens: {} };
     toggle().inject(controls);
 
-    expect(controls[0]?.tools).toHaveLength(1);
+    expect(Object.keys(controls['tokens']?.tools ?? {})).toEqual([MODULE_ID]);
+  });
+
+  it('orders itself after the tools already in the group', () => {
+    const controls: Record<string, { tools: Record<string, Tool> }> = {
+      tokens: {
+        tools: {
+          select: { name: 'select', active: true },
+          target: { name: 'target', active: false },
+        },
+      },
+    };
+    toggle().inject(controls);
+
+    expect(controls['tokens']?.tools[MODULE_ID]?.order).toBe(2);
   });
 
   it('reflects the current enabled state on the button', () => {
