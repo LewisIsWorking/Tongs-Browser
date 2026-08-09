@@ -56,9 +56,11 @@ the cursor itself.
 
 **What this still does not cover**, and should not be read as covering:
 
-- Touch input. The check drives `VirtualPointer` directly through the module API, bypassing
+- ~~Touch input. The check drives `VirtualPointer` directly through the module API, bypassing
   `TouchBinder` and the gesture state machine. Those are covered by unit tests, and by nothing that
-  has ever seen a real finger.
+  has ever seen a real finger.~~ **Closed the same day by
+  [ADR 0006](0006-real-touch-input-drives-the-gesture-machine.md)**, which injects trusted single
+  finger touch through CDP. Multi touch remains uncovered.
 - Hover semantics beyond position tracking. A moving `canvas.mousePosition` is not proof that a token
   nameplate appears or that a PF2e HUD panel opens. Those are still device checklist items.
 - Android. Everything here is desktop Chrome.

@@ -25,6 +25,7 @@
     "format:check": "prettier --check .",
     "probe:foundry": "node scripts/foundry-probe.mjs",
     "check:foundry": "node scripts/foundry-live-check.mjs",
+    "check:touch": "node scripts/foundry-touch-check.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
