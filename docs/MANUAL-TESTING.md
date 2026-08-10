@@ -109,27 +109,30 @@ A capability matrix rather than a pass/fail check, measured 2026-08-10 on deskto
 Foundry 14.365. Anything that fails is retried with a **native control** dispatched straight at the
 canvas with the module bypassed, so a red says whose fault it is (ADR 0010).
 
-| capability                           | via pointer | native control     |
-| ------------------------------------ | ----------- | ------------------ |
-| select a token                       | ✅ yes      | not needed         |
-| roll dice from the chat box          | ✅ yes      | not needed         |
-| drop a token from actor sidebar      | ✅ yes      | not needed         |
-| **open the token HUD, right click**  | ❌ no       | **works, our gap** |
-| **drag a token to a new square**     | ❌ no       | **works, our gap** |
-| open a character sheet, double click | ❌ no       | also fails         |
-| zoom with the wheel                  | ❌ no       | also fails         |
+Each case resets to a known state before **every** attempt and runs **twice**, on both paths. A gap
+is claimed only when the pointer fails every trial and the control succeeds in every trial.
 
-**Two real gaps**, both of which the checklist below asks for and both of which a native control
-performs at the identical coordinates, so the environment is capable and the pointer is not:
+| capability                           | via pointer | native control                 |
+| ------------------------------------ | ----------- | ------------------------------ |
+| select a token                       | ✅ yes      | not needed                     |
+| roll dice from the chat box          | ✅ yes      | not needed                     |
+| drop a token from actor sidebar      | ✅ yes      | not needed                     |
+| **open the token HUD, right click**  | ❌ no       | **reliable, so it is our gap** |
+| drag a token to a new square         | ❌ no       | flaky, inconclusive            |
+| open a character sheet, double click | ❌ no       | also fails, inconclusive       |
+| zoom with the wheel                  | ❌ no       | also fails, inconclusive       |
 
-- **Token HUD on right click.** `check:touch` already proves a `contextmenu` event fires at the
-  pointer. That is the weaker claim: the event fires and the HUD does not open. Same
-  position-versus-semantics distinction as hover.
-- **Dragging a token.** Nothing moves. This is the "Dragging, the hard one" section below, and it is
-  the single biggest hole in the module today.
+**One confirmed gap: the token HUD on right click.** `check:touch` already proves a `contextmenu`
+event fires at the pointer. That is the weaker claim: the event fires and the HUD does not open. Same
+position-versus-semantics distinction as hover.
 
-The other two are **inconclusive, not cleared**: even a hand built native event fails, so scripted
-input cannot express them here and nothing can be concluded about the module either way.
+The rest are **inconclusive, not cleared**, and inconclusive is not the same as broken.
+
+> ⚠️ **An earlier version of this table claimed dragging was broken and called it the biggest hole in
+> the module. That was wrong.** The probe ran its control only after the module attempt had already
+> failed, from whatever state that failure left behind, and reported a single trial as fact.
+> Re-measured in isolation with a reset before every attempt: the module drag moved the token on both
+> trials, and the native control was the flaky one. A control that runs second is not a control.
 
 > ⚠️ Foundry 14's chat box is a `<prose-mirror>` element, not a `<textarea>`. Setting `.value` does
 > nothing at all, silently. Type through the contenteditable the editor owns.
