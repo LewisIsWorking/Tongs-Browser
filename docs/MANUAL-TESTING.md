@@ -103,6 +103,37 @@ FOUNDRY_URL=http://10.0.2.2:30000 npm run check:android
 > `NetworkError: A network error occurred.`. The check shims that one rejection and reports every
 > font it swallows. A current phone will not have this.
 
+### Can the pointer actually play the game? `npm run probe:play`
+
+A capability matrix rather than a pass/fail check, measured 2026-08-10 on desktop Chrome against
+Foundry 14.365. Anything that fails is retried with a **native control** dispatched straight at the
+canvas with the module bypassed, so a red says whose fault it is (ADR 0010).
+
+| capability                           | via pointer | native control     |
+| ------------------------------------ | ----------- | ------------------ |
+| select a token                       | ✅ yes      | not needed         |
+| roll dice from the chat box          | ✅ yes      | not needed         |
+| drop a token from actor sidebar      | ✅ yes      | not needed         |
+| **open the token HUD, right click**  | ❌ no       | **works, our gap** |
+| **drag a token to a new square**     | ❌ no       | **works, our gap** |
+| open a character sheet, double click | ❌ no       | also fails         |
+| zoom with the wheel                  | ❌ no       | also fails         |
+
+**Two real gaps**, both of which the checklist below asks for and both of which a native control
+performs at the identical coordinates, so the environment is capable and the pointer is not:
+
+- **Token HUD on right click.** `check:touch` already proves a `contextmenu` event fires at the
+  pointer. That is the weaker claim: the event fires and the HUD does not open. Same
+  position-versus-semantics distinction as hover.
+- **Dragging a token.** Nothing moves. This is the "Dragging, the hard one" section below, and it is
+  the single biggest hole in the module today.
+
+The other two are **inconclusive, not cleared**: even a hand built native event fails, so scripted
+input cannot express them here and nothing can be concluded about the module either way.
+
+> ⚠️ Foundry 14's chat box is a `<prose-mirror>` element, not a `<textarea>`. Setting `.value` does
+> nothing at all, silently. Type through the contenteditable the editor owns.
+
 ### Hover and tap on Android, both open
 
 `check:android` now covers hover, and every failure it reports runs a **control** that bypasses the
