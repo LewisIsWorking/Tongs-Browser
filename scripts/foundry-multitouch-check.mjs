@@ -19,44 +19,19 @@
 import {
   BASE,
   captureModuleLog,
+  ensureActiveScene,
   ensureModuleEnabled,
   joinWorld,
   launchBrowser,
+  removeProbeScene,
   requireActiveWorld,
 } from './foundry-session.mjs';
-
-const PROBE_PREFIX = '[probe]';
+import { Hand } from './foundry-touch.mjs';
 
 const results = [];
 
 function record(name, passed, detail) {
   results.push({ name, passed, detail });
-}
-
-/** Two fingers, driven through CDP so the touches are trusted and the browser behaves as a tablet. */
-class Hand {
-  constructor(client) {
-    this.client = client;
-  }
-
-  send(type, points) {
-    return this.client.send('Input.dispatchTouchEvent', {
-      type,
-      touchPoints: points.map((point, index) => ({ x: point.x, y: point.y, id: index + 1 })),
-    });
-  }
-
-  start(points) {
-    return this.send('touchStart', points);
-  }
-
-  move(points) {
-    return this.send('touchMove', points);
-  }
-
-  end() {
-    return this.send('touchEnd', []);
-  }
 }
 
 const viewport = (page) =>
@@ -166,32 +141,6 @@ async function checkPinchIsReversible(page, hand, centre, beforePinch) {
   );
 }
 
-async function ensureActiveScene(page) {
-  if (await page.evaluate(() => globalThis.canvas?.ready === true)) {
-    return null;
-  }
-
-  const id = await page.evaluate(async (prefix) => {
-    // Deliberately larger than the viewport, so Foundry fits it and the canvas does NOT start at 1.
-    // A scene that happened to load at 1 would hide the very bug this file exists to guard.
-    const scene = await Scene.create({
-      name: `${prefix} Tongs Browser multitouch check`,
-      width: 4000,
-      height: 4000,
-      grid: { size: 100 },
-      padding: 0.25,
-    });
-    await scene.activate();
-    return scene.id;
-  }, PROBE_PREFIX);
-
-  await page.waitForFunction(() => globalThis.canvas?.ready === true, undefined, {
-    timeout: 120_000,
-  });
-
-  return id;
-}
-
 async function main() {
   const status = await requireActiveWorld();
   const { browser, page } = await launchBrowser({ hasTouch: true });
@@ -201,7 +150,13 @@ async function main() {
   try {
     await joinWorld(page);
     await ensureModuleEnabled(page);
-    createdScene = await ensureActiveScene(page);
+    // 4000 deliberately: larger than the viewport, so Foundry fits it and the canvas does NOT start
+    // at 1. A scene that happened to load at 1 would hide the very bug this file exists to guard.
+    createdScene = await ensureActiveScene(page, {
+      width: 4000,
+      height: 4000,
+      label: 'multitouch check',
+    });
 
     const client = await page.context().newCDPSession(page);
     const hand = new Hand(client);
@@ -225,15 +180,7 @@ async function main() {
     const errors = log.filter((line) => line.startsWith('pageerror') || line.startsWith('error'));
     record('no page errors from the module', errors.length === 0, errors.join(' | ') || 'none');
   } finally {
-    if (createdScene !== null) {
-      await page
-        .evaluate(async (id) => {
-          await game.scenes.get(id)?.delete();
-        }, createdScene)
-        .catch((error) => {
-          console.error(`could not delete the probe scene ${createdScene}: ${String(error)}`);
-        });
-    }
+    await removeProbeScene(page, createdScene);
     await browser.close();
   }
 

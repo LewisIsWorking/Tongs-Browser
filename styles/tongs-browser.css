@@ -92,11 +92,26 @@
  * bar through the pointer would be circular: you would need a modifier held to press the key that
  * holds the modifier.
  */
+/*
+ * The bar wraps, and is bounded by the viewport, because it is wider than the phones it exists for.
+ *
+ * Measured 2026-08-10 on a 412px wide Android viewport, Foundry 14.365: eight 44px keys plus the
+ * drag handle, the collapse button and the gaps come to 444px, so the bar reached x 532 and Esc,
+ * Enter and Tab sat entirely off screen. No x position fixes that, because 444 does not fit into 412
+ * anywhere, which is why this is a wrap and not a nudge.
+ *
+ * Wrapping rather than shrinking is deliberate. 44px is the touch target minimum, so smaller keys
+ * would trade three unreachable keys for eight harder to hit ones, which is the worse bargain on
+ * exactly the device this module exists for.
+ */
 .tb-modifier-bar {
   position: fixed;
   z-index: calc(var(--tb-cursor-z-index) - 10);
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  max-width: calc(100vw - 8px);
+  box-sizing: border-box;
   gap: 4px;
   padding: 4px;
   border: 1px solid rgb(0 0 0 / 60%);
@@ -138,6 +153,9 @@
 
 .tb-modifier-bar__keys {
   display: flex;
+  /* Wraps for the same reason the bar does: the keys alone are 380px, wider than a 412px phone. */
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 4px;
 }
 

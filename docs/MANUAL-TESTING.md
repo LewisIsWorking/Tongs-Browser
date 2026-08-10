@@ -74,6 +74,35 @@ violent, that was this and it is fixed.**
 - Two finger drag pans the canvas, map moving with the fingers, without changing the zoom.
 - Pinch scales relative to wherever the canvas already is, and pinching back in returns to the start.
 
+`npm run check:android` runs all of the above shapes against **Chrome on a real Android device**,
+over the DevTools socket `adb` forwards, so the viewport is a real phone viewport and the touchscreen
+is real hardware. Measured 2026-08-10 on the `coo_phone` emulator at 412x783, dpr 2.625, Foundry
+14.365, see [ADR 0009](adr/0009-the-bar-was-wider-than-the-phone.md). It found a real bug on its
+first run:
+
+- **The modifier bar was wider than the phone.** 444px of bar on a 412px screen put **Esc, Enter and
+  Tab entirely off screen**, at any position. Fixed by wrapping the bar rather than shrinking the
+  keys, since 44px is the touch target minimum. **If you tested a build before 2026-08-10 and thought
+  some modifier keys were missing, that was this.**
+- The bar also had **no clamping at all**, so it could be dragged off screen and never come back.
+- Keyboard strategy on Android measured **`events`**, matching desktop, and verified independently
+  rather than read from the module's own log line.
+- The scene control toggle is present, on screen and passes a hit test at phone width.
+- Tap clicks at the pointer and not under the finger, on real touch hardware.
+
+To run it:
+
+```bash
+adb forward tcp:9222 localabstract:chrome_devtools_remote
+FOUNDRY_URL=http://10.0.2.2:30000 npm run check:android
+```
+
+> ⚠️ On an emulator whose Chromium is older than 136, Foundry never becomes ready: `game.ready` stays
+> `false` while the whole interface paints. That is not this module. `fa-duotone-900.woff2` downloads
+> fine and then fails to decode, and Chromium reports a font parse failure as
+> `NetworkError: A network error occurred.`. The check shims that one rejection and reports every
+> font it swallows. A current phone will not have this.
+
 **Not covered by any of that**, so these remain entirely on you: whether hover actually produces
 nameplates, tooltips and PF2e HUD panels, as opposed to the position merely tracking; the exclusion
 zones under real fingers, since the harness never taps a chat log or a text input; everything Android
