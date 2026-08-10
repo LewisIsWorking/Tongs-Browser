@@ -103,6 +103,68 @@ FOUNDRY_URL=http://10.0.2.2:30000 npm run check:android
 > `NetworkError: A network error occurred.`. The check shims that one rejection and reports every
 > font it swallows. A current phone will not have this.
 
+### Can the pointer actually play the game? `npm run probe:play`
+
+A capability matrix rather than a pass/fail check, measured 2026-08-10 on desktop Chrome against
+Foundry 14.365. Anything that fails is retried with a **native control** dispatched straight at the
+canvas with the module bypassed, so a red says whose fault it is (ADR 0010).
+
+Every trial builds its **own** actor and token and deletes them again, every path runs **three
+times**, and the aim is asserted as its own precondition. A gap is claimed only when the pointer fails
+every trial and a native control succeeds in every trial.
+
+| capability                           | via pointer   | native control           |
+| ------------------------------------ | ------------- | ------------------------ |
+| select a token                       | ✅ yes        | not needed               |
+| open the token HUD, right click      | ✅ yes        | not needed               |
+| drag a token to a new square         | ✅ yes        | not needed               |
+| zoom with the wheel                  | ✅ yes        | not needed               |
+| roll dice from the chat box          | ✅ yes        | not needed               |
+| assign ownership and have it persist | ✅ yes        | not needed               |
+| drop a token from actor sidebar      | ✅ yes        | not needed               |
+| open a character sheet, double click | ❌ no         | also fails, inconclusive |
+| create an actor from the sidebar     | ⚠️ aim failed | harness limitation       |
+
+**Zero confirmed capability gaps.** Seven of nine work reliably through the virtual pointer, three
+trials each.
+
+- **Character sheet on double click** fails for a hand built native event too, so scripted input
+  cannot express it here and nothing is concluded about the module.
+- **Create an actor from the sidebar** is a **harness** limitation, not a finding: the probe cannot
+  locate the sidebar create button in a headless window, so it reports `AIM FAILED` rather than a
+  verdict it has not earned. Worth doing by hand on the device.
+- **Assigning ownership** drives the Save press through the pointer and asserts the ownership
+  persisted on the document. The `<select>` itself is set programmatically, and that is a genuine
+  limit rather than a shortcut: a native dropdown is operating system UI that no synthesised pointer
+  event can open on any platform.
+
+> ⚠️ **Two earlier versions of this table were wrong, both claiming gaps that did not exist**, at one
+> point calling dragging "the biggest hole in the module". Every failure they reported survived
+> isolation intact. Three causes, all now fixed: the control ran only _after_ the subject had already
+> failed, from the state that failure left behind; a single trial was reported as fact; and all
+> capabilities shared **one** actor, **one** token and one accumulating world, so each case inherited
+> the wreckage of the last. A probe that reuses a fixture across cases measures history, not
+> behaviour.
+
+> ⚠️ Foundry 14's chat box is a `<prose-mirror>` element, not a `<textarea>`. Setting `.value` does
+> nothing at all, silently. Type through the contenteditable the editor owns.
+
+### Hover and tap on Android, both open
+
+`check:android` now covers hover, and every failure it reports runs a **control** that bypasses the
+module first, so a red result says whose fault it is. See
+[ADR 0010](adr/0010-a-check-must-say-whose-fault-it-is.md).
+
+- ⏭️ **Hover cannot be measured on a Chromium 133 emulator, and that is not this module.** A hand
+  built `pointermove` with the module bypassed also fails to hover, while the same control succeeds
+  on desktop Chrome. Reported as a skip, not a pass and not a failure. **Closing this needs a device
+  with Chromium 146 or newer**, which is what Foundry 14.365 asks for anyway.
+- ❌ **Tap does not activate a sidebar tab on Android, and this one does look like ours.** The tap
+  delivers `pointerdown`, `mousedown`, `pointerup` and `mouseup` to the right element and **no
+  `click`**, while a plain scripted click on the same element works. Unexplained: the same check
+  passed earlier on the same emulator against a Simple Worldbuilding world, and the regression
+  coincides with a world running the coo system. **Top of the backlog.**
+
 **Not covered by any of that**, so these remain entirely on you: whether hover actually produces
 nameplates, tooltips and PF2e HUD panels, as opposed to the position merely tracking; the exclusion
 zones under real fingers, since the harness never taps a chat log or a text input; everything Android

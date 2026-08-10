@@ -28,6 +28,7 @@
     "check:touch": "node scripts/foundry-touch-check.mjs",
     "check:multitouch": "node scripts/foundry-multitouch-check.mjs",
     "check:android": "node scripts/foundry-android-check.mjs",
+    "probe:play": "node scripts/foundry-play-probe.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
