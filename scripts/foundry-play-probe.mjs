@@ -2,21 +2,28 @@
  * Can the virtual pointer actually PLAY the game? Written 2026-08-10.
  *
  * The other checks answer "did the event arrive" and "did Foundry's state change". This one answers
- * a blunter question: can a user holding only this pointer select a token, open a sheet, drag a
- * figure across the map, open the HUD, zoom, and roll dice. Those are the things the module exists
- * to make possible, and several of them had never been exercised end to end.
+ * a blunter question: can someone holding only this pointer select a token, open a sheet, drag a
+ * figure across the map, open the HUD, zoom, and roll dice.
  *
- * ⭐ Every capability that fails is retried with a NATIVE CONTROL: the same interaction, built by
- * hand and dispatched straight at the canvas with the module bypassed. The control is what makes the
- * result actionable, because "the module cannot do this" and "nothing scripted can do this" look
- * identical from the outside and lead to completely different work. See ADR 0010.
+ * ⚠️ THE FIRST TWO VERSIONS OF THIS FILE WERE WRONG, in the same direction both times: they reported
+ *    confident capability gaps that did not exist. Every single failure they found survived isolation
+ *    intact. The module was fine and the instrument was not. What was wrong, and what is done now:
  *
- *   module works                  -> YES
- *   module fails, control works   -> a real gap in the module
- *   module fails, control fails   -> inconclusive; scripted input cannot express it here
+ *    1. The control ran only AFTER the subject had failed, from whatever state that failure left
+ *       behind. A control that runs second is a sequel, not a control. Now both paths run from the
+ *       same freshly built state.
+ *    2. One trial was reported as fact. Now every path runs three times and the trials are printed,
+ *       because a capability that works once and not again is FLAKY, which is its own finding.
+ *    3. ⭐ Worst and last found: all seven capabilities shared ONE actor, ONE token and one
+ *       accumulating world, running in sequence, so each case inherited the wreckage of the last.
+ *       Now every trial builds its own actor and token and deletes them again. A probe that reuses a
+ *       fixture across cases measures history, not behaviour.
+ *    4. The aim is asserted as its own precondition. If the pointer did not land inside the target,
+ *       the trial reports AIM rather than a behaviour failure, because "the feature is broken" and
+ *       "the feature was never reached" are different findings.
  *
- * ⚠️ WRITES TO A LIVE WORLD: a `[probe]` scene if there is none, plus a `[probe]` actor and token.
- *    All removed in the finally.
+ * ⚠️ WRITES TO A LIVE WORLD: a `[probe]` scene if there is none, plus a `[probe]` actor and token per
+ *    trial. All removed as it goes, and the scene in the finally.
  */
 import {
   BASE,
@@ -28,6 +35,8 @@ import {
   requireActiveWorld,
 } from './foundry-session.mjs';
 
+const TRIALS = Number(process.env.PROBE_TRIALS ?? '3');
+
 const status = await requireActiveWorld();
 const { browser, page } = await launchBrowser({ hasTouch: true });
 let scene = null;
@@ -37,37 +46,56 @@ try {
   await ensureModuleEnabled(page);
   scene = await ensureActiveScene(page, { width: 3000, height: 3000, label: 'play probe' });
 
-  const rows = await page.evaluate(async () => {
+  const rows = await page.evaluate(async (trials) => {
     const results = [];
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const pointer = game.modules.get('tongs-browser').api.getPointer();
     const view = canvas.app.view;
-
     const grid = canvas.scene.grid.size;
-    const actorType = game.documentTypes.Actor.find((type) => type !== 'base');
-    const actor = await Actor.create({ name: '[probe] play', type: actorType });
-    const [doc] = await canvas.scene.createEmbeddedDocuments('Token', [
-      { name: '[probe] play', actorId: actor.id, x: grid * 3, y: grid * 3, displayName: 30 },
-    ]);
-    await wait(1200);
-    const token = canvas.tokens.get(doc.id);
+    const HOME = { x: grid * 3, y: grid * 3 };
 
-    /*
-     * Pan, WAIT, then convert, then move. Converting immediately after canvas.pan reads a stale
-     * stage transform, and every interaction below then aims at the wrong place while looking
-     * perfectly correct in the code. That mistake made six capabilities report as broken when only
-     * two were.
-     */
-    const aim = async (target) => {
-      canvas.pan({ x: target.center.x, y: target.center.y });
+    /** A brand new actor and token for one trial, torn down afterwards whatever happens. */
+    async function withFixture(run) {
+      const type = game.documentTypes.Actor.find((t) => t !== 'base');
+      const actor = await Actor.create({ name: '[probe] play', type });
+      const [doc] = await canvas.scene.createEmbeddedDocuments('Token', [
+        { name: '[probe] play', actorId: actor.id, x: HOME.x, y: HOME.y, displayName: 30 },
+      ]);
+      // createEmbeddedDocuments resolves before the placeable is drawn.
+      for (let attempt = 0; attempt < 50; attempt += 1) {
+        if (canvas.tokens.get(doc.id)?.nameplate !== undefined) break;
+        await wait(100);
+      }
+      const token = canvas.tokens.get(doc.id);
+      try {
+        return await run({ actor, doc, token });
+      } finally {
+        canvas.hud.token?.clear();
+        canvas.tokens.releaseAll();
+        if (actor.sheet?.rendered) await actor.sheet.close();
+        await canvas.scene.deleteEmbeddedDocuments('Token', [doc.id]).catch(() => undefined);
+        await actor.delete().catch(() => undefined);
+        await wait(300);
+      }
+    }
+
+    /** Pan, wait for the transform, convert, move, and REPORT whether the aim actually landed. */
+    async function aim(token) {
+      canvas.pan({ x: token.center.x, y: token.center.y });
       await wait(400);
-      const global = canvas.stage.toGlobal({ x: target.center.x, y: target.center.y });
+      const global = canvas.stage.toGlobal({ x: token.center.x, y: token.center.y });
       const box = view.getBoundingClientRect();
       const at = { clientX: box.x + global.x, clientY: box.y + global.y };
       pointer.moveTo(at);
       await wait(250);
-      return at;
-    };
+      const mouse = canvas.mousePosition;
+      const landed =
+        mouse.x >= token.document.x &&
+        mouse.x <= token.document.x + token.w &&
+        mouse.y >= token.document.y &&
+        mouse.y <= token.document.y + token.h;
+      return { at, landed };
+    }
 
     const pointerEvent = (type, at, extra = {}) =>
       new PointerEvent(type, {
@@ -75,6 +103,7 @@ try {
         clientY: at.clientY,
         bubbles: true,
         cancelable: true,
+        composed: true,
         pointerId: 1,
         pointerType: 'mouse',
         isPrimary: true,
@@ -87,99 +116,69 @@ try {
         clientY: at.clientY,
         bubbles: true,
         cancelable: true,
+        composed: true,
         view: window,
         ...extra,
       });
 
-    /*
-     * Every case runs from a clean state and runs TWICE, for both the module and the control.
-     *
-     * The first version of this ran the control only after the module had already failed, from
-     * whatever state that failure left behind, and reported a single trial as fact. That is not a
-     * control, it is a sequel, and it produced a confident and completely false "dragging a token is
-     * broken". Re-measured with a reset before every attempt and two trials each:
-     *
-     *   module drag  -> moved, moved      (deterministic)
-     *   native drag  -> moved, no move    (flaky)
-     *
-     * The module was reliable and the control was the unreliable one. So a gap is only claimed when
-     * the pointer fails EVERY trial and the control succeeds in EVERY trial. Anything else is
-     * reported as inconclusive, because a flaky control cannot convict anything.
+    /**
+     * Run one path `trials` times, each in its own fixture. Outcomes are 'yes', 'no', or 'AIM' when
+     * the precondition failed and the trial therefore says nothing about the behaviour.
      */
-    async function capability(name, reset, viaModule, viaNative, read, trials = 2) {
-      const pointerTrials = [];
+    async function run(path, read, needsToken = true) {
+      const outcomes = [];
       for (let trial = 0; trial < trials; trial += 1) {
-        await reset();
-        await viaModule();
-        await wait(900);
-        pointerTrials.push(await read());
-      }
-      const pointerReliable = pointerTrials.every(Boolean);
-
-      let controlTrials = null;
-      if (!pointerReliable) {
-        controlTrials = [];
-        for (let trial = 0; trial < trials; trial += 1) {
-          await reset();
-          await viaNative();
+        if (!needsToken) {
+          await path({});
           await wait(900);
-          controlTrials.push(await read());
+          outcomes.push((await read({})) ? 'yes' : 'no');
+          continue;
         }
-      }
 
-      results.push({
-        name,
-        pointerTrials,
-        controlTrials,
-        pointerReliable,
-        pointerSometimes: pointerTrials.some(Boolean),
-        controlReliable: controlTrials === null ? null : controlTrials.every(Boolean),
-      });
+        const outcome = await withFixture(async (fixture) => {
+          const aimed = await aim(fixture.token);
+          if (!aimed.landed) return 'AIM';
+          await path({ ...fixture, at: aimed.at });
+          await wait(900);
+          return (await read(fixture)) ? 'yes' : 'no';
+        });
+        outcomes.push(outcome);
+      }
+      return outcomes;
     }
 
-    /*
-     * Put the world back exactly where it started, including the token's position, before every
-     * single attempt. A reset that leaves the token where the last drag dropped it makes the next
-     * "did it move" read meaningless.
-     */
-    const home = { x: grid * 3, y: grid * 3 };
-    const clear = async () => {
-      canvas.tokens.releaseAll();
-      if (actor.sheet?.rendered) {
-        await actor.sheet.close();
+    const reliable = (outcomes) => outcomes.every((o) => o === 'yes');
+
+    async function capability(name, viaPointer, viaNative, read, needsToken = true) {
+      const pointerTrials = await run(viaPointer, read, needsToken);
+      let controlTrials = null;
+      if (!reliable(pointerTrials) && viaNative !== null) {
+        controlTrials = await run(viaNative, read, needsToken);
       }
-      canvas.hud.token?.clear();
-      await canvas.scene.updateEmbeddedDocuments('Token', [{ _id: doc.id, x: home.x, y: home.y }]);
-      await wait(500);
-    };
+      results.push({ name, pointerTrials, controlTrials });
+    }
 
     await capability(
       'select a token',
-      clear,
       async () => {
-        await aim(token);
         pointer.leftClick();
       },
-      async () => {
-        const at = await aim(token);
+      async ({ at }) => {
         view.dispatchEvent(pointerEvent('pointerdown', at, { button: 0, buttons: 1 }));
         view.dispatchEvent(mouseEvent('mousedown', at, { button: 0, buttons: 1, detail: 1 }));
         view.dispatchEvent(pointerEvent('pointerup', at, { button: 0, buttons: 0 }));
         view.dispatchEvent(mouseEvent('mouseup', at, { button: 0, buttons: 0, detail: 1 }));
         view.dispatchEvent(mouseEvent('click', at, { button: 0, detail: 1 }));
       },
-      async () => token.controlled === true
+      async ({ token }) => token.controlled === true
     );
 
     await capability(
       'open the character sheet by double click',
-      clear,
       async () => {
-        await aim(token);
         pointer.doubleClick();
       },
-      async () => {
-        const at = await aim(token);
+      async ({ at }) => {
         for (const detail of [1, 2]) {
           view.dispatchEvent(pointerEvent('pointerdown', at, { button: 0, buttons: 1 }));
           view.dispatchEvent(mouseEvent('mousedown', at, { button: 0, buttons: 1, detail }));
@@ -190,36 +189,27 @@ try {
         }
         view.dispatchEvent(mouseEvent('dblclick', at, { button: 0, detail: 2 }));
       },
-      async () => actor.sheet?.rendered === true
+      async ({ actor }) => actor.sheet?.rendered === true
     );
 
     await capability(
       'open the token HUD by right click',
-      clear,
       async () => {
-        await aim(token);
         pointer.rightClick();
       },
-      async () => {
-        const at = await aim(token);
+      async ({ at }) => {
         view.dispatchEvent(pointerEvent('pointerdown', at, { button: 2, buttons: 2 }));
-        view.dispatchEvent(mouseEvent('mousedown', at, { button: 2, buttons: 2 }));
+        view.dispatchEvent(mouseEvent('mousedown', at, { button: 2, buttons: 2, detail: 1 }));
         view.dispatchEvent(pointerEvent('pointerup', at, { button: 2, buttons: 0 }));
-        view.dispatchEvent(mouseEvent('mouseup', at, { button: 2, buttons: 0 }));
-        view.dispatchEvent(mouseEvent('contextmenu', at, { button: 2 }));
+        view.dispatchEvent(mouseEvent('mouseup', at, { button: 2, buttons: 0, detail: 1 }));
+        view.dispatchEvent(mouseEvent('contextmenu', at, { button: 2, detail: 0 }));
       },
       async () => canvas.hud.token?.rendered === true
     );
 
-    const homeX = home.x;
     await capability(
       'drag a token to a new square',
-      clear,
       async () => {
-        await aim(token);
-        pointer.leftClick();
-        await wait(300);
-        await aim(token);
         pointer.beginDrag();
         for (let step = 0; step < 10; step += 1) {
           pointer.dragBy(15, 0);
@@ -227,8 +217,7 @@ try {
         }
         pointer.endDrag();
       },
-      async () => {
-        const at = await aim(token);
+      async ({ at }) => {
         view.dispatchEvent(pointerEvent('pointerdown', at, { button: 0, buttons: 1 }));
         view.dispatchEvent(mouseEvent('mousedown', at, { button: 0, buttons: 1 }));
         for (let step = 1; step <= 10; step += 1) {
@@ -241,22 +230,18 @@ try {
         view.dispatchEvent(pointerEvent('pointerup', end, { button: 0, buttons: 0 }));
         view.dispatchEvent(mouseEvent('mouseup', end, { button: 0, buttons: 0 }));
       },
-      async () => token.document.x !== homeX
+      async ({ doc }) => canvas.scene.tokens.get(doc.id).x !== HOME.x
     );
 
-    let zoomBefore = canvas.stage.scale.x;
+    let zoomBefore = 0;
     await capability(
       'zoom with the wheel',
       async () => {
         zoomBefore = canvas.stage.scale.x;
-        await wait(200);
-      },
-      async () => {
-        await aim(token);
         pointer.wheel(-120);
       },
-      async () => {
-        const at = await aim(token);
+      async ({ at }) => {
+        zoomBefore = canvas.stage.scale.x;
         view.dispatchEvent(
           new WheelEvent('wheel', {
             clientX: at.clientX,
@@ -264,6 +249,7 @@ try {
             deltaY: -120,
             bubbles: true,
             cancelable: true,
+            composed: true,
             view: window,
           })
         );
@@ -272,16 +258,14 @@ try {
     );
 
     /*
-     * Foundry 14's chat box is a <prose-mirror> element, not a textarea, so setting .value does
-     * nothing at all. Typing has to go through the contenteditable the editor owns.
+     * Foundry 14's chat box is a <prose-mirror> element, not a <textarea>, so setting .value does
+     * nothing at all, silently. Typing has to go through the contenteditable the editor owns.
      */
-    let messagesBefore = game.messages.size;
+    let messagesBefore = 0;
     await capability(
       'roll dice from the chat box',
       async () => {
         messagesBefore = game.messages.size;
-      },
-      async () => {
         const editable = document
           .querySelector('prose-mirror#chat-message')
           ?.querySelector('[contenteditable="true"], .ProseMirror');
@@ -300,96 +284,274 @@ try {
           );
         }
       },
-      async () => {
-        await ui.chat.processMessage('/r 1d20');
-      },
-      async () => game.messages.size > messagesBefore
+      null,
+      async () => game.messages.size > messagesBefore,
+      false
     );
+
+    /**
+     * Aim the pointer at a DOM element's centre and report whether it actually got there.
+     *
+     * Same precondition discipline as the canvas aim: a click that missed is a different finding
+     * from a click that was ignored.
+     */
+    async function aimAtElement(element) {
+      if (!element) {
+        return { at: null, landed: false, topmost: 'the element does not exist' };
+      }
+      if (element.getClientRects().length === 0) {
+        return { at: null, landed: false, topmost: 'the element has no layout box' };
+      }
+      const box = element.getBoundingClientRect();
+      const at = { clientX: box.x + box.width / 2, clientY: box.y + box.height / 2 };
+      pointer.moveTo(at);
+      await wait(250);
+      const top = document.elementFromPoint(at.clientX, at.clientY);
+      return {
+        at,
+        landed: element === top || element.contains(top) || (top?.contains(element) ?? false),
+        topmost: top
+          ? `${top.tagName.toLowerCase()}.${String(top.className).slice(0, 40)}`
+          : 'nothing',
+      };
+    }
 
     /*
-     * Dropping an actor from the sidebar onto the map. This is HTML5 drag and drop rather than
-     * pointer input, so it never touches the virtual pointer, and it is worth knowing that it works
-     * because it is how a scene gets populated in the first place.
+     * Creating an actor from the sidebar, entirely through the pointer.
+     *
+     * Foundry renders a create button per sidebar tab and hides the ones that are not showing, so
+     * the visible one has to be chosen rather than the first match. Picking the first would click
+     * "Create Scene" while reporting on actors.
      */
-    const tokensBefore = canvas.tokens.placeables.length;
-    const entry = document.querySelector(
-      `.directory-item[data-entry-id="${actor.id}"], [data-document-id="${actor.id}"]`
-    );
-    let dropDetail = 'no sidebar entry found for the probe actor';
-    if (entry) {
-      const transfer = new DataTransfer();
-      entry.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
-      dropDetail = transfer.getData('text/plain') || '(Foundry wrote no drag payload)';
-      const at = await aim(token);
-      view.dispatchEvent(
-        new DragEvent('drop', {
-          bubbles: true,
-          cancelable: true,
-          dataTransfer: transfer,
-          clientX: at.clientX + 200,
-          clientY: at.clientY,
-        })
-      );
-      await wait(1200);
+    {
+      const outcomes = [];
+      const madeNames = [];
+      let blockedBy = '';
+      for (let trial = 0; trial < trials; trial += 1) {
+        const name = `[probe] made ${String(trial)}`;
+        await ui.sidebar.changeTab('actors', 'primary');
+        await wait(700);
+
+        /*
+         * Foundry renders a create button per sidebar tab and hides the ones not showing, so the
+         * button has to be chosen by being genuinely on screen, not by being the first match.
+         * Picking the first clicks "Create Scene" while reporting on actors, and a button that has a
+         * layout box can still sit outside the viewport, which makes elementFromPoint return null
+         * and reads as "blocked by nothing".
+         */
+        const createButton = [
+          ...document.querySelectorAll('button[data-action="createEntry"]'),
+        ].find((button) => {
+          const box = button.getBoundingClientRect();
+          if (box.width === 0 || box.height === 0) return false;
+          // The CENTRE has to be on screen, not the whole box. A sidebar button flush against the
+          // right edge can overhang by a pixel and still be perfectly clickable.
+          const cx = box.x + box.width / 2;
+          const cy = box.y + box.height / 2;
+          return cx >= 0 && cy >= 0 && cx <= window.innerWidth && cy <= window.innerHeight;
+        });
+
+        const aimed = await aimAtElement(createButton);
+        if (!aimed.landed) {
+          blockedBy = `create button blocked by ${aimed.topmost}`;
+          outcomes.push('AIM');
+          continue;
+        }
+        pointer.leftClick();
+        await wait(1200);
+
+        const dialog = [...document.querySelectorAll('.application')].find(
+          (element) => element.querySelector('input[name="name"]') !== null
+        );
+        if (!dialog) {
+          outcomes.push('no');
+          continue;
+        }
+
+        const nameInput = dialog.querySelector('input[name="name"]');
+        nameInput.value = name;
+        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        nameInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+        const submit = dialog.querySelector('button[type="submit"], button[data-action="ok"]');
+        const submitAimed = await aimAtElement(submit);
+        if (!submitAimed.landed) {
+          blockedBy = `create dialog submit blocked by ${submitAimed.topmost}`;
+          outcomes.push('AIM');
+          continue;
+        }
+        pointer.leftClick();
+        await wait(1800);
+
+        const made = game.actors.getName(name);
+        outcomes.push(made ? 'yes' : 'no');
+        if (made) {
+          madeNames.push(name);
+          if (made.sheet?.rendered) await made.sheet.close();
+          await made.delete().catch(() => undefined);
+        }
+        await wait(300);
+      }
+      results.push({
+        name: 'create an actor from the sidebar',
+        pointerTrials: outcomes,
+        controlTrials: null,
+        note:
+          `created ${String(madeNames.length)} actor(s) end to end through the pointer` +
+          (blockedBy === '' ? '' : `; ${blockedBy}`),
+      });
     }
-    const dropped = canvas.tokens.placeables.length > tokensBefore;
+
+    /*
+     * Assigning ownership, and having it persist.
+     *
+     * ⚠️ The <select> value is set programmatically on purpose, and that is a real limit rather than
+     * a shortcut: a native select dropdown is operating system UI that no synthesised pointer event
+     * can open or choose from, on any platform. What IS driven by the pointer is the part that
+     * matters on a phone, which is finding and pressing Save Changes. The assertion is that the
+     * ownership actually persisted on the document afterwards.
+     */
+    {
+      const outcomes = [];
+      for (let trial = 0; trial < trials; trial += 1) {
+        const type = game.documentTypes.Actor.find((t) => t !== 'base');
+        const actor = await Actor.create({ name: '[probe] ownership', type });
+        let player = game.users.find((user) => user.name === '[probe] player');
+        if (!player) {
+          player = await User.create({
+            name: '[probe] player',
+            role: CONST.USER_ROLES.PLAYER,
+          });
+        }
+
+        const app = new foundry.applications.apps.DocumentOwnershipConfig({ document: actor });
+        await app.render(true);
+        await wait(1500);
+
+        const root = app.element instanceof HTMLElement ? app.element : app.element?.[0];
+        const select = root?.querySelector(`select[name="${player.id}"]`);
+        const submit = root?.querySelector('button[type="submit"]');
+
+        if (!select || !submit) {
+          outcomes.push('no');
+        } else {
+          select.value = String(CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER);
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+
+          const aimed = await aimAtElement(submit);
+          if (!aimed.landed) {
+            outcomes.push('AIM');
+          } else {
+            pointer.leftClick();
+            await wait(1500);
+            const level = actor.ownership?.[player.id];
+            outcomes.push(level === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER ? 'yes' : 'no');
+          }
+        }
+
+        await app.close().catch(() => undefined);
+        await actor.delete().catch(() => undefined);
+        await player.delete().catch(() => undefined);
+        await wait(300);
+      }
+      results.push({
+        name: 'assign ownership and have it persist',
+        pointerTrials: outcomes,
+        controlTrials: null,
+        note: 'the select is set programmatically because a native dropdown is OS UI; the Save press is the pointer',
+      });
+    }
+
+    /*
+     * Dropping an actor from the sidebar onto the map. HTML5 drag and drop, so it never touches the
+     * virtual pointer, but it is how a scene gets populated in the first place.
+     */
+    const dropOutcomes = [];
+    let dropNote = '';
+    for (let trial = 0; trial < trials; trial += 1) {
+      const outcome = await withFixture(async ({ actor, token }) => {
+        const before = canvas.tokens.placeables.length;
+        const entry = document.querySelector(
+          `.directory-item[data-entry-id="${actor.id}"], [data-document-id="${actor.id}"]`
+        );
+        if (!entry) return 'no';
+        const transfer = new DataTransfer();
+        entry.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
+        dropNote = transfer.getData('text/plain') || '(Foundry wrote no drag payload)';
+        const aimed = await aim(token);
+        view.dispatchEvent(
+          new DragEvent('drop', {
+            bubbles: true,
+            cancelable: true,
+            dataTransfer: transfer,
+            clientX: aimed.at.clientX + 200,
+            clientY: aimed.at.clientY,
+          })
+        );
+        await wait(1200);
+        const after = canvas.tokens.placeables.length;
+        // Remove anything the drop created, so the next trial starts level.
+        const extras = canvas.tokens.placeables
+          .filter((t) => t.name.startsWith('[probe]') && t.id !== token.id)
+          .map((t) => t.id);
+        if (extras.length > 0) await canvas.scene.deleteEmbeddedDocuments('Token', extras);
+        return after > before ? 'yes' : 'no';
+      });
+      dropOutcomes.push(outcome);
+    }
     results.push({
       name: 'drop a token from the actor sidebar',
-      pointerTrials: [dropped],
+      pointerTrials: dropOutcomes,
       controlTrials: null,
-      pointerReliable: dropped,
-      pointerSometimes: dropped,
-      controlReliable: null,
-      note: dropDetail,
+      note: dropNote,
     });
 
-    await canvas.scene.deleteEmbeddedDocuments(
-      'Token',
-      canvas.tokens.placeables.filter((t) => t.name.startsWith('[probe]')).map((t) => t.id)
-    );
-    await actor.delete();
     return results;
-  });
+  }, TRIALS);
 
   console.log(
-    JSON.stringify({ target: BASE, world: status.world, core: status.version, rows }, null, 2)
+    JSON.stringify(
+      { target: BASE, world: status.world, core: status.version, trials: TRIALS, rows },
+      null,
+      2
+    )
   );
 
-  const verdict = (row) => {
-    if (row.pointerReliable) return 'YES';
-    if (row.pointerSometimes) return 'FLAKY';
+  const verdict = (trialsList) => {
+    if (trialsList.every((o) => o === 'yes')) return 'YES';
+    if (trialsList.some((o) => o === 'AIM')) return 'AIM FAILED';
+    if (trialsList.some((o) => o === 'yes')) return 'FLAKY';
     return 'no';
   };
-  const controlText = (row) => {
-    if (row.controlTrials === null) return 'not needed';
-    if (row.controlReliable) return 'reliable -> OUR GAP';
-    if (row.controlTrials.some(Boolean)) return 'flaky -> inconclusive';
-    return 'also fails -> inconclusive';
-  };
 
-  console.error('\ncapability                                  | via pointer | native control');
+  console.error(
+    `\ncapability                                  | via pointer | native control  (${String(TRIALS)} trials each)`
+  );
   console.error(
     '--------------------------------------------|-------------|---------------------------'
   );
   for (const row of rows) {
-    console.error(`${row.name.padEnd(43)} | ${verdict(row).padEnd(11)} | ${controlText(row)}`);
+    const control =
+      row.controlTrials === null
+        ? 'not needed'
+        : row.controlTrials.every((o) => o === 'yes')
+          ? 'reliable -> OUR GAP'
+          : row.controlTrials.some((o) => o === 'yes')
+            ? 'flaky -> inconclusive'
+            : 'also fails -> inconclusive';
+    console.error(`${row.name.padEnd(43)} | ${verdict(row.pointerTrials).padEnd(11)} | ${control}`);
   }
 
-  /*
-   * A gap needs the pointer to fail EVERY trial and the control to succeed in EVERY trial. A flaky
-   * control convicts nothing: it was a single flaky control trial that produced a confident and
-   * false "dragging a token is broken" the first time this ran.
-   */
-  const gaps = rows.filter((row) => !row.pointerSometimes && row.controlReliable === true);
+  const gaps = rows.filter(
+    (row) =>
+      !row.pointerTrials.some((o) => o === 'yes') &&
+      row.controlTrials !== null &&
+      row.controlTrials.every((o) => o === 'yes')
+  );
   console.error(
     `\n${String(gaps.length)} capability gap(s): the pointer failed every trial and a native control succeeded in every trial.`
   );
-  const flaky = rows.filter((row) => row.pointerSometimes && !row.pointerReliable);
-  if (flaky.length > 0) {
-    console.error(
-      `${String(flaky.length)} capability(s) FLAKY through the pointer, which is its own finding: ${flaky.map((row) => row.name).join(', ')}`
-    );
-  }
+  process.exitCode = gaps.length > 0 ? 1 : 0;
 } finally {
   await removeProbeScene(page, scene);
   await browser.close();

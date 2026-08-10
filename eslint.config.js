@@ -88,6 +88,10 @@ export default tseslint.config(
         Scene: 'readonly',
         // Added 2026-08-10 for the hover check, which creates a probe Actor to hang tokens on.
         Actor: 'readonly',
+        // Added 2026-08-10 for the play probe, which creates a probe player and configures ownership.
+        User: 'readonly',
+        CONST: 'readonly',
+        foundry: 'readonly',
       },
     },
   }

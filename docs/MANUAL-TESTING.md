@@ -109,30 +109,42 @@ A capability matrix rather than a pass/fail check, measured 2026-08-10 on deskto
 Foundry 14.365. Anything that fails is retried with a **native control** dispatched straight at the
 canvas with the module bypassed, so a red says whose fault it is (ADR 0010).
 
-Each case resets to a known state before **every** attempt and runs **twice**, on both paths. A gap
-is claimed only when the pointer fails every trial and the control succeeds in every trial.
+Every trial builds its **own** actor and token and deletes them again, every path runs **three
+times**, and the aim is asserted as its own precondition. A gap is claimed only when the pointer fails
+every trial and a native control succeeds in every trial.
 
-| capability                           | via pointer | native control                 |
-| ------------------------------------ | ----------- | ------------------------------ |
-| select a token                       | ✅ yes      | not needed                     |
-| roll dice from the chat box          | ✅ yes      | not needed                     |
-| drop a token from actor sidebar      | ✅ yes      | not needed                     |
-| **open the token HUD, right click**  | ❌ no       | **reliable, so it is our gap** |
-| drag a token to a new square         | ❌ no       | flaky, inconclusive            |
-| open a character sheet, double click | ❌ no       | also fails, inconclusive       |
-| zoom with the wheel                  | ❌ no       | also fails, inconclusive       |
+| capability                           | via pointer   | native control           |
+| ------------------------------------ | ------------- | ------------------------ |
+| select a token                       | ✅ yes        | not needed               |
+| open the token HUD, right click      | ✅ yes        | not needed               |
+| drag a token to a new square         | ✅ yes        | not needed               |
+| zoom with the wheel                  | ✅ yes        | not needed               |
+| roll dice from the chat box          | ✅ yes        | not needed               |
+| assign ownership and have it persist | ✅ yes        | not needed               |
+| drop a token from actor sidebar      | ✅ yes        | not needed               |
+| open a character sheet, double click | ❌ no         | also fails, inconclusive |
+| create an actor from the sidebar     | ⚠️ aim failed | harness limitation       |
 
-**One confirmed gap: the token HUD on right click.** `check:touch` already proves a `contextmenu`
-event fires at the pointer. That is the weaker claim: the event fires and the HUD does not open. Same
-position-versus-semantics distinction as hover.
+**Zero confirmed capability gaps.** Seven of nine work reliably through the virtual pointer, three
+trials each.
 
-The rest are **inconclusive, not cleared**, and inconclusive is not the same as broken.
+- **Character sheet on double click** fails for a hand built native event too, so scripted input
+  cannot express it here and nothing is concluded about the module.
+- **Create an actor from the sidebar** is a **harness** limitation, not a finding: the probe cannot
+  locate the sidebar create button in a headless window, so it reports `AIM FAILED` rather than a
+  verdict it has not earned. Worth doing by hand on the device.
+- **Assigning ownership** drives the Save press through the pointer and asserts the ownership
+  persisted on the document. The `<select>` itself is set programmatically, and that is a genuine
+  limit rather than a shortcut: a native dropdown is operating system UI that no synthesised pointer
+  event can open on any platform.
 
-> ⚠️ **An earlier version of this table claimed dragging was broken and called it the biggest hole in
-> the module. That was wrong.** The probe ran its control only after the module attempt had already
-> failed, from whatever state that failure left behind, and reported a single trial as fact.
-> Re-measured in isolation with a reset before every attempt: the module drag moved the token on both
-> trials, and the native control was the flaky one. A control that runs second is not a control.
+> ⚠️ **Two earlier versions of this table were wrong, both claiming gaps that did not exist**, at one
+> point calling dragging "the biggest hole in the module". Every failure they reported survived
+> isolation intact. Three causes, all now fixed: the control ran only _after_ the subject had already
+> failed, from the state that failure left behind; a single trial was reported as fact; and all
+> capabilities shared **one** actor, **one** token and one accumulating world, so each case inherited
+> the wreckage of the last. A probe that reuses a fixture across cases measures history, not
+> behaviour.
 
 > ⚠️ Foundry 14's chat box is a `<prose-mirror>` element, not a `<textarea>`. Setting `.value` does
 > nothing at all, silently. Type through the contenteditable the editor owns.
