@@ -23,6 +23,7 @@ import {
   HOST_BASE,
   MODULE_ID,
   connectAndroidBrowser,
+  PROBE_PREFIX,
   ensureActiveScene,
   ensureModuleEnabled,
   joinWorld,
@@ -212,6 +213,275 @@ async function checkKeyboardStrategy(page, log) {
 }
 
 /**
+ * Two probe tokens on the active scene, so hover can be judged and so moving BETWEEN them can be.
+ *
+ * Returns the ids to delete, or null when the world cannot supply an actor type. Everything created
+ * carries PROBE_PREFIX and is removed in the finally, same contract as the probe scene.
+ *
+ * displayName is set to 30, TOKEN_DISPLAY_MODES.HOVER, deliberately. That is the mode whose
+ * nameplate visibility Foundry derives from the hover state, so the nameplate becomes a readable
+ * consequence of hovering rather than a decoration that was always on.
+ */
+async function createProbeTokens(page) {
+  return page.evaluate(async (prefix) => {
+    const actorType = game.documentTypes.Actor.find((type) => type !== 'base');
+    if (actorType === undefined) {
+      return null;
+    }
+
+    const actor = await Actor.create({ name: `${prefix} hover probe`, type: actorType });
+    if (!actor) {
+      return null;
+    }
+
+    const grid = canvas.scene.grid.size;
+    const placements = [
+      { x: grid * 3, y: grid * 3 },
+      { x: grid * 6, y: grid * 3 },
+    ];
+
+    const tokens = await canvas.scene.createEmbeddedDocuments(
+      'Token',
+      placements.map((at, index) => ({
+        name: `${prefix} hover ${String(index)}`,
+        actorId: actor.id,
+        x: at.x,
+        y: at.y,
+        width: 1,
+        height: 1,
+        // TOKEN_DISPLAY_MODES.HOVER, so the nameplate follows hover rather than being always on.
+        displayName: 30,
+      }))
+    );
+
+    /*
+     * Wait for the placeables to be DRAWN. createEmbeddedDocuments resolves when the documents
+     * exist, which is earlier than when canvas.tokens has objects for them, so reading a baseline
+     * straight away reports nameplate visibility as null and the whole check judges nothing.
+     */
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const drawn = tokens.every((token) => canvas.tokens.get(token.id)?.nameplate !== undefined);
+      if (drawn) {
+        break;
+      }
+      await new Promise((resolve) => {
+        setTimeout(resolve, 100);
+      });
+    }
+
+    return { actorId: actor.id, tokenIds: tokens.map((token) => token.id) };
+  }, PROBE_PREFIX);
+}
+
+async function removeProbeTokens(page, probe) {
+  if (!probe) {
+    return;
+  }
+  await page
+    .evaluate(async ({ actorId, tokenIds }) => {
+      await canvas.scene.deleteEmbeddedDocuments('Token', tokenIds);
+      await game.actors.get(actorId)?.delete();
+    }, probe)
+    .catch((error) => {
+      console.error(`could not remove the probe tokens: ${String(error)}`);
+    });
+}
+
+/**
+ * Hover, which is the entire reason this module exists.
+ *
+ * Position tracking was already proven in ADR 0005: the canvas follows the pointer. That is a
+ * strictly weaker claim than this one. A pointer can update `canvas.mousePosition` perfectly while
+ * Foundry never runs a single hover transition, and the user would see a cursor gliding over tokens
+ * that never light up, never show a nameplate and never open a PF2e HUD panel. Nothing had ever
+ * measured the difference.
+ *
+ * Judged against Foundry's own state, never a CSS class:
+ *   - `token.hover`, the getter on PlaceableObject
+ *   - `canvas.tokens.hover`, the layer's record of which object is current
+ *   - `token.nameplate.visible`, which for displayName 30 Foundry derives from hover
+ *
+ * ⛔ `highlightObjects` is asserted off first. `_canViewMode(HOVER)` returns
+ * `this.hover || this.layer.highlightObjects`, so with highlighting on every nameplate is visible and
+ * this check would pass without the pointer having done anything at all.
+ */
+async function checkHoverSemantics(page, probe) {
+  if (!probe || probe.tokenIds.length < 2) {
+    skip('hovering a token makes Foundry hover it', 'the world could not supply two probe tokens');
+    return;
+  }
+
+  const baseline = await page.evaluate(
+    ({ ids }) => {
+      const tokens = ids.map((id) => canvas.tokens.get(id));
+      return {
+        highlightObjects: canvas.tokens.highlightObjects === true,
+        hovered: tokens.map((token) => token?.hover ?? null),
+        nameplates: tokens.map((token) => token?.nameplate?.visible ?? null),
+      };
+    },
+    { ids: probe.tokenIds }
+  );
+
+  /*
+   * The two conditions that would make everything below meaningless, and only those.
+   *
+   * Nameplate visibility is deliberately NOT asserted here, only reported. A freshly drawn token
+   * carries visible=true until Foundry's first refresh applies displayName, so a baseline read can
+   * legitimately catch it either way. Asserting it produced a failure that said nothing about the
+   * module. The nameplate assertion that matters is the TRANSITION, further down.
+   */
+  record(
+    'nothing is highlighting every token, which would make a hover check meaningless',
+    baseline.highlightObjects === false && baseline.hovered.every((h) => h === false),
+    `highlightObjects=${baseline.highlightObjects}, hover=${JSON.stringify(baseline.hovered)}, nameplates (reported, not asserted)=${JSON.stringify(baseline.nameplates)}`
+  );
+
+  /** Drive the pointer to a token's centre, in client pixels, and report what Foundry saw. */
+  const hoverToken = async (index) =>
+    page.evaluate(
+      async ({ id, ids, moduleId }) => {
+        const token = canvas.tokens.get(id);
+        const centre = token.center;
+
+        /*
+         * Pan to the token before converting, because a token can be perfectly placed and still be
+         * nowhere near the screen. On a 3000px scene at 0.5 zoom the first attempt aimed at client
+         * (-769, -584): the maths was right and the token was simply off view, and the pointer
+         * clamps at the viewport edge so it never arrived. Panning makes the target reachable
+         * instead of merely computable.
+         */
+        canvas.pan({ x: centre.x, y: centre.y });
+        await new Promise((resolve) => {
+          setTimeout(resolve, 300);
+        });
+
+        const global = canvas.stage.toGlobal({ x: centre.x, y: centre.y });
+        const view = canvas.app.view.getBoundingClientRect();
+        const client = { clientX: view.x + global.x, clientY: view.y + global.y };
+
+        game.modules.get(moduleId).api.getPointer().moveTo(client);
+        await new Promise((resolve) => {
+          setTimeout(resolve, 250);
+        });
+
+        const tokens = ids.map((other) => canvas.tokens.get(other));
+        return {
+          client,
+          // Cross check the coordinate maths against Foundry's own reading of where the mouse is,
+          // so a hover failure can be told apart from a conversion failure.
+          mouse: { x: canvas.mousePosition.x, y: canvas.mousePosition.y },
+          insideToken:
+            canvas.mousePosition.x >= token.document.x &&
+            canvas.mousePosition.x <= token.document.x + token.w &&
+            canvas.mousePosition.y >= token.document.y &&
+            canvas.mousePosition.y <= token.document.y + token.h,
+          hovered: tokens.map((other) => other?.hover ?? null),
+          nameplates: tokens.map((other) => other?.nameplate?.visible ?? null),
+          layerHoverIsThis: canvas.tokens.hover === token,
+        };
+      },
+      { id: probe.tokenIds[index], ids: probe.tokenIds, moduleId: MODULE_ID }
+    );
+
+  const first = await hoverToken(0);
+
+  record(
+    'the pointer lands inside the token it is aimed at',
+    first.insideToken,
+    `moved to client (${Math.round(first.client.clientX)}, ${Math.round(first.client.clientY)}), Foundry read the mouse at scene (${Math.round(first.mouse.x)}, ${Math.round(first.mouse.y)})`
+  );
+
+  /*
+   * If hover did not happen, find out WHOSE fault it is before reporting anything.
+   *
+   * The control is a hand built pointermove at the identical coordinates, dispatched straight at the
+   * canvas with the module bypassed entirely. If the control produces hover and we did not, the
+   * module is at fault and that is a real failure. If the control fails too, this browser cannot
+   * produce a hover transition from any scripted pointer event, and blaming the module would be
+   * simply wrong.
+   *
+   * Measured 2026-08-10: desktop Chrome gives hover=true for both, the Chromium 133 emulator gives
+   * hover=false for both. Same module, same Foundry, same PIXI 7.4.3. Without this control the check
+   * reports a confident, plausible and false module bug.
+   */
+  if (first.hovered[0] !== true) {
+    const control = await page.evaluate(
+      async ({ id, at }) => {
+        const token = canvas.tokens.get(id);
+        canvas.app.view.dispatchEvent(
+          new PointerEvent('pointermove', {
+            clientX: at.clientX,
+            clientY: at.clientY,
+            bubbles: true,
+            cancelable: true,
+            pointerId: 1,
+            pointerType: 'mouse',
+            isPrimary: true,
+            buttons: 0,
+            button: -1,
+          })
+        );
+        await new Promise((resolve) => {
+          setTimeout(resolve, 400);
+        });
+        return { hovered: token?.hover === true };
+      },
+      { id: probe.tokenIds[0], at: first.client }
+    );
+
+    if (!control.hovered) {
+      skip(
+        'hovering a token makes Foundry hover it',
+        'this browser produces no hover from ANY scripted pointer event. A hand built pointermove ' +
+          'at the same coordinates, with the module bypassed, also failed to hover, while the same ' +
+          'control succeeds on desktop Chrome. The module is not implicated; the environment cannot ' +
+          'express the behaviour. Re-run on a device with Chromium 146 or newer.'
+      );
+      skip('hovering a token shows its nameplate', 'hover itself could not be produced here');
+      skip(
+        'moving between two tokens updates the hover rather than leaving the first one lit',
+        'hover itself could not be produced here'
+      );
+      return;
+    }
+
+    record(
+      'hovering a token makes Foundry hover it',
+      false,
+      `the module's pointer did not hover, but a hand built pointermove at the SAME coordinates did. ` +
+        `That points at the module rather than the browser.`
+    );
+    return;
+  }
+
+  record(
+    'hovering a token makes Foundry hover it',
+    first.hovered[0] === true && first.layerHoverIsThis,
+    `token.hover=${String(first.hovered[0])}, canvas.tokens.hover is this token=${String(first.layerHoverIsThis)}`
+  );
+
+  record(
+    'hovering a token shows its nameplate',
+    first.nameplates[0] === true,
+    `nameplate.visible went ${String(baseline.nameplates[0])} -> ${String(first.nameplates[0])}`
+  );
+
+  const second = await hoverToken(1);
+
+  /*
+   * The checklist item that matters most, and the one a single token cannot express: moving between
+   * two tokens has to turn the first one OFF. A hover that only ever accumulates leaves a trail of
+   * lit tokens behind the cursor, which is worse than no hover at all.
+   */
+  record(
+    'moving between two tokens updates the hover rather than leaving the first one lit',
+    second.hovered[1] === true && second.hovered[0] === false,
+    `after moving to the second token, hover reads ${JSON.stringify(second.hovered)} and nameplates ${JSON.stringify(second.nameplates)}`
+  );
+}
+
+/**
  * Tap clicks at the pointer, not under the finger. The trackpad model, on real hardware.
  *
  * Judged by Foundry's own sidebar state rather than by a CSS class, and deliberately with the finger
@@ -297,10 +567,61 @@ async function checkTapClicksAtPointer(page, finger) {
   await page.waitForTimeout(600);
 
   const after = await page.evaluate(() => ui.sidebar.tabGroups.primary);
+
+  if (after === 'combat' && target.before !== 'combat') {
+    record(
+      'tap clicks at the pointer rather than under the finger',
+      true,
+      `pointer parked on the combat tab, finger tapped at (${spot.x},${spot.y}) over ${spot.over}, sidebar went ${target.before} -> ${after}`
+    );
+    return;
+  }
+
+  /*
+   * The tap did not activate the tab. Establish WHOSE fault that is before reporting it, the same
+   * way the hover check does, because "tap is broken" and "this page ignores scripted clicks" look
+   * identical from the outside and lead to completely different work.
+   *
+   * The control is a plain scripted click on the same element with the module bypassed. Measured
+   * 2026-08-10 on the Chromium 133 emulator: the control switched the tab while the module's tap
+   * delivered pointerdown, mousedown, pointerup and mouseup to the right element and never a click.
+   * That is a real gap rather than an environment limit, so it is reported as a failure and the
+   * detail says exactly which events did arrive.
+   */
+  const control = await page.evaluate(async () => {
+    const tab = document.querySelector('button[data-tab="combat"]');
+    const seen = [];
+    const spy = (event) => seen.push(event.type);
+    for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+      tab.addEventListener(type, spy, { once: true });
+    }
+    const before = ui.sidebar.tabGroups.primary;
+    tab.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, view: window, detail: 1 })
+    );
+    await new Promise((resolve) => {
+      setTimeout(resolve, 600);
+    });
+    return { before, after: ui.sidebar.tabGroups.primary, seen };
+  });
+
+  if (control.after !== 'combat') {
+    skip(
+      'tap clicks at the pointer rather than under the finger',
+      `this page does not respond to a scripted click at all: a plain click dispatched straight at ` +
+        `the tab, with the module bypassed, left the sidebar on ${control.after}. Nothing about the ` +
+        `module can be concluded from that.`
+    );
+    return;
+  }
+
   record(
     'tap clicks at the pointer rather than under the finger',
-    after === 'combat' && target.before !== 'combat',
-    `pointer parked on the combat tab, finger tapped at (${spot.x},${spot.y}) over ${spot.over}, sidebar went ${target.before} -> ${after}`
+    false,
+    `pointer parked on the combat tab, finger tapped at (${spot.x},${spot.y}) over ${spot.over}, ` +
+      `sidebar stayed on ${after}. A plain scripted click on the SAME element does switch it ` +
+      `(${control.before} -> ${control.after}), so the page is fine and the tap is not producing an ` +
+      `activation the tab acts on.`
   );
 }
 
@@ -312,6 +633,7 @@ async function main() {
   const errors = captureAttributedErrors(page);
   let createdScene = null;
   let originalBarPosition = null;
+  let probeTokens = null;
 
   try {
     record(
@@ -417,11 +739,15 @@ async function main() {
       );
       const client = await page.context().newCDPSession(page);
       await checkTapClicksAtPointer(page, new Finger(client));
+
+      probeTokens = await createProbeTokens(page);
+      await checkHoverSemantics(page, probeTokens);
     } else {
       skip(
         'tap clicks at the pointer rather than under the finger',
         'the canvas never became ready'
       );
+      skip('hovering a token makes Foundry hover it', 'the canvas never became ready');
     }
 
     const ours = errors.filter(
@@ -449,6 +775,8 @@ async function main() {
           console.error('could not restore the original modifier bar position');
         });
     }
+    // Tokens before the scene, since deleting the scene first would orphan the delete.
+    await removeProbeTokens(page, probeTokens);
     await removeProbeScene(page, createdScene);
     await browser.close();
   }

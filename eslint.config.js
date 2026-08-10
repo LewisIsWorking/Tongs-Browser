@@ -86,6 +86,8 @@ export default tseslint.config(
         ui: 'readonly',
         canvas: 'readonly',
         Scene: 'readonly',
+        // Added 2026-08-10 for the hover check, which creates a probe Actor to hang tokens on.
+        Actor: 'readonly',
       },
     },
   }
