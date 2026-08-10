@@ -23,13 +23,13 @@ import {
   BASE,
   MODULE_ID,
   captureModuleLog,
+  ensureActiveScene,
   ensureModuleEnabled,
   joinWorld,
   launchBrowser,
+  removeProbeScene,
   requireActiveWorld,
 } from './foundry-session.mjs';
-
-const PROBE_PREFIX = '[probe]';
 
 const results = [];
 
@@ -264,32 +264,6 @@ async function checkSceneControlToggle(page) {
   );
 }
 
-/** Create a scene only if the world has no active one, and say which happened. */
-async function ensureActiveScene(page) {
-  const existing = await page.evaluate(() => globalThis.canvas?.ready === true);
-  if (existing) {
-    return null;
-  }
-
-  const id = await page.evaluate(async (prefix) => {
-    const scene = await Scene.create({
-      name: `${prefix} Tongs Browser canvas check`,
-      width: 2000,
-      height: 2000,
-      grid: { size: 100 },
-      padding: 0.25,
-    });
-    await scene.activate();
-    return scene.id;
-  }, PROBE_PREFIX);
-
-  await page.waitForFunction(() => globalThis.canvas?.ready === true, undefined, {
-    timeout: 120_000,
-  });
-
-  return id;
-}
-
 async function main() {
   const status = await requireActiveWorld();
   const { browser, page } = await launchBrowser();
@@ -317,15 +291,7 @@ async function main() {
     const errors = log.filter((line) => line.startsWith('pageerror') || line.startsWith('error'));
     record('no page errors from the module', errors.length === 0, errors.join(' | ') || 'none');
   } finally {
-    if (createdScene !== null) {
-      await page
-        .evaluate(async (id) => {
-          await game.scenes.get(id)?.delete();
-        }, createdScene)
-        .catch((error) => {
-          console.error(`could not delete the probe scene ${createdScene}: ${String(error)}`);
-        });
-    }
+    await removeProbeScene(page, createdScene);
     await browser.close();
   }
 

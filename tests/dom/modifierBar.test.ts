@@ -432,6 +432,101 @@ describe('ModifierBar drag handle', () => {
     expect(bar.getPosition()).toEqual({ x: 200, y: 150 });
   });
 
+  /**
+   * The bar is kept inside the viewport, using the numbers a real device produced.
+   *
+   * Measured 2026-08-10 on a 412x783 Android viewport running Foundry 14.365: the bar rendered from
+   * x 88 to x 532 and put Esc, Enter and Tab entirely off screen, with no clamping anywhere in the
+   * class. jsdom reports offsetWidth as 0, which is exactly why the live check found this and the
+   * unit suite did not, so the size is stubbed here rather than assumed.
+   */
+  describe('staying inside the viewport', () => {
+    const PHONE = { width: 412, height: 783 };
+
+    function barSized(
+      width: number,
+      height: number,
+      initialPosition = { x: 0, y: 0 }
+    ): ModifierBar {
+      const bar = new ModifierBar({
+        document,
+        synthesizer: synthesizer(null),
+        onFlagsChanged: () => undefined,
+        initialPosition,
+      });
+      bar.attach();
+      // jsdom has no layout engine, so the laid out size has to be supplied.
+      Object.defineProperty(bar.getElement(), 'offsetWidth', { value: width, configurable: true });
+      Object.defineProperty(bar.getElement(), 'offsetHeight', {
+        value: height,
+        configurable: true,
+      });
+      return bar;
+    }
+
+    beforeEach(() => {
+      Object.defineProperty(window, 'innerWidth', { value: PHONE.width, configurable: true });
+      Object.defineProperty(window, 'innerHeight', { value: PHONE.height, configurable: true });
+    });
+
+    it('pulls the bar back when it would hang off the right edge', () => {
+      const bar = barSized(404, 52);
+      bar.setPosition({ x: 88, y: 120 });
+
+      // 412 - 404 = 8, so the shipped default of 88 cannot be honoured on a phone.
+      expect(bar.getPosition()).toEqual({ x: 8, y: 120 });
+    });
+
+    it('pulls the bar back when it would hang off the bottom edge', () => {
+      const bar = barSized(200, 100);
+      bar.setPosition({ x: 10, y: 760 });
+
+      expect(bar.getPosition()).toEqual({ x: 10, y: 683 });
+    });
+
+    it('leaves a position that already fits completely alone', () => {
+      const bar = barSized(200, 100);
+      bar.setPosition({ x: 30, y: 40 });
+
+      expect(bar.getPosition()).toEqual({ x: 30, y: 40 });
+    });
+
+    /**
+     * Feeding the guard the original bug: a 444px bar on a 412px viewport, which is what shipped.
+     * It cannot fit, so the requirement is that its LEFT edge is visible. Centring the overflow or
+     * allowing a negative x would hide controls on both sides instead of one.
+     */
+    it('shows the left edge when the bar is genuinely wider than the screen', () => {
+      const bar = barSized(444, 52);
+      bar.setPosition({ x: 88, y: 120 });
+
+      expect(bar.getPosition()).toEqual({ x: 0, y: 120 });
+    });
+
+    it('never moves the bar to a negative coordinate', () => {
+      const bar = barSized(200, 100);
+      bar.setPosition({ x: -50, y: -80 });
+
+      expect(bar.getPosition()).toEqual({ x: 0, y: 0 });
+    });
+
+    /**
+     * Before layout the element reports a size of zero, and a clamp built on that would slam the bar
+     * to the top left on every attach. Doing nothing is the correct answer until a size is known.
+     */
+    it('leaves the position untouched while the element has no measured size', () => {
+      const bar = new ModifierBar({
+        document,
+        synthesizer: synthesizer(null),
+        onFlagsChanged: () => undefined,
+        initialPosition: { x: 300, y: 700 },
+      });
+      bar.attach();
+
+      expect(bar.getPosition()).toEqual({ x: 300, y: 700 });
+    });
+  });
+
   it('ignores a move from a different pointer than the one that started the drag', () => {
     const bar = new ModifierBar({
       document,

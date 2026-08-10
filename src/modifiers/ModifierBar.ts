@@ -274,7 +274,40 @@ export class ModifierBar {
     }
   }
 
+  /**
+   * Place the bar, keeping it fully on screen.
+   *
+   * There was no clamping here at all, and on a phone that is not a cosmetic problem. Measured
+   * 2026-08-10 on a 412px wide Android viewport: the bar rendered from x 88 to x 532, leaving Esc,
+   * Enter and Tab off the right edge with no way to reach them. The CSS wrap keeps the bar narrow
+   * enough to fit; this keeps it positioned somewhere it can be seen, including after a drag toward
+   * an edge and after a rotation that makes the viewport smaller than it was when the position was
+   * saved.
+   *
+   * Measured, not assumed: the size is read back from the laid out element rather than computed from
+   * the key count, because the bar wraps and its height therefore depends on the viewport width.
+   * Clamping to a remembered width would reintroduce the same class of bug the wrap just fixed.
+   *
+   * The lower bound is 0 rather than a margin, so that a viewport genuinely narrower than the bar
+   * shows its left edge rather than centring the overflow and cutting off both sides.
+   *
+   * The clamp is written back to this.position rather than applied only to the style. Clamping just
+   * the rendered position would leave the two disagreeing, and onHandlePointerDown builds its drag
+   * offset from this.position, so the next grab would jump the bar by exactly the difference. A
+   * remembered position that no longer fits is worth less than a drag that behaves.
+   */
   private applyPosition(): void {
+    // Zero before layout, in which case the clamp is a no op and the position is applied unchanged.
+    const width = this.root.offsetWidth;
+    const height = this.root.offsetHeight;
+    const maxX = Math.max(0, window.innerWidth - width);
+    const maxY = Math.max(0, window.innerHeight - height);
+
+    this.position = {
+      x: Math.min(Math.max(this.position.x, 0), maxX),
+      y: Math.min(Math.max(this.position.y, 0), maxY),
+    };
+
     this.root.style.left = `${String(this.position.x)}px`;
     this.root.style.top = `${String(this.position.y)}px`;
   }

@@ -27,6 +27,7 @@
     "check:foundry": "node scripts/foundry-live-check.mjs",
     "check:touch": "node scripts/foundry-touch-check.mjs",
     "check:multitouch": "node scripts/foundry-multitouch-check.mjs",
+    "check:android": "node scripts/foundry-android-check.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

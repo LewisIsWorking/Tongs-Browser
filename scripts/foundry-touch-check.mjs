@@ -22,13 +22,14 @@ import {
   BASE,
   MODULE_ID,
   captureModuleLog,
+  ensureActiveScene,
   ensureModuleEnabled,
   joinWorld,
   launchBrowser,
+  removeProbeScene,
   requireActiveWorld,
 } from './foundry-session.mjs';
-
-const PROBE_PREFIX = '[probe]';
+import { Finger } from './foundry-touch.mjs';
 
 /** Matches SettingDefinitions. Asserted loosely, but the direction and rough size come from these. */
 const SENSITIVITY = 1.5;
@@ -38,46 +39,6 @@ const results = [];
 
 function record(name, passed, detail) {
   results.push({ name, passed, detail });
-}
-
-/**
- * A finger, driven through CDP rather than through Playwright's touchscreen helper.
- *
- * The helper can tap but cannot hold or drag, and both of those are gestures this module defines
- * behaviour for. Going to the protocol directly is the only way to control the timing between
- * touchStart and touchEnd, which is the entire difference between a tap and a long press.
- */
-class Finger {
-  constructor(client) {
-    this.client = client;
-  }
-
-  async down(x, y) {
-    await this.client.send('Input.dispatchTouchEvent', {
-      type: 'touchStart',
-      touchPoints: [{ x, y, id: 1 }],
-    });
-  }
-
-  async moveTo(x, y) {
-    await this.client.send('Input.dispatchTouchEvent', {
-      type: 'touchMove',
-      touchPoints: [{ x, y, id: 1 }],
-    });
-  }
-
-  async up() {
-    await this.client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  }
-
-  /** A drag in steps, because one large jump is not what a finger does and not what the machine sees. */
-  async drag(fromX, fromY, deltaX, deltaY, steps = 8) {
-    await this.down(fromX, fromY);
-    for (let step = 1; step <= steps; step += 1) {
-      await this.moveTo(fromX + (deltaX * step) / steps, fromY + (deltaY * step) / steps);
-    }
-    await this.up();
-  }
 }
 
 const pointerPosition = (page) =>
@@ -312,30 +273,6 @@ async function checkChatLogIsExcluded(page, finger) {
   );
 }
 
-async function ensureActiveScene(page) {
-  if (await page.evaluate(() => globalThis.canvas?.ready === true)) {
-    return null;
-  }
-
-  const id = await page.evaluate(async (prefix) => {
-    const scene = await Scene.create({
-      name: `${prefix} Tongs Browser touch check`,
-      width: 2000,
-      height: 2000,
-      grid: { size: 100 },
-      padding: 0.25,
-    });
-    await scene.activate();
-    return scene.id;
-  }, PROBE_PREFIX);
-
-  await page.waitForFunction(() => globalThis.canvas?.ready === true, undefined, {
-    timeout: 120_000,
-  });
-
-  return id;
-}
-
 async function main() {
   const status = await requireActiveWorld();
   const { browser, page } = await launchBrowser({ hasTouch: true });
@@ -371,15 +308,7 @@ async function main() {
     const errors = log.filter((line) => line.startsWith('pageerror') || line.startsWith('error'));
     record('no page errors from the module', errors.length === 0, errors.join(' | ') || 'none');
   } finally {
-    if (createdScene !== null) {
-      await page
-        .evaluate(async (id) => {
-          await game.scenes.get(id)?.delete();
-        }, createdScene)
-        .catch((error) => {
-          console.error(`could not delete the probe scene ${createdScene}: ${String(error)}`);
-        });
-    }
+    await removeProbeScene(page, createdScene);
     await browser.close();
   }
 
