@@ -91,29 +91,66 @@ try {
         ...extra,
       });
 
-    async function capability(name, reset, viaModule, viaNative, read) {
-      await reset();
-      await viaModule();
-      await wait(900);
-      const viaPointer = await read();
-
-      let viaControl = null;
-      if (!viaPointer) {
+    /*
+     * Every case runs from a clean state and runs TWICE, for both the module and the control.
+     *
+     * The first version of this ran the control only after the module had already failed, from
+     * whatever state that failure left behind, and reported a single trial as fact. That is not a
+     * control, it is a sequel, and it produced a confident and completely false "dragging a token is
+     * broken". Re-measured with a reset before every attempt and two trials each:
+     *
+     *   module drag  -> moved, moved      (deterministic)
+     *   native drag  -> moved, no move    (flaky)
+     *
+     * The module was reliable and the control was the unreliable one. So a gap is only claimed when
+     * the pointer fails EVERY trial and the control succeeds in EVERY trial. Anything else is
+     * reported as inconclusive, because a flaky control cannot convict anything.
+     */
+    async function capability(name, reset, viaModule, viaNative, read, trials = 2) {
+      const pointerTrials = [];
+      for (let trial = 0; trial < trials; trial += 1) {
         await reset();
-        await viaNative();
+        await viaModule();
         await wait(900);
-        viaControl = await read();
+        pointerTrials.push(await read());
       }
-      results.push({ name, viaPointer, viaControl });
+      const pointerReliable = pointerTrials.every(Boolean);
+
+      let controlTrials = null;
+      if (!pointerReliable) {
+        controlTrials = [];
+        for (let trial = 0; trial < trials; trial += 1) {
+          await reset();
+          await viaNative();
+          await wait(900);
+          controlTrials.push(await read());
+        }
+      }
+
+      results.push({
+        name,
+        pointerTrials,
+        controlTrials,
+        pointerReliable,
+        pointerSometimes: pointerTrials.some(Boolean),
+        controlReliable: controlTrials === null ? null : controlTrials.every(Boolean),
+      });
     }
 
+    /*
+     * Put the world back exactly where it started, including the token's position, before every
+     * single attempt. A reset that leaves the token where the last drag dropped it makes the next
+     * "did it move" read meaningless.
+     */
+    const home = { x: grid * 3, y: grid * 3 };
     const clear = async () => {
       canvas.tokens.releaseAll();
       if (actor.sheet?.rendered) {
         await actor.sheet.close();
       }
       canvas.hud.token?.clear();
-      await wait(300);
+      await canvas.scene.updateEmbeddedDocuments('Token', [{ _id: doc.id, x: home.x, y: home.y }]);
+      await wait(500);
     };
 
     await capability(
@@ -174,16 +211,10 @@ try {
       async () => canvas.hud.token?.rendered === true
     );
 
-    const homeX = token.document.x;
+    const homeX = home.x;
     await capability(
       'drag a token to a new square',
-      async () => {
-        await clear();
-        await canvas.scene.updateEmbeddedDocuments('Token', [
-          { _id: doc.id, x: homeX, y: grid * 3 },
-        ]);
-        await wait(400);
-      },
+      clear,
       async () => {
         await aim(token);
         pointer.leftClick();
@@ -301,10 +332,14 @@ try {
       );
       await wait(1200);
     }
+    const dropped = canvas.tokens.placeables.length > tokensBefore;
     results.push({
       name: 'drop a token from the actor sidebar',
-      viaPointer: canvas.tokens.placeables.length > tokensBefore,
-      viaControl: null,
+      pointerTrials: [dropped],
+      controlTrials: null,
+      pointerReliable: dropped,
+      pointerSometimes: dropped,
+      controlReliable: null,
       note: dropDetail,
     });
 
@@ -320,20 +355,41 @@ try {
     JSON.stringify({ target: BASE, world: status.world, core: status.version, rows }, null, 2)
   );
 
+  const verdict = (row) => {
+    if (row.pointerReliable) return 'YES';
+    if (row.pointerSometimes) return 'FLAKY';
+    return 'no';
+  };
+  const controlText = (row) => {
+    if (row.controlTrials === null) return 'not needed';
+    if (row.controlReliable) return 'reliable -> OUR GAP';
+    if (row.controlTrials.some(Boolean)) return 'flaky -> inconclusive';
+    return 'also fails -> inconclusive';
+  };
+
   console.error('\ncapability                                  | via pointer | native control');
-  console.error('--------------------------------------------|-------------|----------------');
+  console.error(
+    '--------------------------------------------|-------------|---------------------------'
+  );
   for (const row of rows) {
-    const control =
-      row.viaControl === null ? 'not needed' : row.viaControl ? 'WORKS -> our gap' : 'also fails';
-    console.error(
-      `${row.name.padEnd(43)} | ${(row.viaPointer ? 'YES' : 'no').padEnd(11)} | ${control}`
-    );
+    console.error(`${row.name.padEnd(43)} | ${verdict(row).padEnd(11)} | ${controlText(row)}`);
   }
 
-  const gaps = rows.filter((row) => !row.viaPointer && row.viaControl === true);
+  /*
+   * A gap needs the pointer to fail EVERY trial and the control to succeed in EVERY trial. A flaky
+   * control convicts nothing: it was a single flaky control trial that produced a confident and
+   * false "dragging a token is broken" the first time this ran.
+   */
+  const gaps = rows.filter((row) => !row.pointerSometimes && row.controlReliable === true);
   console.error(
-    `\n${String(gaps.length)} capability gap(s) where a native control succeeds and the pointer does not.`
+    `\n${String(gaps.length)} capability gap(s): the pointer failed every trial and a native control succeeded in every trial.`
   );
+  const flaky = rows.filter((row) => row.pointerSometimes && !row.pointerReliable);
+  if (flaky.length > 0) {
+    console.error(
+      `${String(flaky.length)} capability(s) FLAKY through the pointer, which is its own finding: ${flaky.map((row) => row.name).join(', ')}`
+    );
+  }
 } finally {
   await removeProbeScene(page, scene);
   await browser.close();
