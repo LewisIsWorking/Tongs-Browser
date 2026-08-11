@@ -106,6 +106,21 @@ const DRAG_STEPS = 12;
 const COMMIT_TIMEOUT_MS = 8000;
 
 /**
+ * The same wait, on a device, where a Foundry socket round trip is a completely different animal.
+ *
+ * ⚠️ Measured 2026-08-11: a `deleteEmbeddedDocuments` issued to the phone took MINUTES to come back,
+ * long enough that a desktop client deleted the same token first and the phone's call finally
+ * returned "Token ... does not exist!". Pure JavaScript evaluated on that same tab returned
+ * instantly, so this is not a slow device or a suspended tab: it is specifically the round trip
+ * through Foundry's socket over wireless adb.
+ *
+ * Eight seconds would therefore have reported "the token did not move" about a move that was simply
+ * still in flight, which is the harness accusing the feature for its own reasons. That has already
+ * happened three times in this file and each time it cost a round of chasing the wrong thing.
+ */
+const ANDROID_COMMIT_TIMEOUT_MS = 120_000;
+
+/**
  * How far the committed position may differ from the distance dragged, in canvas units.
  *
  * One grid square. Snapping to the grid is allowed to move the result by up to half a square in each
@@ -193,7 +208,7 @@ async function main() {
     const result = await dragControlledToken(page, {
       distance: DRAG_DISTANCE,
       steps: DRAG_STEPS,
-      timeout: COMMIT_TIMEOUT_MS,
+      timeout: USE_ANDROID ? ANDROID_COMMIT_TIMEOUT_MS : COMMIT_TIMEOUT_MS,
     });
 
     report(result);
