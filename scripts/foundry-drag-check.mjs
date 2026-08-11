@@ -20,12 +20,12 @@
  * Nothing else counts as a pass. The diagnostics are printed alongside because when it fails they
  * are what says why, but they are never what decides.
  */
+import { connectCdpPage } from './cdp-page.mjs';
 import {
   BASE,
-  connectAndroidBrowser,
   ensureActiveScene,
   ensureModuleEnabled,
-  joinWorld,
+  ensureInGame,
   launchBrowser,
   removeProbeScene,
   requireActiveWorld,
@@ -118,7 +118,7 @@ async function main() {
   await requireActiveWorld();
 
   const { browser, page, device } = USE_ANDROID
-    ? await connectAndroidBrowser()
+    ? { browser: null, page: await connectCdpPage({ matchUrl: '/game' }), device: undefined }
     : await launchBrowser(
         USE_MOBILE
           ? {
@@ -151,9 +151,43 @@ async function main() {
   let created = null;
 
   try {
-    await joinWorld(page);
-    await ensureModuleEnabled(page);
-    sceneId = await ensureActiveScene(page, { label: 'drag check' });
+    if (USE_ANDROID) {
+      /*
+       * On the device, ASSERT the preconditions rather than arranging them.
+       *
+       * Joining, enabling a module and activating a scene all navigate or reload, and this is
+       * someone's live session on their own phone: the tab is already in the world, which is how the
+       * bug was found. Reloading it to satisfy a checklist would destroy the state being measured and
+       * would count as the harness breaking the thing it came to look at.
+       *
+       * Asserting instead means a missing precondition is a clear message rather than a mysterious
+       * later failure.
+       */
+      const state = await page.evaluate(() => ({
+        ready: globalThis.game?.ready === true,
+        module: globalThis.game?.modules?.get('tongs-browser')?.active === true,
+        api: globalThis.game?.modules?.get('tongs-browser')?.api !== undefined,
+        canvas: globalThis.canvas?.ready === true,
+        build: globalThis.game?.modules?.get('tongs-browser')?.version,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        dpr: window.devicePixelRatio,
+      }));
+      console.log(
+        `Device tab: ${String(state.width)}x${String(state.height)} dpr ${String(state.dpr)}, ` +
+          `game ready ${String(state.ready)}, module ${String(state.module)}, canvas ${String(state.canvas)}`
+      );
+      if (!state.ready || !state.module || !state.api || !state.canvas) {
+        throw new Error(
+          `the device tab is not in a usable state: ready=${String(state.ready)} module=${String(state.module)} ` +
+            `api=${String(state.api)} canvas=${String(state.canvas)}. Open the world on the phone first.`
+        );
+      }
+    } else {
+      await ensureInGame(page);
+      await ensureModuleEnabled(page);
+      sceneId = await ensureActiveScene(page, { label: 'drag check' });
+    }
 
     created = await createProbeToken(page);
     const result = await dragControlledToken(page, {
@@ -215,8 +249,10 @@ async function main() {
      * diagnostic. Disconnecting is enough; the tab stays where it is, which is also useful when the
      * check fails and someone wants to look at the screen.
      */
-    if (USE_ANDROID) {
-      await browser.close({ reason: 'detaching from the device' }).catch(() => undefined);
+    if (browser === null) {
+      // Raw CDP: closing the socket detaches. The tab, and the user's browsing, stay exactly as they
+      // were, which is the whole point of not using a browser level connection here.
+      page.close();
     } else {
       await browser.close();
     }
