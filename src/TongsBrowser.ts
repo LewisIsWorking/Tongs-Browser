@@ -33,6 +33,49 @@ declare const __TB_BUILD_VERSION__: string;
 /** Matches MouseInteractionManager.INTERACTION_STATES in Foundry 14. */
 const INTERACTION_STATE_NAMES = ['NONE', 'HOVER', 'CLICKED', 'GRABBED', 'DRAG', 'DROP'];
 
+/**
+ * PIXI's pointer beside Foundry's recorded drag origin.
+ *
+ * Foundry gates the drag on the distance between `event.global` and `screenOrigin`, and a device
+ * measured that as exactly 0.0px across eleven moves. Printing both, plus the canvas rect PIXI maps
+ * through, makes a mapping failure visible rather than inferred.
+ */
+function describePointers(): string {
+  const canvasGlobal = (
+    globalThis as {
+      canvas?: {
+        app?: {
+          view?: { getBoundingClientRect?: () => DOMRect };
+          renderer?: {
+            events?: { pointer?: { global?: { x: number; y: number } } };
+            resolution?: number;
+          };
+        };
+        tokens?: {
+          controlled?: {
+            mouseInteractionManager?: {
+              interactionData?: { screenOrigin?: { x: number; y: number } };
+            };
+          }[];
+        };
+      };
+    }
+  ).canvas;
+
+  const pixi = canvasGlobal?.app?.renderer?.events?.pointer?.global;
+  const origin =
+    canvasGlobal?.tokens?.controlled?.[0]?.mouseInteractionManager?.interactionData?.screenOrigin;
+  const rect = canvasGlobal?.app?.view?.getBoundingClientRect?.();
+
+  const parts = [
+    `pixi=${pixi === undefined ? 'n/a' : `${String(Math.round(pixi.x))},${String(Math.round(pixi.y))}`}`,
+    `origin=${origin === undefined ? 'n/a' : `${String(Math.round(origin.x))},${String(Math.round(origin.y))}`}`,
+    `viewRect=${rect === undefined ? 'n/a' : `${String(Math.round(rect.x))},${String(Math.round(rect.y))} ${String(Math.round(rect.width))}x${String(Math.round(rect.height))}`}`,
+    `res=${String(canvasGlobal?.app?.renderer?.resolution ?? 'n/a')}`,
+  ];
+  return parts.join(' ');
+}
+
 /** Foundry's own view of where an interaction got to, named rather than left as a bare number. */
 function describeInteractionState(target: unknown): string {
   const manager = (target as { mouseInteractionManager?: { state?: number } } | undefined)
@@ -558,7 +601,10 @@ export class TongsBrowser {
     this.pixiProbeAttached = true;
   }
 
-  private recordDispatch(descriptor: { type: string; buttons?: number }, target: Element): void {
+  private recordDispatch(
+    descriptor: { type: string; buttons?: number; position?: { clientX: number; clientY: number } },
+    target: Element
+  ): void {
     /*
      * A gesture starts at a pointerdown, so the buffer restarts there.
      *
@@ -641,8 +687,21 @@ export class TongsBrowser {
       }
     }
 
+    /*
+     * Coordinates are in the trace because they are now the question.
+     *
+     * Foundry measured a movement distance of exactly 0.0px across eleven moves, so from PIXI's point
+     * of view the pointer never moved. Either every event we dispatch carries the same clientX and
+     * clientY, which is our bug, or they change and PIXI is not mapping them, which is not. The trace
+     * recorded type, buttons and target, which is everything except the field that decides it.
+     */
     const buttons = descriptor.buttons ?? 0;
-    const line = `${descriptor.type} buttons=${String(buttons)} -> ${target.tagName.toLowerCase()}#${target.id}`;
+    const at = descriptor.position;
+    const where =
+      at === undefined
+        ? ''
+        : ` @${String(Math.round(at.clientX))},${String(Math.round(at.clientY))}`;
+    const line = `${descriptor.type} buttons=${String(buttons)}${where} -> ${target.tagName.toLowerCase()}#${target.id}`;
 
     // Collapse a run of identical move lines rather than filling the report with them.
     const last = this.recentDispatches[this.recentDispatches.length - 1];
@@ -720,6 +779,8 @@ export class TongsBrowser {
       `<strong>PEAK state: ${INTERACTION_STATE_NAMES[this.peakInteractionState] ?? 'UNKNOWN'} (${String(this.peakInteractionState)}), previews ${String(this.peakPreviewCount)}</strong>`,
       `<strong>PIXI moves: layer=${String(this.layerMoveCount)} stage=${String(this.stageMoveCount)}</strong>`,
       `last gate distance: ${Number.isNaN(this.lastDragDistance) ? 'NaN (origin or pointer missing)' : this.lastDragDistance.toFixed(1)}`,
+      // Our pointer beside PIXI's. If ours moves and PIXI's does not, the mapping is the bug.
+      `<strong>ours vs PIXI: ${describePointers()}</strong>`,
       // The BUILD stamp first, because the manifest one is read once at server start and goes stale
       // the moment module files are replaced under a running server.
       `build: ${__TB_BUILD_VERSION__} (manifest says ${(game['modules'] as { get: (id: string) => { version?: string } | undefined }).get(MODULE_ID)?.version ?? 'unknown'}, stale if they differ)`,
