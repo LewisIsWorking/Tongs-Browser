@@ -173,6 +173,28 @@ export class TongsBrowser {
   private sampledDragDistance = false;
 
   /**
+   * How many times each peak was actually sampled, reported beside it. Added 2026-08-11.
+   *
+   * ⚠️ A peak is not a measurement over a gesture, it is a measurement over however many samples it
+   * happened to get, and those are only the same thing when the sampling covers the gesture. This
+   * has now been the same mistake three times in one investigation: a bare `0.0` that had sampled
+   * nothing at all, then a `0.0` peak that may have sampled only the first move, when the pointer was
+   * still on top of its own origin and a distance of zero was the correct answer to a question
+   * nobody wanted asked.
+   *
+   * Both readings look exactly like "the pointer never moved", and one of them was used to conclude
+   * that Foundry's drag origin follows the pointer, which is a strong claim to build on a number
+   * that might have one sample behind it.
+   *
+   * The count makes the difference visible without anyone having to suspect it: `0.0px over 47
+   * samples` is evidence, `0.0px over 1 sample` is noise wearing the same clothes.
+   */
+  private dragDistanceSamples = 0;
+  private divergenceSamples = 0;
+  private originDriftSamples = 0;
+  private dragMovesDispatched = 0;
+
+  /**
    * How far OUR pointer got from PIXI's, at their furthest apart during the drag.
    *
    * This is the measurement that splits the remaining problem, and a device forced it. Foundry gates
@@ -736,6 +758,10 @@ export class TongsBrowser {
       this.originAtDragStart = null;
       this.peakOriginDrift = 0;
       this.sampledOriginDrift = false;
+      this.dragDistanceSamples = 0;
+      this.divergenceSamples = 0;
+      this.originDriftSamples = 0;
+      this.dragMovesDispatched = 0;
       const grabPosition = this.pointer.getPosition();
       this.pointerAtGrab = { clientX: grabPosition.clientX, clientY: grabPosition.clientY };
       this.capturingDrag = true;
@@ -754,6 +780,13 @@ export class TongsBrowser {
       this.tokenAtGrab =
         grabbed?.x === undefined || grabbed.y === undefined ? null : { x: grabbed.x, y: grabbed.y };
       this.sawDropDuringDrag = false;
+    }
+
+    // The denominator for every sample count in this report. Moves we sent, against samples each
+    // probe got: a probe with far fewer samples than there were moves was not watching the gesture,
+    // and its peak describes a moment rather than the drag.
+    if (this.capturingDrag && descriptor.type === 'pointermove') {
+      this.dragMovesDispatched += 1;
     }
 
     // A release during the captured drag. Without one, Foundry never commits the move.
@@ -837,6 +870,7 @@ export class TongsBrowser {
         origin.y - this.originAtDragStart.y
       );
       this.sampledOriginDrift = true;
+      this.originDriftSamples += 1;
       if (Number.isFinite(drift) && drift > this.peakOriginDrift) {
         this.peakOriginDrift = drift;
       }
@@ -846,6 +880,7 @@ export class TongsBrowser {
       const distance = Math.hypot(pixiPointer.x - origin.x, pixiPointer.y - origin.y);
       this.lastDragDistance = distance;
       this.sampledDragDistance = true;
+      this.dragDistanceSamples += 1;
       if (Number.isFinite(distance) && distance > this.peakDragDistance) {
         this.peakDragDistance = distance;
       }
@@ -883,6 +918,7 @@ export class TongsBrowser {
         pixiPointer.y - ourPosition.clientY
       );
       this.sampledDivergence = true;
+      this.divergenceSamples += 1;
       if (Number.isFinite(divergence) && divergence > this.peakPointerDivergence) {
         this.peakPointerDivergence = divergence;
       }
@@ -1020,9 +1056,11 @@ export class TongsBrowser {
        * Foundry's drag origin is supposed to be a fixed point recorded at the press. Measured as
        * pinned on desktop and under emulated touch. If it drifts here, that is the bug outright.
        */
+      // The denominator. Every "over N samples" below is only meaningful against this.
+      `<strong>drag moves dispatched: ${String(this.dragMovesDispatched)}</strong>`,
       `<strong>Foundry's drag ORIGIN drifted: ${
         this.sampledOriginDrift
-          ? `${this.peakOriginDrift.toFixed(1)}px${
+          ? `${this.peakOriginDrift.toFixed(1)}px over ${String(this.originDriftSamples)} samples${
               this.peakOriginDrift > 5
                 ? ' <em>(IT SHOULD BE 0. An origin that follows the pointer can never be 10px from it, so no drag can ever start.)</em>'
                 : ' (correct, it should be 0)'
@@ -1031,7 +1069,7 @@ export class TongsBrowser {
       }</strong>`,
       `<strong>DRAG GATE: ${
         this.sampledDragDistance
-          ? `peak distance ${this.peakDragDistance.toFixed(1)}px, needs >= 10`
+          ? `peak distance ${this.peakDragDistance.toFixed(1)}px over ${String(this.dragDistanceSamples)} samples, needs >= 10`
           : 'NOT MEASURABLE, Foundry never exposed a drag origin (this is not a distance of zero)'
       }</strong>`,
       /*
@@ -1041,7 +1079,7 @@ export class TongsBrowser {
        */
       `<strong>ours vs PIXI during the drag: ${
         this.sampledDivergence
-          ? `${this.peakPointerDivergence.toFixed(1)}px apart at worst${
+          ? `${this.peakPointerDivergence.toFixed(1)}px apart at worst over ${String(this.divergenceSamples)} samples${
               this.peakPointerDivergence > 20
                 ? ' <em>(PIXI IS NOT TRACKING OUR POINTER, so canvas.mousePosition below describes your finger)</em>'
                 : ''
