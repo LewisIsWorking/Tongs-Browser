@@ -224,6 +224,16 @@ export class TongsBrowser {
     return this.enabled;
   }
 
+  /**
+   * Bring the tray buttons in line with what they control.
+   *
+   * Public because the state changes without anyone touching this bar: another user pausing the
+   * game, or a drag ending on its own. main.ts hooks Foundry's pauseGame and calls this.
+   */
+  public refreshTray(): void {
+    this.modifierBar.refreshActions();
+  }
+
   public updateGestureConfig(config: Partial<GestureConfig>): void {
     this.gestures.updateConfig(config);
   }
@@ -351,6 +361,33 @@ export class TongsBrowser {
         activate: () => {
           this.togglePause();
         },
+        isActive: () => (globalThis as { game?: { paused?: boolean } }).game?.paused === true,
+      },
+      /*
+       * Grab. The reason dragging a token was so hard.
+       *
+       * The touch gesture for a drag is tap, lift, press again inside the double tap window, hold
+       * past the long press timer without moving more than the tap slop, and only then move. That is
+       * five things in a row, and every one of them is a chance to get it wrong while looking at the
+       * map rather than at your thumb. It works, which is why the harness passes it, but working and
+       * usable are different claims.
+       *
+       * This holds the button down at the pointer until it is tapped again, so dragging becomes:
+       * grab, move the pointer the ordinary way, drop. It is also how a window gets dragged, which is
+       * the same complaint from the other end.
+       */
+      {
+        id: 'grab',
+        label: '✋',
+        title: 'Grab and hold, then move the pointer to drag. Tap again to drop.',
+        activate: () => {
+          if (this.pointer.isDragging()) {
+            this.pointer.endDrag();
+          } else {
+            this.pointer.beginDrag();
+          }
+        },
+        isActive: () => this.pointer.isDragging(),
       },
       {
         id: 'zoom-in',
@@ -374,6 +411,7 @@ export class TongsBrowser {
         id: 'pan-left',
         label: '←',
         title: 'Pan left',
+        group: 'pan',
         activate: () => {
           canvasController.panBy(PAN_STEP, 0);
         },
@@ -382,6 +420,7 @@ export class TongsBrowser {
         id: 'pan-right',
         label: '→',
         title: 'Pan right',
+        group: 'pan',
         activate: () => {
           canvasController.panBy(-PAN_STEP, 0);
         },
@@ -390,6 +429,7 @@ export class TongsBrowser {
         id: 'pan-up',
         label: '↑',
         title: 'Pan up',
+        group: 'pan',
         activate: () => {
           canvasController.panBy(0, PAN_STEP);
         },
@@ -398,6 +438,7 @@ export class TongsBrowser {
         id: 'pan-down',
         label: '↓',
         title: 'Pan down',
+        group: 'pan',
         activate: () => {
           canvasController.panBy(0, -PAN_STEP);
         },

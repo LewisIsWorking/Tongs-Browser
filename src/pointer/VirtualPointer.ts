@@ -172,6 +172,28 @@ export class VirtualPointer {
     this.state = withPosition(nextState, result.position);
     this.cursor?.moveTo(this.state.position);
 
+    /*
+     * While a button is held, ANY movement is a drag, however it arrived.
+     *
+     * The buttons bitmask has to stay set on every move of a drag, or Foundry reads the stream as a
+     * hover and nothing follows the pointer. dragBy set it; moveTo and moveBy did not, so a drag
+     * begun through beginDrag and then continued by ordinary pointer movement silently degraded into
+     * a hover. Measured 2026-08-11 on a device: grab held the button, the token stayed exactly where
+     * it was, and the pointer glided over it.
+     *
+     * That mattered the moment a grab could be started from a button rather than only by the tap
+     * then hold gesture, because the natural next thing to do is move the pointer the ordinary way.
+     * Routing on the drag STATE rather than on which method was called is what makes the two agree.
+     */
+    if (this.dragging) {
+      this.dispatcher.dispatchAll(buildDragMoveSequence(this.state, this.dragButton), {
+        current: result.element,
+        previous: null,
+      });
+      this.previousTarget = result.element;
+      return;
+    }
+
     const targets: DispatchTargets = { current: result.element, previous: this.previousTarget };
     const targetChanged = result.element !== this.previousTarget;
 

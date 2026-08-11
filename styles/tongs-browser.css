@@ -178,6 +178,39 @@
 }
 
 /*
+ * A tray action whose thing is currently ON: the game is paused, or a grab is being held.
+ *
+ * Distinguished by border weight and a marker as well as colour, for the same reason the latched
+ * modifier keys are: a state you can only see if you can tell two similar colours apart is not a
+ * state you can see at a glance on a phone in a dark room.
+ */
+.tb-modifier-bar__action--on {
+  border-color: rgb(255 208 92 / 95%);
+  border-width: 2px;
+  background: rgb(255 208 92 / 30%);
+  color: rgb(255 240 200 / 100%);
+}
+
+/*
+ * Grouped actions, currently the pan arrows.
+ *
+ * Clustered rather than left in the main flow because the bar had grown to four wrapped rows on a
+ * phone. Four arrows scattered among unrelated buttons also read as four unrelated buttons, where a
+ * cluster reads as one control.
+ */
+.tb-modifier-bar__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.tb-modifier-bar__group--pan {
+  /* Two rows of two, so the arrows form a compact pad rather than a line. */
+  max-width: 92px;
+}
+
+/*
  * Sidebar tab picker.
  *
  * Deliberately our own element rather than Foundry's tab strip, which is 27px wide on a phone and is
