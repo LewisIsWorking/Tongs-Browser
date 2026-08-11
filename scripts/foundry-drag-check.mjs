@@ -405,11 +405,16 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
         api.enable();
       }
 
-      const token = canvas.tokens.placeables.find((candidate) =>
-        candidate.name.startsWith('[probe]')
-      );
+      /*
+       * The token this run is about: whatever is already controlled, or the probe if this run made
+       * one. Searching only for a `[probe]` name broke the moment the device path stopped creating
+       * tokens and started adopting the user's own, which is the better subject anyway.
+       */
+      const token =
+        canvas.tokens.controlled[0] ??
+        canvas.tokens.placeables.find((candidate) => candidate.name.startsWith('[probe]'));
       if (token === undefined) {
-        throw new Error('the probe token is not on the canvas.');
+        throw new Error('no token to drag: none is controlled and no probe token exists.');
       }
       token.control({ releaseOthers: true });
 

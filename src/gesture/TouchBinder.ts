@@ -48,14 +48,38 @@ export class TouchBinder {
     const { signal } = this.abortController;
     const target = this.options.target;
 
+    /*
+     * ⚠️ CAPTURE phase, not bubble. Changed 2026-08-11, and it is the whole bug.
+     *
+     * These handlers called `preventDefault()` and stopped there. That prevents scrolling and the
+     * browser's compatibility mouse events, and it does NOT stop the touch event propagating.
+     * **PIXI listens for `touchstart`, `touchmove` and `touchend` itself** and normalises them into
+     * its own pointer events, so the real finger was driving PIXI in parallel with our virtual
+     * pointer the entire time.
+     *
+     * Foundry therefore saw two interactions at once: ours, holding a button on the token, and the
+     * finger's, starting wherever the finger actually was, which is never on the token because the
+     * whole point of this module is that the pointer goes where the finger is not. The finger's
+     * stream destroyed the token's `interactionData`, so the drag gate had nothing to measure from
+     * and the state never left GRABBED.
+     *
+     * Measured on a OnePlus 13, Chrome 150, Foundry 14.365. Driving the SAME device through the
+     * module's own pointer with no finger involved, the drag works perfectly and `screenOrigin`
+     * stays pinned for 12 samples out of 12. A finger doing the same gesture got 2 samples out of
+     * 235, and the token never moved.
+     *
+     * Capture on the document means we see these before any descendant, and stopping propagation
+     * there keeps them from reaching the canvas at all. Excluded regions still return early, so chat
+     * and the bar keep their own scrolling and their own touch handling.
+     */
     // passive false on every one of these. A passive listener cannot preventDefault, and the
     // browser silently ignores the attempt rather than reporting it.
-    const listenerOptions: AddEventListenerOptions = { passive: false, signal };
+    const captureOptions: AddEventListenerOptions = { passive: false, capture: true, signal };
 
-    target.addEventListener('touchstart', this.onTouchStart, listenerOptions);
-    target.addEventListener('touchmove', this.onTouchMove, listenerOptions);
-    target.addEventListener('touchend', this.onTouchEnd, listenerOptions);
-    target.addEventListener('touchcancel', this.onTouchCancel, listenerOptions);
+    target.addEventListener('touchstart', this.onTouchStart, captureOptions);
+    target.addEventListener('touchmove', this.onTouchMove, captureOptions);
+    target.addEventListener('touchend', this.onTouchEnd, captureOptions);
+    target.addEventListener('touchcancel', this.onTouchCancel, captureOptions);
 
     /*
      * Capture phase, so a real touch derived pointer event is stopped before it reaches Foundry or
@@ -121,6 +145,11 @@ export class TouchBinder {
       return;
     }
     event.preventDefault();
+    // Keep the raw touch away from PIXI, which would otherwise turn it into a second pointer.
+    // See bind() for why preventDefault alone was not enough.
+    if (this.options.suppressNativeTouch()) {
+      event.stopPropagation();
+    }
     this.options.onInput({
       type: 'touchstart',
       touches: toTouchPoints(touchEvent.touches),
@@ -134,6 +163,11 @@ export class TouchBinder {
       return;
     }
     event.preventDefault();
+    // Keep the raw touch away from PIXI, which would otherwise turn it into a second pointer.
+    // See bind() for why preventDefault alone was not enough.
+    if (this.options.suppressNativeTouch()) {
+      event.stopPropagation();
+    }
     this.options.onInput({
       type: 'touchmove',
       touches: toTouchPoints(touchEvent.touches),
@@ -147,6 +181,11 @@ export class TouchBinder {
       return;
     }
     event.preventDefault();
+    // Keep the raw touch away from PIXI, which would otherwise turn it into a second pointer.
+    // See bind() for why preventDefault alone was not enough.
+    if (this.options.suppressNativeTouch()) {
+      event.stopPropagation();
+    }
     this.options.onInput({
       type: 'touchend',
       touches: toTouchPoints(touchEvent.touches),
@@ -158,6 +197,9 @@ export class TouchBinder {
     const touchEvent = event as TouchEvent;
     if (this.options.exclusions.isExcluded(touchEvent.target)) {
       return;
+    }
+    if (this.options.suppressNativeTouch()) {
+      event.stopPropagation();
     }
     this.options.onInput({ type: 'touchcancel', at: this.options.now() });
   };
