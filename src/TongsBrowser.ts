@@ -163,6 +163,13 @@ export class TongsBrowser {
   private peakDragDistance = 0;
   private lastDragDistance = Number.NaN;
 
+  /** Drag scoping for the record, so a later tap cannot overwrite the gesture being diagnosed. */
+  private wasDragging = false;
+  private capturingDrag = false;
+
+  /** Raw touch input reaching the gesture layer, counted by type. Never reset, so it is cumulative. */
+  private readonly gestureInputCounts: Record<string, number> = {};
+
   public constructor(private readonly options: TongsBrowserOptions) {
     const { document: doc, window: win } = options;
 
@@ -272,6 +279,14 @@ export class TongsBrowser {
       target: doc,
       exclusions: new ExclusionZones(),
       onInput: (input) => {
+        /*
+         * Count the raw touch input as well as the events we emit from it.
+         *
+         * A trace showing no pointermove has two completely different causes: the finger produced no
+         * gesture input, or it did and the gesture layer chose not to move the pointer. Counting
+         * touchmoves separates them, and nothing else in the report can.
+         */
+        this.gestureInputCounts[input.type] = (this.gestureInputCounts[input.type] ?? 0) + 1;
         this.gestures.handleInput(input);
       },
       suppressNativeTouch: options.suppressNativeTouch ?? ((): boolean => true),
@@ -615,7 +630,20 @@ export class TongsBrowser {
      */
     this.attachPixiProbe();
 
-    if (descriptor.type === 'pointerdown') {
+    /*
+     * Scope the record to the DRAG, not to the last pointerdown.
+     *
+     * ⚠️ Resetting on every pointerdown looked obviously right and destroyed the evidence every
+     * time. A single tap anywhere after a drag wiped the whole drag out of the buffer, so a report
+     * came back showing a clean down, up, click at one unchanging coordinate with zero PIXI moves,
+     * and it described the tap rather than the drag it was asked about. The counters reset with it,
+     * which turned a measured 0.0px into a meaningless NaN.
+     *
+     * So the window opens when a drag BEGINS and stays open until the next one begins. Whatever
+     * happens after the drop cannot overwrite what is being diagnosed.
+     */
+    const dragging = this.pointer.isDragging();
+    if (dragging && !this.wasDragging) {
       this.recentDispatches.length = 0;
       this.peakInteractionState = 0;
       this.peakPreviewCount = 0;
@@ -623,6 +651,18 @@ export class TongsBrowser {
       this.stageMoveCount = 0;
       this.peakDragDistance = 0;
       this.lastDragDistance = Number.NaN;
+      this.capturingDrag = true;
+    }
+    this.wasDragging = dragging;
+
+    // Once a drag has been captured, later taps are ignored rather than allowed to overwrite it.
+    if (!dragging && !this.capturingDrag) {
+      this.recentDispatches.length = 0;
+    }
+    if (!dragging && this.capturingDrag && descriptor.type === 'pointerdown') {
+      // A fresh press with no grab held: the drag record has served its purpose.
+      this.capturingDrag = false;
+      this.recentDispatches.length = 0;
     }
 
     /*
@@ -781,6 +821,12 @@ export class TongsBrowser {
       `last gate distance: ${Number.isNaN(this.lastDragDistance) ? 'NaN (origin or pointer missing)' : this.lastDragDistance.toFixed(1)}`,
       // Our pointer beside PIXI's. If ours moves and PIXI's does not, the mapping is the bug.
       `<strong>ours vs PIXI: ${describePointers()}</strong>`,
+      // Raw touch reaching the gesture layer. No touchmove here means the finger never produced any.
+      `<strong>touch input (cumulative): ${
+        Object.entries(this.gestureInputCounts)
+          .map(([type, count]) => `${type}=${String(count)}`)
+          .join(' ') || 'none'
+      }</strong>`,
       // The BUILD stamp first, because the manifest one is read once at server start and goes stale
       // the moment module files are replaced under a running server.
       `build: ${__TB_BUILD_VERSION__} (manifest says ${(game['modules'] as { get: (id: string) => { version?: string } | undefined }).get(MODULE_ID)?.version ?? 'unknown'}, stale if they differ)`,
