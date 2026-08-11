@@ -105,10 +105,22 @@ export async function launchBrowser({
  * Chrome while reporting an Android result. A harness that cannot fail to be what it claims is not
  * evidence of anything.
  */
-export async function connectAndroidBrowser({ endpoint = 'http://127.0.0.1:9222' } = {}) {
+export async function connectAndroidBrowser({
+  endpoint = 'http://127.0.0.1:9222',
+  matchUrl = undefined,
+} = {}) {
   let browser;
   try {
-    browser = await chromium.connectOverCDP(endpoint);
+    /*
+     * A generous timeout, because the default 30s is a desktop number.
+     *
+     * connectOverCDP does not merely open a socket, it enumerates and attaches to every target the
+     * browser has: each tab, each service worker, each extension page. On a real phone with the
+     * user's own browsing open that is a lot of targets over a Wi-Fi debugging link, and the
+     * measured failure is the worst kind to read: `<ws connected>` followed by a timeout, which
+     * looks like the forward being wrong when the forward is fine.
+     */
+    browser = await chromium.connectOverCDP(endpoint, { timeout: 120_000 });
   } catch (error) {
     throw new Error(
       `no DevTools endpoint on ${endpoint}. Run: adb forward tcp:9222 localabstract:chrome_devtools_remote`,
@@ -122,7 +134,21 @@ export async function connectAndroidBrowser({ endpoint = 'http://127.0.0.1:9222'
     throw new Error(`${endpoint} answered but exposed no browser context.`);
   }
 
-  const page = context.pages()[0] ?? (await context.newPage());
+  /*
+   * Pick the Foundry tab, not merely the first one.
+   *
+   * A real phone has a real browser on it, with the user's own tabs. Measured 2026-08-11: page[0]
+   * could just as easily have been a Claude conversation or a deck list, and a check that drives
+   * whatever tab happens to be first would navigate someone's browsing away mid session and then
+   * report that Foundry was not ready. That is the harness breaking the thing it is measuring.
+   */
+  const pages = context.pages();
+  const page =
+    (matchUrl === undefined
+      ? undefined
+      : pages.find((candidate) => candidate.url().includes(matchUrl))) ??
+    pages[0] ??
+    (await context.newPage());
   const device = await page.evaluate(() => ({
     userAgent: navigator.userAgent,
     maxTouchPoints: navigator.maxTouchPoints,
@@ -216,6 +242,23 @@ export async function joinWorld(page) {
 
   await page.goto(`${BASE}/game`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   await waitForReady(page);
+}
+
+/**
+ * Join only if not already in the game.
+ *
+ * On a device the browser is often already sitting in a world, because that is how the bug was found
+ * in the first place. Re-joining would navigate away from a live session, discard whatever was on
+ * screen, and can bump the same user off their own seat. Checking first costs one evaluate and keeps
+ * a diagnostic from being destructive.
+ */
+export async function ensureInGame(page) {
+  const alreadyIn = await page.evaluate(() => globalThis.game?.ready === true).catch(() => false);
+  if (alreadyIn) {
+    return false;
+  }
+  await joinWorld(page);
+  return true;
 }
 
 /**

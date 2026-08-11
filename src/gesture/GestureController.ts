@@ -76,6 +76,37 @@ export class GestureController {
   private perform(action: GestureAction): void {
     const { pointer, canvas, logger } = this.options;
 
+    /*
+     * ⚠️ A CLICK WHILE A GRAB IS HELD DESTROYS THE DRAG. Found on a device 2026-08-11.
+     *
+     * Every click sequence opens with a fresh `pointerdown`, and Foundry treats a pointerdown on a
+     * placeable as the START of an interaction: it records a new `screenOrigin` at wherever the
+     * pointer is now. Its drag only begins once the pointer is `dragResistance` (10px) away from
+     * that origin, so an origin that keeps being re-recorded under the pointer can never be 10px
+     * from it. The drag stalls at GRABBED forever, no preview is created, and the token does not
+     * move however far you drag.
+     *
+     * The state machine cannot prevent this itself, and should not have to. It is pure, it holds no
+     * reference to the pointer, and "was a button already held down" is pointer state, not gesture
+     * state. So the guard lives here, where both are in scope. That separation is why this survived
+     * so long: the machine's tap handling is correct in isolation and its tests all pass.
+     *
+     * Measured on a OnePlus 13, Chrome 150, Foundry 14.365: 197 drag moves dispatched, and Foundry's
+     * drag origin readable for only 6 of them, drifting 8.7px across those 6 while the pointer
+     * travelled 140.3px. The trace showed a complete pointerdown, mousedown, pointerup, mouseup,
+     * click landing in the middle of a held grab, which is a finger being lifted and read as a tap.
+     *
+     * Suppressed rather than rerouted to a drop, because the grab is released deliberately with the
+     * bar's own button and an accidental lift should not commit a token somewhere.
+     */
+    if (
+      pointer.isDragging() &&
+      (action.type === 'leftClick' || action.type === 'rightClick' || action.type === 'doubleClick')
+    ) {
+      logger?.debug(`Ignoring ${action.type} while a grab is held, it would restart the drag.`);
+      return;
+    }
+
     switch (action.type) {
       case 'movePointerBy':
         pointer.moveBy(action.deltaX, action.deltaY);
