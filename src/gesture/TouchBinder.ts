@@ -65,6 +65,28 @@ export class TouchBinder {
     target.addEventListener('pointerdown', this.onNativePointer, { capture: true, signal });
     target.addEventListener('pointermove', this.onNativePointer, { capture: true, signal });
     target.addEventListener('pointerup', this.onNativePointer, { capture: true, signal });
+    /*
+     * ⚠️ pointercancel, and it is not symmetry for its own sake. Added 2026-08-11.
+     *
+     * A touchscreen fires `pointercancel` whenever the browser takes a gesture over: a scroll, an
+     * edge swipe, a second finger, a system gesture. A mouse never fires it at all, which is exactly
+     * why desktop has never once seen this and why it took a device to find.
+     *
+     * Foundry's MouseInteractionManager treats a cancel as an ABORT. It resets the interaction and
+     * discards `interactionData`, including the `screenOrigin` its 10px drag gate is measured from.
+     * One stray cancel from the real finger, mid grab, therefore ends the drag silently: the state
+     * sits at GRABBED forever, no preview is created, and the token does not move however far you
+     * drag.
+     *
+     * Measured on a OnePlus 13, Chrome 150, Foundry 14.365: 55 drag moves dispatched with Foundry's
+     * drag origin readable for only 2 of them, against desktop keeping its origin for every step of
+     * the same gesture. Two samples is the interaction being destroyed almost at once.
+     *
+     * The other three are suppressed because they would DRIVE Foundry twice. This one is suppressed
+     * because it would UNDO what we are driving, which is the worse failure of the two: a doubled
+     * action is visible, and this produces nothing at all.
+     */
+    target.addEventListener('pointercancel', this.onNativePointer, { capture: true, signal });
   }
 
   public unbind(): void {
