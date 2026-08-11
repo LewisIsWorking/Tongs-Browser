@@ -155,6 +155,17 @@ Hooks.once('ready', () => {
     instance.enable();
   }
 
+  /*
+   * Keep the pause button honest when somebody else changes the state.
+   *
+   * The button refreshes itself when tapped, which covers this client only. It does not cover the GM
+   * pausing from a laptop, or another player's request arriving through the relay, and a pause button
+   * showing the opposite of the truth invites a tap that does the wrong thing.
+   */
+  Hooks.on('pauseGame', () => {
+    instance?.refreshTray();
+  });
+
   const moduleEntry = game?.modules.get(MODULE_ID);
   if (moduleEntry !== undefined) {
     moduleEntry.api = instance;

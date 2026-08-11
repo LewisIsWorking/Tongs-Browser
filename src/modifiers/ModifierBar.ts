@@ -46,6 +46,16 @@ export interface TrayAction {
   /** Used for the tooltip and the accessible name. */
   readonly title: string;
   readonly activate: () => void;
+  /**
+   * Whether the thing this button controls is currently ON.
+   *
+   * Optional, because most actions are momentary and have no state to show. For the ones that do,
+   * such as pause or a held grab, a button that looks identical whether the game is running or
+   * frozen is worse than no button: it invites a second tap that undoes the first.
+   */
+  readonly isActive?: () => boolean;
+  /** Buttons sharing a group are rendered together, so related controls cluster rather than wrap. */
+  readonly group?: string;
 }
 
 const LATCH_CLASS: Readonly<Record<KeyLatchValue, string>> = {
@@ -89,6 +99,7 @@ export class ModifierBar {
   private readonly keysContainer: HTMLDivElement;
   private readonly buttons = new Map<string, HTMLButtonElement>();
   private readonly actionButtons = new Map<string, HTMLButtonElement>();
+  private readonly statefulActions = new Map<string, () => boolean>();
   private latches: ModifierLatchMap = ALL_OFF;
   private position: BarPosition;
   private collapsed: boolean;
@@ -135,6 +146,7 @@ export class ModifierBar {
      * Supplied by the caller rather than built here, so this component stays a bar of keys and knows
      * nothing about Foundry's interface.
      */
+    const groups = new Map<string, HTMLDivElement>();
     for (const action of options.trayActions ?? []) {
       const button = doc.createElement('button');
       button.type = 'button';
@@ -145,9 +157,27 @@ export class ModifierBar {
       button.dataset['action'] = action.id;
       button.addEventListener('click', () => {
         action.activate();
+        // Refresh immediately, so a button that reports state is never a tap behind the truth.
+        this.refreshActions();
       });
-      this.root.append(button);
+
+      if (action.group === undefined) {
+        this.root.append(button);
+      } else {
+        let container = groups.get(action.group);
+        if (container === undefined) {
+          container = doc.createElement('div');
+          container.className = `tb-modifier-bar__group tb-modifier-bar__group--${action.group}`;
+          this.root.append(container);
+          groups.set(action.group, container);
+        }
+        container.append(button);
+      }
+
       this.actionButtons.set(action.id, button);
+      if (action.isActive !== undefined) {
+        this.statefulActions.set(action.id, action.isActive);
+      }
     }
 
     this.keysContainer = doc.createElement('div');
@@ -164,6 +194,7 @@ export class ModifierBar {
     this.applyPosition();
     this.applyCollapsed();
     this.render();
+    this.refreshActions();
   }
 
   public attach(): void {
@@ -200,6 +231,27 @@ export class ModifierBar {
     this.options.document.defaultView?.removeEventListener('resize', this.onViewportChanged);
     this.root.remove();
     this.attached = false;
+  }
+
+  /**
+   * Bring every stateful action button in line with what it controls.
+   *
+   * Public because the state can change without anyone tapping the button: another user pausing the
+   * game, or a drag ending on its own. Callers hook whatever tells them and call this.
+   *
+   * aria-pressed as well as the class, because the visual state is the whole point and a button that
+   * only looks pressed is invisible to anyone not looking at it.
+   */
+  public refreshActions(): void {
+    for (const [id, isActive] of this.statefulActions) {
+      const button = this.actionButtons.get(id);
+      if (button === undefined) {
+        continue;
+      }
+      const active = isActive();
+      button.classList.toggle('tb-modifier-bar__action--on', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
   }
 
   /** Re-clamp against whatever room there is now. Public so a caller can prompt it after a re-render. */
