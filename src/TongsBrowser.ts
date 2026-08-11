@@ -808,17 +808,87 @@ export class TongsBrowser {
         : this.recentDispatches.map((line) => `<code>${line}</code>`).join('<br>'),
     ];
 
+    /*
+     * Copy to the clipboard as well as whispering.
+     *
+     * Reading the report off a phone screenshot is the slowest part of this loop and it TRUNCATES: a
+     * chat window shows about fifteen lines and silently hides the rest, which has already cost a
+     * full round trip on the one field that mattered.
+     */
+    const plain = lines
+      .join('\n')
+      .replace(/<br>/g, '\n')
+      .replace(/<[^>]+>/g, '');
+    const copied = this.copyToClipboard(plain);
+
     const chat = (globalThis as { ChatMessage?: { create?: (data: unknown) => unknown } })
       .ChatMessage;
     if (chat?.create === undefined) {
-      logger.warn(lines.join(' | '));
+      logger.warn(plain);
       return;
     }
 
     void chat.create({
-      content: lines.join('<br>'),
+      content: `<em>${copied ? 'Copied to clipboard.' : 'Clipboard refused, read below.'}</em><br>${lines.join('<br>')}`,
       whisper: user?.id === undefined ? [] : [user.id],
     });
+
+    const notify = (globalThis as { ui?: { notifications?: { info?: (message: string) => void } } })
+      .ui?.notifications;
+    notify?.info?.(
+      copied ? 'Tongs diagnostics copied to clipboard.' : 'Tongs diagnostics whispered to you.'
+    );
+  }
+
+  /**
+   * Put text on the clipboard, from a button tap.
+   *
+   * ⚠️ `navigator.clipboard` is gated to SECURE CONTEXTS, and a self hosted Foundry on a LAN address
+   * is plain http, so on a phone it is simply undefined. That is exactly the setup this exists for,
+   * which makes the execCommand path the one that matters and the modern API the optimisation, not
+   * the other way round. A copy button that silently does nothing on the target device would be
+   * worse than no button.
+   */
+  private copyToClipboard(text: string): boolean {
+    const clipboard = (
+      navigator as { clipboard?: { writeText?: (value: string) => Promise<void> } }
+    ).clipboard;
+    if (clipboard?.writeText !== undefined) {
+      void clipboard.writeText(text).catch(() => {
+        this.copyWithExecCommand(text);
+      });
+      return true;
+    }
+    return this.copyWithExecCommand(text);
+  }
+
+  /**
+   * The insecure context fallback.
+   *
+   * Positioned off screen rather than hidden with `display: none`, because a field that is not
+   * rendered cannot be selected and the copy then silently does nothing.
+   */
+  private copyWithExecCommand(text: string): boolean {
+    const doc = this.options.document;
+    const field = doc.createElement('textarea');
+    field.value = text;
+    field.setAttribute('readonly', 'true');
+    field.style.position = 'fixed';
+    field.style.top = '-1000px';
+    field.style.opacity = '0';
+    doc.body.append(field);
+
+    try {
+      field.select();
+      field.setSelectionRange(0, text.length);
+      // Deprecated, and the only thing that works outside a secure context.
+      // eslint-disable-next-line @typescript-eslint/no-deprecated
+      return doc.execCommand('copy');
+    } catch {
+      return false;
+    } finally {
+      field.remove();
+    }
   }
 
   /**
