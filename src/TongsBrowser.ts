@@ -779,11 +779,24 @@ export class TongsBrowser {
       if (typeof original !== 'function') {
         continue;
       }
-      const record = (outcome: string): void => {
-        this.dragEndings.push(outcome);
+      /*
+       * Record the TRIGGER, not just the outcome. A device reported three cancels and nothing about
+       * what caused them, and "something aborted the drag" is not a lead. Foundry hands the handler
+       * the event that caused it, so its type and button say whether this was a right click, a
+       * second press, a cancelled pointer, or something with no event at all, which would mean
+       * Foundry cancelled it of its own accord rather than in response to input.
+       */
+      const record = (outcome: string, args: unknown[]): void => {
+        const event = args[0] as
+          { type?: string; button?: number; pointerType?: string; pointerId?: number } | undefined;
+        const detail =
+          event?.type === undefined
+            ? 'no event (Foundry cancelled it itself)'
+            : `${event.type} button=${String(event.button)} ${event.pointerType ?? 'n/a'} id=${String(event.pointerId ?? 'n/a')}`;
+        this.dragEndings.push(`${outcome} [${detail}]`);
       };
       tokenClass[name] = function wrapped(this: unknown, ...args: unknown[]): unknown {
-        record(name);
+        record(name, args);
         return (original as (...inner: unknown[]) => unknown).apply(this, args);
       };
     }
@@ -1157,7 +1170,9 @@ export class TongsBrowser {
      * how much each line discriminates costs a whole round trip per mistake.
      */
     const lines = [
-      `<strong>Tongs Browser diagnostics</strong>`,
+      // The version, first, because it is the sanity check every report needs before its numbers
+      // mean anything. Stamped by Vite at build time, so unlike the manifest it cannot go stale.
+      `<strong>Tongs Browser BUILD ${__TB_BUILD_VERSION__}</strong>`,
       // The only line that answers the actual question. Everything else explains it.
       `<strong>DID IT MOVE: ${this.describeTokenMovement()}</strong>`,
       `<strong>released during drag: ${String(this.sawDropDuringDrag)}${this.sawDropDuringDrag ? '' : ' <em>(tap the hand OFF before tapping this)</em>'}</strong>`,
