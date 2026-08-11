@@ -159,9 +159,37 @@ export class TongsBrowser {
   private stageMoveCount = 0;
   private pixiProbeAttached = false;
 
-  /** The distance Foundry itself gates the drag on. Must reach 10 or no drag ever starts. */
+  /**
+   * The distance Foundry itself gates the drag on. Must reach 10 or no drag ever starts.
+   *
+   * ⚠️ `peakDragDistance` starts at 0 and is only ever written when BOTH Foundry's `screenOrigin`
+   * and PIXI's pointer are readable. When they are not, it keeps its initial 0 and the report
+   * printed "peak distance 0.0px, needs >= 10" beside it, which reads as a measurement saying the
+   * pointer never travelled. It measured nothing at all. `sampledDragDistance` records whether the
+   * computation ever ran, so the report can say "not measurable" rather than invent a zero.
+   */
   private peakDragDistance = 0;
   private lastDragDistance = Number.NaN;
+  private sampledDragDistance = false;
+
+  /**
+   * How far OUR pointer got from PIXI's, at their furthest apart during the drag.
+   *
+   * This is the measurement that splits the remaining problem, and a device forced it. Foundry gates
+   * the drag on PIXI's pointer, never on ours, and `canvas.mousePosition` is derived from PIXI's too.
+   * So if PIXI is not tracking the events we dispatch, every position in this report except our own
+   * describes something else entirely, and it does so silently: a report saying the pointer is not
+   * inside the token is perfectly true about PIXI's pointer and says nothing about ours.
+   *
+   * Measured on desktop Chrome the two agree, which is why every check passes there. A device
+   * reported Foundry's gate distance as exactly 0.0 across a whole gesture while our own trace showed
+   * the pointer moving, and those two facts can only both be true if PIXI never saw the moves.
+   *
+   * Sampled during the drag rather than at report time, because by report time the user has tapped a
+   * button and PIXI's pointer is on that button.
+   */
+  private peakPointerDivergence = 0;
+  private sampledDivergence = false;
 
   /** Drag scoping for the record, so a later tap cannot overwrite the gesture being diagnosed. */
   private wasDragging = false;
@@ -663,6 +691,9 @@ export class TongsBrowser {
       this.stageMoveCount = 0;
       this.peakDragDistance = 0;
       this.lastDragDistance = Number.NaN;
+      this.sampledDragDistance = false;
+      this.peakPointerDivergence = 0;
+      this.sampledDivergence = false;
       this.capturingDrag = true;
       /*
        * Remember where the token was when the grab started.
@@ -754,8 +785,29 @@ export class TongsBrowser {
     if (origin !== undefined && pixiPointer !== undefined) {
       const distance = Math.hypot(pixiPointer.x - origin.x, pixiPointer.y - origin.y);
       this.lastDragDistance = distance;
+      this.sampledDragDistance = true;
       if (Number.isFinite(distance) && distance > this.peakDragDistance) {
         this.peakDragDistance = distance;
+      }
+    }
+
+    /*
+     * Our pointer against PIXI's, while the gesture is still happening.
+     *
+     * Foundry gates the drag on PIXI's pointer and nothing else, so these two disagreeing is not a
+     * curiosity, it is the whole bug. Everything downstream of PIXI's pointer, including
+     * canvas.mousePosition and therefore "insideSelectedToken", describes PIXI's pointer while
+     * reading as though it described ours.
+     */
+    const ourPosition = descriptor.position;
+    if (pixiPointer !== undefined && ourPosition !== undefined) {
+      const divergence = Math.hypot(
+        pixiPointer.x - ourPosition.clientX,
+        pixiPointer.y - ourPosition.clientY
+      );
+      this.sampledDivergence = true;
+      if (Number.isFinite(divergence) && divergence > this.peakPointerDivergence) {
+        this.peakPointerDivergence = divergence;
       }
     }
 
@@ -867,7 +919,31 @@ export class TongsBrowser {
       // The only line that answers the actual question. Everything else explains it.
       `<strong>DID IT MOVE: ${this.describeTokenMovement()}</strong>`,
       `<strong>released during drag: ${String(this.sawDropDuringDrag)}${this.sawDropDuringDrag ? '' : ' <em>(tap the hand OFF before tapping this)</em>'}</strong>`,
-      `<strong>DRAG GATE: peak distance ${this.peakDragDistance.toFixed(1)}px, needs >= 10</strong>`,
+      /*
+       * ⚠️ Never print a distance the code did not measure. This read "peak distance 0.0px, needs
+       * >= 10", which is the field's initial value and reads exactly like a measurement saying the
+       * pointer stood still. Foundry clears interactionData when a gesture ends, so the origin can
+       * be missing for the whole record and the zero survives untouched.
+       */
+      `<strong>DRAG GATE: ${
+        this.sampledDragDistance
+          ? `peak distance ${this.peakDragDistance.toFixed(1)}px, needs >= 10`
+          : 'NOT MEASURABLE, Foundry never exposed a drag origin (this is not a distance of zero)'
+      }</strong>`,
+      /*
+       * The line that says whether any other position in this report means anything. Foundry gates
+       * the drag on PIXI's pointer, so if ours and PIXI's disagree, ours is the only one describing
+       * the virtual pointer and every Foundry derived position describes the finger instead.
+       */
+      `<strong>ours vs PIXI during the drag: ${
+        this.sampledDivergence
+          ? `${this.peakPointerDivergence.toFixed(1)}px apart at worst${
+              this.peakPointerDivergence > 20
+                ? ' <em>(PIXI IS NOT TRACKING OUR POINTER, so canvas.mousePosition below describes your finger)</em>'
+                : ''
+            }`
+          : 'not measurable'
+      }</strong>`,
       `<strong>PEAK state: ${INTERACTION_STATE_NAMES[this.peakInteractionState] ?? 'UNKNOWN'} (${String(this.peakInteractionState)}), previews ${String(this.peakPreviewCount)}</strong>`,
       `<strong>PIXI moves: layer=${String(this.layerMoveCount)} stage=${String(this.stageMoveCount)}</strong>`,
       `last gate distance: ${Number.isNaN(this.lastDragDistance) ? 'NaN (origin or pointer missing)' : this.lastDragDistance.toFixed(1)}`,
@@ -888,7 +964,10 @@ export class TongsBrowser {
       `token._canDrag: ${selected?._canDrag === undefined ? 'n/a' : String(selected._canDrag(user))}`,
       `pointer: (${String(Math.round(position.clientX))}, ${String(Math.round(position.clientY))}) dragging: ${String(this.pointer.isDragging())}`,
       `element under pointer: ${under === null ? 'nothing' : `${under.tagName.toLowerCase()}#${under.id}`}`,
-      `canvas.mousePosition: ${mouse === undefined ? 'n/a' : `(${String(Math.round(mouse.x ?? 0))}, ${String(Math.round(mouse.y ?? 0))})`} insideSelectedToken: ${String(insideToken)}`,
+      // Labelled as PIXI's, because it is. Foundry derives mousePosition from PIXI's pointer, so on a
+      // device where PIXI is not tracking us this describes the finger and not the virtual pointer,
+      // and unlabelled it reads as a statement about the virtual pointer.
+      `canvas.mousePosition (PIXI's pointer, NOT ours): ${mouse === undefined ? 'n/a' : `(${String(Math.round(mouse.x ?? 0))}, ${String(Math.round(mouse.y ?? 0))})`} insideSelectedToken: ${String(insideToken)}`,
       `canvas ready: ${String(canvasGlobal?.['ready'])} | keyboard: ${this.synthesizer.getStrategy()}`,
       /*
        * Foundry's own view of the interaction, which splits the remaining problem in half.
