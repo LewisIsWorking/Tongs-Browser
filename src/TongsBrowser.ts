@@ -504,7 +504,7 @@ export class TongsBrowser {
 
     const lines = [
       `<strong>Tongs Browser diagnostics</strong>`,
-      `version: ${String((game['modules'] as { get?: (id: string) => { version?: string } } | undefined)?.get?.(MODULE_ID)?.version ?? 'unknown')}`,
+      `version: ${(game['modules'] as { get: (id: string) => { version?: string } | undefined }).get(MODULE_ID)?.version ?? 'unknown'}`,
       `enabled: ${String(this.enabled)} | isGM: ${String(user?.isGM)} | paused: ${String(game['paused'])}`,
       `activeTool: ${String(game['activeTool'])} <em>(dragging a token needs "select")</em>`,
       `controlled token: ${selected === undefined ? 'NONE, tap a token first' : `${String(selected.name)} at (${String(selected.document?.x)}, ${String(selected.document?.y)})`}`,
