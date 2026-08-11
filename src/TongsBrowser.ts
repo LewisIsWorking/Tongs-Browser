@@ -211,6 +211,24 @@ export class TongsBrowser {
   private pointerAtGrab: { clientX: number; clientY: number } | null = null;
   private peakTravelFromGrab = 0;
 
+  /**
+   * How far Foundry's OWN recorded drag origin moved during the drag. It is supposed to move zero.
+   *
+   * A device's three numbers say this already by arithmetic: our pointer travelled 139px, PIXI's
+   * pointer was 0px from ours, and Foundry's gate `|pixi - screenOrigin|` was 0px, so screenOrigin
+   * must have travelled 139px too. An origin that follows the pointer can never be 10px away from
+   * it, which is why that device sits at GRABBED forever and no drag ever begins.
+   *
+   * Measured directly rather than inferred, because a three step inference is exactly the kind of
+   * reasoning that has been wrong twice already in this investigation, and because a direct number
+   * is what would be worth reporting upstream. Measured on desktop and under emulated touch, a
+   * mobile user agent and dpr 3, screenOrigin is PINNED: 800 across twelve steps, 683 across twelve
+   * more. So this is not something the module does to it in the ordinary case.
+   */
+  private originAtDragStart: { x: number; y: number } | null = null;
+  private peakOriginDrift = 0;
+  private sampledOriginDrift = false;
+
   /** Drag scoping for the record, so a later tap cannot overwrite the gesture being diagnosed. */
   private wasDragging = false;
   private capturingDrag = false;
@@ -715,6 +733,9 @@ export class TongsBrowser {
       this.peakPointerDivergence = 0;
       this.sampledDivergence = false;
       this.peakTravelFromGrab = 0;
+      this.originAtDragStart = null;
+      this.peakOriginDrift = 0;
+      this.sampledOriginDrift = false;
       const grabPosition = this.pointer.getPosition();
       this.pointerAtGrab = { clientX: grabPosition.clientX, clientY: grabPosition.clientY };
       this.capturingDrag = true;
@@ -804,6 +825,22 @@ export class TongsBrowser {
         };
       }
     ).canvas?.app?.renderer?.events?.pointer?.global;
+
+    /*
+     * Foundry's drag origin against its own first recorded value. Anything but zero means the origin
+     * is following the pointer, and Foundry's 10px gate can then never open however far you drag.
+     */
+    if (origin !== undefined) {
+      this.originAtDragStart ??= { x: origin.x, y: origin.y };
+      const drift = Math.hypot(
+        origin.x - this.originAtDragStart.x,
+        origin.y - this.originAtDragStart.y
+      );
+      this.sampledOriginDrift = true;
+      if (Number.isFinite(drift) && drift > this.peakOriginDrift) {
+        this.peakOriginDrift = drift;
+      }
+    }
 
     if (origin !== undefined && pixiPointer !== undefined) {
       const distance = Math.hypot(pixiPointer.x - origin.x, pixiPointer.y - origin.y);
@@ -978,6 +1015,19 @@ export class TongsBrowser {
                 ? " <em>(under Foundry's 10px threshold, so no drag can start: move the pointer further)</em>"
                 : ' <em>(far enough, so the gate below should have opened)</em>'
             }`
+      }</strong>`,
+      /*
+       * Foundry's drag origin is supposed to be a fixed point recorded at the press. Measured as
+       * pinned on desktop and under emulated touch. If it drifts here, that is the bug outright.
+       */
+      `<strong>Foundry's drag ORIGIN drifted: ${
+        this.sampledOriginDrift
+          ? `${this.peakOriginDrift.toFixed(1)}px${
+              this.peakOriginDrift > 5
+                ? ' <em>(IT SHOULD BE 0. An origin that follows the pointer can never be 10px from it, so no drag can ever start.)</em>'
+                : ' (correct, it should be 0)'
+            }`
+          : 'not measurable'
       }</strong>`,
       `<strong>DRAG GATE: ${
         this.sampledDragDistance

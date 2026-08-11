@@ -69,10 +69,24 @@ export async function waitForReady(page) {
  * escape hatch when the pinned build is missing. A half finished `playwright install` otherwise
  * presents as an opaque "executable doesn't exist".
  */
-export async function launchBrowser({ hasTouch = false } = {}) {
+export async function launchBrowser({
+  hasTouch = false,
+  viewport = { width: 1600, height: 1000 },
+  deviceScaleFactor = 1,
+  isMobile = false,
+} = {}) {
   const channel = process.env.PLAYWRIGHT_CHANNEL;
   const browser = await chromium.launch({ headless: true, ...(channel ? { channel } : {}) });
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, hasTouch });
+  /*
+   * isMobile and deviceScaleFactor are exposed because a desktop browser at a small viewport is NOT
+   * a phone, and pretending otherwise hides the class of bug that only appears on one.
+   *
+   * Chromium only emits touch derived pointer events, sets a mobile user agent and applies a device
+   * pixel ratio when told to emulate a mobile device. A drag that works at 1600x1000 and fails on a
+   * 360x607 phone differs in all three, and the only honest way to find out which one matters is to
+   * turn them on here rather than to reason about it.
+   */
+  const page = await browser.newPage({ viewport, hasTouch, deviceScaleFactor, isMobile });
   return { browser, page };
 }
 
