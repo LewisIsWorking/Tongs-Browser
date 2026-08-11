@@ -121,6 +121,7 @@ export class TongsBrowser {
       ...(options.onBarPositionChanged === undefined
         ? {}
         : { onPositionChanged: options.onBarPositionChanged }),
+      getAvailableWidth: () => this.resolveAvailableWidth(),
     });
 
     this.scaler = new UiScaler({
@@ -272,6 +273,35 @@ export class TongsBrowser {
       return null;
     }
     return canvas.stage?.scale?.x ?? null;
+  }
+
+  /**
+   * How much horizontal room the modifier bar may use, which is the window minus Foundry's sidebar.
+   *
+   * Measured 2026-08-11 on a 412px phone viewport: the sidebar sits hard against the right edge and
+   * runs the full height, so once the bar wraps to the full width it lands on top of the sidebar's
+   * icon column. That column is the only route to chat, actors and everything else, so covering it
+   * costs far more than covering a single button.
+   *
+   * Read live rather than remembered. The sidebar expands, collapses and moves as the window
+   * changes, and a width captured once would be wrong immediately afterwards. Returns the whole
+   * window whenever the sidebar is absent, hidden, or already off screen, so nothing here can make
+   * the bar narrower than it needs to be.
+   */
+  private resolveAvailableWidth(): number {
+    const width = window.innerWidth;
+    const sidebar = document.querySelector('#sidebar');
+    if (sidebar === null) {
+      return width;
+    }
+
+    const box = sidebar.getBoundingClientRect();
+    if (box.width === 0 || box.left >= width || box.right <= 0) {
+      return width;
+    }
+
+    // A small gap so the bar does not sit flush against the sidebar edge.
+    return Math.max(0, box.left - 4);
   }
 
   /**

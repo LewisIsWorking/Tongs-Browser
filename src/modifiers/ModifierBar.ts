@@ -26,6 +26,14 @@ export interface ModifierBarOptions {
   readonly onPositionChanged?: (position: BarPosition) => void;
   readonly initialCollapsed?: boolean;
   readonly onCollapsedChanged?: (collapsed: boolean) => void;
+  /**
+   * The width the bar is allowed to occupy, which is not always the width of the window.
+   *
+   * Injected rather than read from the DOM here, so the clamp stays testable without a layout
+   * engine and so this component keeps knowing nothing about Foundry's markup. Defaults to the
+   * whole window, which is the right answer when nothing is in the way.
+   */
+  readonly getAvailableWidth?: () => number;
 }
 
 const LATCH_CLASS: Readonly<Record<KeyLatchValue, string>> = {
@@ -128,6 +136,22 @@ export class ModifierBar {
     }
     this.options.document.body.append(this.root);
     this.attached = true;
+
+    /*
+     * Clamp AFTER the bar is in the document, which is the first moment it has a size.
+     *
+     * The constructor also clamps, and cannot possibly succeed: an element that is not in the DOM
+     * reports offsetWidth 0, every position fits inside a width of zero, and the clamp is a no op by
+     * construction. So the clamp existed and only ever ran on a drag. Measured on a 412px phone the
+     * bar still opened across the sidebar, because opening is not dragging.
+     *
+     * Reading offsetWidth here forces layout, so the size is real by the time it is used.
+     */
+    this.applyPosition();
+
+    // A rotation or a sidebar that expands changes the room available, and a position that fitted
+    // a moment ago can be off screen or over the sidebar now.
+    this.options.document.defaultView?.addEventListener('resize', this.onViewportChanged);
   }
 
   public detach(): void {
@@ -137,9 +161,21 @@ export class ModifierBar {
     // Release anything held before disappearing, or Foundry is left believing shift is down with
     // no visible way for the user to clear it.
     this.clearAll();
+    this.options.document.defaultView?.removeEventListener('resize', this.onViewportChanged);
     this.root.remove();
     this.attached = false;
   }
+
+  /** Re-clamp against whatever room there is now. Public so a caller can prompt it after a re-render. */
+  public reclamp(): void {
+    if (this.attached) {
+      this.applyPosition();
+    }
+  }
+
+  private readonly onViewportChanged = (): void => {
+    this.applyPosition();
+  };
 
   public isAttached(): boolean {
     return this.attached;
@@ -300,7 +336,22 @@ export class ModifierBar {
     // Zero before layout, in which case the clamp is a no op and the position is applied unchanged.
     const width = this.root.offsetWidth;
     const height = this.root.offsetHeight;
-    const maxX = Math.max(0, window.innerWidth - width);
+
+    /*
+     * Keep out of the sidebar, not just out of the window. Measured 2026-08-11 on a 412px phone
+     * viewport: once the bar wraps it reaches the right edge, and Foundry's sidebar lives there, so
+     * the shipped default covered the sidebar's icon column between y 120 and 250. That is the ADR
+     * 0008 bug again on the other side of the screen, and it is worse here, because a sidebar the
+     * user cannot reach is how they get to chat, actors and everything else.
+     *
+     * Falls back to the full window when the caller supplies nothing, and when honouring the
+     * available width would push the bar off the left edge instead. Trading a covered sidebar for a
+     * bar hanging off the screen would not be a fix.
+     */
+    const available = this.options.getAvailableWidth?.() ?? window.innerWidth;
+    const usableWidth = available >= width ? available : window.innerWidth;
+
+    const maxX = Math.max(0, usableWidth - width);
     const maxY = Math.max(0, window.innerHeight - height);
 
     this.position = {
@@ -310,6 +361,20 @@ export class ModifierBar {
 
     this.root.style.left = `${String(this.position.x)}px`;
     this.root.style.top = `${String(this.position.y)}px`;
+
+    /*
+     * Bound the WIDTH as well as the position, or the bar reaches the sidebar wherever it is put.
+     *
+     * The bar is position: fixed with only `left` set, so it is shrink to fit against the space that
+     * remains: its used width is min(max-content, max-width, viewport - left). Moving it left makes
+     * it WIDER, and its right edge stays pinned to the viewport edge. Measured on a 412px phone:
+     * clamping x from 88 to 65 changed the width from 324 to 347 and the right edge stayed at 412.
+     * Position alone cannot fix this; the width has to be capped too.
+     *
+     * Set after the clamp so the two agree, which converges in one pass: the clamp picks x from the
+     * current width, and this caps the width so the right edge lands on the available width.
+     */
+    this.root.style.maxWidth = `${String(Math.max(0, usableWidth - this.position.x))}px`;
   }
 
   private applyCollapsed(): void {
