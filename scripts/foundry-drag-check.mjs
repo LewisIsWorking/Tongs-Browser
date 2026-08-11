@@ -174,6 +174,7 @@ async function main() {
   const failures = [];
   let sceneId = null;
   let created = null;
+  let restore = null;
 
   try {
     if (USE_ANDROID) {
@@ -214,7 +215,40 @@ async function main() {
       sceneId = await ensureActiveScene(page, { label: 'drag check' });
     }
 
-    created = await createProbeToken(page);
+    /*
+     * On a device, ADOPT a token that is already there rather than creating one.
+     *
+     * ⚠️ Creating a probe actor and token is four document writes, and every write to the phone is a
+     * Foundry socket round trip that has been measured in MINUTES over wireless adb. Two runs died
+     * that way having produced no output at all, and both left probe entities behind in a live world
+     * for someone else to clean up.
+     *
+     * None of it is needed. The check needs a token it may move, and the world already has one that
+     * the user has selected: that is what they were dragging when they hit the bug, which makes it a
+     * better subject than anything this could invent. The position is restored afterwards, so the
+     * only write is the drag itself, which is the thing under test.
+     */
+    if (USE_ANDROID) {
+      const adopted = await page.evaluate(() => {
+        const token = canvas.tokens.controlled[0] ?? canvas.tokens.placeables[0];
+        if (token === undefined) {
+          return null;
+        }
+        token.control({ releaseOthers: true });
+        return { name: token.name, x: token.document.x, y: token.document.y };
+      });
+      if (adopted === null) {
+        throw new Error('the scene on the device has no token to drag. Put one on the map first.');
+      }
+      console.log(
+        `Adopted the existing token '${String(adopted.name)}' at (${String(adopted.x)}, ${String(adopted.y)}). ` +
+          `Nothing is created and its position is restored afterwards.`
+      );
+      restore = adopted;
+    } else {
+      created = await createProbeToken(page);
+    }
+
     const result = await dragControlledToken(page, {
       distance: DRAG_DISTANCE,
       steps: DRAG_STEPS,
@@ -262,6 +296,20 @@ async function main() {
       failures.push('the pointer still believes a button is held after endDrag.');
     }
   } finally {
+    if (restore !== null) {
+      // Put the adopted token back. The drag is allowed to move it; the check is not allowed to
+      // leave it moved, because this is somebody's live game and not a fixture.
+      await page
+        .evaluate(async (at) => {
+          const token = canvas.tokens.controlled[0] ?? canvas.tokens.placeables[0];
+          await token?.document.update({ x: at.x, y: at.y });
+        }, restore)
+        .catch((error) => {
+          console.error(
+            `could not put '${String(restore.name)}' back at (${String(restore.x)}, ${String(restore.y)}): ${String(error)}`
+          );
+        });
+    }
     if (created !== null) {
       await removeProbeToken(page, created).catch((error) => {
         console.error(`could not remove the probe token: ${String(error)}`);
@@ -461,9 +509,20 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
           const centre = canvas.stage.pivot;
           canvas.pan({ x: centre.x + stride, y: centre.y });
         }
-        // A frame between steps, so PIXI actually processes each move rather than coalescing the
-        // whole drag into one. A real finger cannot produce twelve moves inside one frame either.
-        await new Promise((resolve) => requestAnimationFrame(resolve));
+        /*
+         * A frame between steps, so PIXI processes each move rather than coalescing the whole drag
+         * into one. A real finger cannot produce twelve moves inside one frame either.
+         *
+         * ⚠️ Raced against a timer, because `requestAnimationFrame` DOES NOT FIRE IN A BACKGROUND
+         * TAB. On a phone that is not an edge case: the moment the user switches to another app or
+         * tab, the Foundry tab stops painting and this loop waits forever. Two device runs hung here
+         * with no output at all, which reads as the check being broken rather than as the tab being
+         * in the background.
+         */
+        await Promise.race([
+          new Promise((resolve) => requestAnimationFrame(resolve)),
+          new Promise((resolve) => setTimeout(resolve, 50)),
+        ]);
 
         const data = token.mouseInteractionManager?.interactionData;
         /*
