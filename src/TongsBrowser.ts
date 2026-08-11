@@ -175,6 +175,20 @@ export class TongsBrowser {
   private dragEndingHooked = false;
 
   /**
+   * Viewport resizes during the drag, and the size at the grab.
+   *
+   * The suspected cause of the redraws that cancel the interaction. On Android the URL bar slides in
+   * and out as you gesture, and that resizes the viewport; Foundry redraws the canvas on resize, and
+   * a redraw of a token cancels its interaction outright. A desktop window simply does not change
+   * size mid drag, which would explain why every desktop run passes.
+   *
+   * Counted rather than argued about. If this is zero while the redraws are not, the hypothesis is
+   * dead and the cause is something else entirely.
+   */
+  private resizesDuringDrag = 0;
+  private viewportAtGrab = '';
+
+  /**
    * The distance Foundry itself gates the drag on. Must reach 10 or no drag ever starts.
    *
    * ⚠️ `peakDragDistance` starts at 0 and is only ever written when BOTH Foundry's `screenOrigin`
@@ -297,6 +311,7 @@ export class TongsBrowser {
     const { document: doc, window: win } = options;
 
     this.debug = new DebugOverlay({ document: doc, logger });
+    this.bindResizeCounter();
 
     this.cursor = new CursorOverlay({
       document: doc,
@@ -414,6 +429,20 @@ export class TongsBrowser {
       },
       suppressNativeTouch: options.suppressNativeTouch ?? ((): boolean => true),
       now: () => Date.now(),
+    });
+  }
+
+  /**
+   * Count viewport resizes, always, so the count is already running when a drag starts.
+   *
+   * Bound once for the module's lifetime rather than per drag: a listener added at the grab would
+   * miss a resize triggered by the grab itself, which is precisely the case under suspicion.
+   */
+  private bindResizeCounter(): void {
+    this.options.window.addEventListener('resize', () => {
+      if (this.capturingDrag) {
+        this.resizesDuringDrag += 1;
+      }
     });
   }
 
@@ -825,6 +854,42 @@ export class TongsBrowser {
       }
     }
 
+    /*
+     * ⚠️ `draw` and `destroy` too, because REDRAWING A TOKEN CANCELS ITS INTERACTION.
+     *
+     * From Foundry's PlaceableObject, in both methods:
+     *
+     *     if ( this.mouseInteractionManager?.state > INTERACTION_STATES.HOVER ) {
+     *       this.mouseInteractionManager.interactionData.cancelled = true;
+     *       this.mouseInteractionManager.cancel();
+     *     }
+     *
+     * So anything that redraws the token mid gesture destroys the drag, at GRABBED, silently, and
+     * wipes `interactionData` with it. That is the exact signature a device keeps reporting: the
+     * state never leaves GRABBED, the origin is readable for a handful of samples out of hundreds,
+     * and no ending callback fires because the callback needs DRAG.
+     *
+     * A phone has redraw causes a desktop simply does not: Foundry redraws when the canvas resizes,
+     * and on Android the URL bar sliding in and out during a gesture resizes the viewport. That is a
+     * hypothesis and it is recorded as one; this counts the redraws so the next report can confirm
+     * or kill it rather than have anyone reason about it.
+     */
+    for (const name of ['draw', 'destroy']) {
+      const original = tokenClass[name];
+      if (typeof original !== 'function') {
+        continue;
+      }
+      const noteRedraw = (): void => {
+        if (this.capturingDrag) {
+          this.dragEndings.push(`token.${name} DURING THE DRAG (this cancels the interaction)`);
+        }
+      };
+      tokenClass[name] = function wrapped(this: unknown, ...args: unknown[]): unknown {
+        noteRedraw();
+        return (original as (...inner: unknown[]) => unknown).apply(this, args);
+      };
+    }
+
     for (const name of ['_onDragLeftDrop', '_onDragLeftCancel', '_onDragLeftStart']) {
       const original = tokenClass[name];
       if (typeof original !== 'function') {
@@ -907,6 +972,9 @@ export class TongsBrowser {
       this.layerMoveCount = 0;
       this.stageMoveCount = 0;
       this.tokenMoveCount = 0;
+      this.dragEndings = [];
+      this.resizesDuringDrag = 0;
+      this.viewportAtGrab = `${String(window.innerWidth)}x${String(window.innerHeight)}`;
       this.peakDragDistance = 0;
       this.lastDragDistance = Number.NaN;
       this.sampledDragDistance = false;
@@ -1307,6 +1375,11 @@ export class TongsBrowser {
        * and writes nothing in _onDragLeftCancel, and from outside they are indistinguishable: both
        * reset the state, both clear the preview, both leave the token where it was.
        */
+      `<strong>viewport: ${this.viewportAtGrab} at the grab, ${String(window.innerWidth)}x${String(window.innerHeight)} now, ${String(this.resizesDuringDrag)} resizes during the drag${
+        this.resizesDuringDrag > 0
+          ? ' <em>(a resize redraws the canvas, and redrawing a token CANCELS its interaction)</em>'
+          : ''
+      }</strong>`,
       `<strong>FOUNDRY'S DRAG ENDING: ${
         this.dragEndings.length === 0
           ? 'NEITHER ran. Foundry never started or ended a drag on this token.'
