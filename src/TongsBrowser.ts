@@ -30,6 +30,19 @@ const DISPATCH_TRACE_LENGTH = 18;
 /** Stamped in at build time by Vite. See vite.config.ts for why the manifest version is not enough. */
 declare const __TB_BUILD_VERSION__: string;
 
+/** Matches MouseInteractionManager.INTERACTION_STATES in Foundry 14. */
+const INTERACTION_STATE_NAMES = ['NONE', 'HOVER', 'CLICKED', 'GRABBED', 'DRAG', 'DROP'];
+
+/** Foundry's own view of where an interaction got to, named rather than left as a bare number. */
+function describeInteractionState(target: unknown): string {
+  const manager = (target as { mouseInteractionManager?: { state?: number } } | undefined)
+    ?.mouseInteractionManager;
+  if (manager?.state === undefined) {
+    return 'no interaction manager';
+  }
+  return `${INTERACTION_STATE_NAMES[manager.state] ?? 'UNKNOWN'} (${String(manager.state)})`;
+}
+
 export interface TongsBrowserOptions {
   readonly document: Document;
   readonly window: Window;
@@ -483,10 +496,31 @@ export class TongsBrowser {
    * `pointermove buttons=0` in this list while a grab is held would name the bug outright.
    */
   private recordDispatch(descriptor: { type: string; buttons?: number }, target: Element): void {
+    /*
+     * A gesture starts at a pointerdown, so the buffer restarts there.
+     *
+     * A fixed length window was not good enough: a drag emits a move per step, so by the time the
+     * report is read the pointerdown that began it has already scrolled out, and whether the press
+     * and the release reached the same element is precisely the question. Middle moves are the least
+     * informative part, so they are the ones that get collapsed.
+     */
+    if (descriptor.type === 'pointerdown') {
+      this.recentDispatches.length = 0;
+    }
+
     const buttons = descriptor.buttons ?? 0;
-    this.recentDispatches.push(
-      `${descriptor.type} buttons=${String(buttons)} -> ${target.tagName.toLowerCase()}#${target.id}`
-    );
+    const line = `${descriptor.type} buttons=${String(buttons)} -> ${target.tagName.toLowerCase()}#${target.id}`;
+
+    // Collapse a run of identical move lines rather than filling the report with them.
+    const last = this.recentDispatches[this.recentDispatches.length - 1];
+    if (last?.startsWith(line) === true) {
+      const repeats = /\bx(\d+)$/.exec(last);
+      const count = repeats === null ? 2 : Number(repeats[1]) + 1;
+      this.recentDispatches[this.recentDispatches.length - 1] = `${line} x${String(count)}`;
+      return;
+    }
+
+    this.recentDispatches.push(line);
     if (this.recentDispatches.length > DISPATCH_TRACE_LENGTH) {
       this.recentDispatches.shift();
     }
@@ -553,6 +587,19 @@ export class TongsBrowser {
       `element under pointer: ${under === null ? 'nothing' : `${under.tagName.toLowerCase()}#${under.id}`}`,
       `canvas.mousePosition: ${mouse === undefined ? 'n/a' : `(${String(Math.round(mouse.x ?? 0))}, ${String(Math.round(mouse.y ?? 0))})`} insideSelectedToken: ${String(insideToken)}`,
       `canvas ready: ${String(canvasGlobal?.['ready'])} | keyboard: ${this.synthesizer.getStrategy()}`,
+      /*
+       * Foundry's own view of the interaction, which splits the remaining problem in half.
+       *
+       * MouseInteractionManager runs NONE, HOVER, CLICKED, GRABBED, DRAG, DROP with a 10px drag
+       * resistance. If it never leaves CLICKED or GRABBED, the moves are not reaching the manager at
+       * all. If it reaches DRAG and a preview exists, the drag is running and the DROP is what fails.
+       * Those are completely different bugs and nothing else visible distinguishes them.
+       */
+      `Foundry interaction state: ${describeInteractionState(selected)}`,
+      `drag preview objects: ${String(
+        (canvasGlobal?.['tokens'] as { preview?: { children?: unknown[] } } | undefined)?.preview
+          ?.children?.length ?? 'n/a'
+      )}`,
       `agent: ${navigator.userAgent}`,
       `<strong>last ${String(this.recentDispatches.length)} events dispatched</strong> <em>(grab, drag, drop, THEN tap this)</em>`,
       this.recentDispatches.length === 0
