@@ -266,6 +266,62 @@ describe('VirtualPointer dragging', () => {
     expect(up?.buttons).toBe(ButtonsMask.NONE);
   });
 
+  /**
+   * ⭐ The bug behind "dragging a token does nothing" on a real phone, and the reason it never
+   * showed up here or on a desktop.
+   *
+   * Every event of a drag has to keep going to the element that received the press, exactly as a
+   * browser's implicit pointer capture does. This used to hit test afresh on every move, so the
+   * instant the pointer crossed anything else, a chat window, the modifier bar, a character sheet,
+   * the drag was delivered THERE and the canvas simply stopped hearing about it.
+   *
+   * A drag across empty canvas never crosses anything, which is why desktop passed every time. The
+   * device report named it outright: `pointermove buttons=1 -> div#` where `canvas#board` was needed.
+   */
+  it('keeps sending the whole drag to the element the press landed on', () => {
+    makeRegion('board', 0, 0, 200, 500);
+    makeRegion('panel', 200, 0, 300, 500);
+    const pointer = createPointer({ clientX: 50, clientY: 50 });
+
+    pointer.beginDrag();
+    // Straight across the boundary and well into the panel.
+    pointer.dragBy(120, 0);
+    pointer.dragBy(120, 0);
+    pointer.endDrag();
+
+    const dragEvents = recorded.filter(
+      (entry) => entry.type === 'pointermove' || entry.type === 'pointerup'
+    );
+    expect(dragEvents.length).toBeGreaterThan(0);
+    expect(dragEvents.every((entry) => entry.target === 'board')).toBe(true);
+    // And nothing leaked into the element the pointer merely passed over.
+    expect(recorded.some((entry) => entry.target === 'panel')).toBe(false);
+  });
+
+  /**
+   * The capture is released afterwards, or the NEXT drag would be delivered to wherever the last one
+   * happened to start, which is a more confusing bug than the one being fixed.
+   */
+  it('captures the new element on a second drag rather than reusing the first', () => {
+    makeRegion('board', 0, 0, 200, 500);
+    makeRegion('panel', 200, 0, 300, 500);
+    const pointer = createPointer({ clientX: 50, clientY: 50 });
+
+    pointer.beginDrag();
+    pointer.dragBy(20, 0);
+    pointer.endDrag();
+
+    pointer.moveTo({ clientX: 300, clientY: 50 });
+    recorded = [];
+    pointer.beginDrag();
+    pointer.dragBy(20, 0);
+    pointer.endDrag();
+
+    const moves = recorded.filter((entry) => entry.type === 'pointermove');
+    expect(moves.length).toBeGreaterThan(0);
+    expect(moves.every((entry) => entry.target === 'panel')).toBe(true);
+  });
+
   it('advances the pointer position across the drag', () => {
     makeRegion('board', 0, 0, 500, 500);
     const pointer = createPointer({ clientX: 10, clientY: 10 });
@@ -315,12 +371,23 @@ describe('VirtualPointer dragging', () => {
     expect(pointer.isDragging()).toBe(false);
   });
 
-  it('resolves the target afresh on each drag step rather than caching it', () => {
-    makeRegion('a', 0, 0, 100, 100);
+  /**
+   * ⛔ This assertion used to be the exact opposite, demanding the target be resolved afresh on every
+   * drag step, and it was the bug written down as a requirement.
+   *
+   * The reasoning behind it was sound and is preserved below: Foundry re-renders applications mid
+   * interaction, so an element captured earlier can be detached, and dispatching at a detached
+   * element throws the event away silently. The mistake was treating "it might be detached" as a
+   * reason to re-resolve ALWAYS rather than only when it actually is.
+   */
+  it('falls back to a fresh hit test only when the captured element is detached', () => {
+    const a = makeRegion('a', 0, 0, 100, 100);
     makeRegion('b', 100, 0, 100, 100);
     const pointer = createPointer({ clientX: 50, clientY: 50 });
 
     pointer.beginDrag();
+    // Foundry tearing down and rebuilding an application mid drag.
+    a.remove();
     pointer.dragBy(100, 0);
 
     const moves = recorded.filter((entry) => entry.type === 'pointermove');
