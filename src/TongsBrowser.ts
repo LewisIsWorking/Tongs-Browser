@@ -24,6 +24,12 @@ import { WindowClampBinder } from './scaling/WindowClampBinder.js';
  */
 const PAUSE_MACRO_NAME = 'Tongs Pause';
 
+/** How many recent dispatches the diagnostics report carries. Enough for a whole short drag. */
+const DISPATCH_TRACE_LENGTH = 18;
+
+/** Stamped in at build time by Vite. See vite.config.ts for why the manifest version is not enough. */
+declare const __TB_BUILD_VERSION__: string;
+
 export interface TongsBrowserOptions {
   readonly document: Document;
   readonly window: Window;
@@ -59,6 +65,20 @@ export class TongsBrowser {
   private sidebarMenu: HTMLDivElement | null = null;
   private enabled = false;
 
+  /**
+   * The last few events actually put on the wire, for the diagnostics report.
+   *
+   * Every STATIC check can be healthy while a drag still does nothing, which is exactly what a real
+   * device reported: select tool, _canDrag true, pointer inside the token, canvas ready, and no
+   * movement. At that point the only thing left to look at is the event stream itself, and on a
+   * phone there is no console to look at it in.
+   *
+   * A ring buffer rather than a growing list, because this records every single dispatch for the
+   * whole session and a leak in a diagnostic is a poor trade for information nobody has asked for
+   * yet.
+   */
+  private readonly recentDispatches: string[] = [];
+
   public constructor(private readonly options: TongsBrowserOptions) {
     const { document: doc, window: win } = options;
 
@@ -90,6 +110,7 @@ export class TongsBrowser {
         view: win,
         onDispatch: (descriptor, target) => {
           this.debug.onDispatch(descriptor, target);
+          this.recordDispatch(descriptor, target);
         },
       }),
       cursor: this.cursor,
@@ -455,6 +476,23 @@ export class TongsBrowser {
   }
 
   /**
+   * Keep the last few dispatched events, with the one field that decides whether a drag is a drag.
+   *
+   * `buttons` is the whole story for dragging: it has to stay non zero on every move between the
+   * down and the up, or Foundry reads the stream as a hover and nothing follows the pointer. Seeing
+   * `pointermove buttons=0` in this list while a grab is held would name the bug outright.
+   */
+  private recordDispatch(descriptor: { type: string; buttons?: number }, target: Element): void {
+    const buttons = descriptor.buttons ?? 0;
+    this.recentDispatches.push(
+      `${descriptor.type} buttons=${String(buttons)} -> ${target.tagName.toLowerCase()}#${target.id}`
+    );
+    if (this.recentDispatches.length > DISPATCH_TRACE_LENGTH) {
+      this.recentDispatches.shift();
+    }
+  }
+
+  /**
    * Whisper a diagnostic report into chat.
    *
    * Written 2026-08-11 because a drag failure on a real phone could not be reproduced on any surface
@@ -504,7 +542,9 @@ export class TongsBrowser {
 
     const lines = [
       `<strong>Tongs Browser diagnostics</strong>`,
-      `version: ${(game['modules'] as { get: (id: string) => { version?: string } | undefined }).get(MODULE_ID)?.version ?? 'unknown'}`,
+      // The BUILD stamp first, because the manifest one is read once at server start and goes stale
+      // the moment module files are replaced under a running server.
+      `build: ${__TB_BUILD_VERSION__} (manifest says ${(game['modules'] as { get: (id: string) => { version?: string } | undefined }).get(MODULE_ID)?.version ?? 'unknown'}, stale if they differ)`,
       `enabled: ${String(this.enabled)} | isGM: ${String(user?.isGM)} | paused: ${String(game['paused'])}`,
       `activeTool: ${String(game['activeTool'])} <em>(dragging a token needs "select")</em>`,
       `controlled token: ${selected === undefined ? 'NONE, tap a token first' : `${String(selected.name)} at (${String(selected.document?.x)}, ${String(selected.document?.y)})`}`,
@@ -514,6 +554,10 @@ export class TongsBrowser {
       `canvas.mousePosition: ${mouse === undefined ? 'n/a' : `(${String(Math.round(mouse.x ?? 0))}, ${String(Math.round(mouse.y ?? 0))})`} insideSelectedToken: ${String(insideToken)}`,
       `canvas ready: ${String(canvasGlobal?.['ready'])} | keyboard: ${this.synthesizer.getStrategy()}`,
       `agent: ${navigator.userAgent}`,
+      `<strong>last ${String(this.recentDispatches.length)} events dispatched</strong> <em>(grab, drag, drop, THEN tap this)</em>`,
+      this.recentDispatches.length === 0
+        ? 'none yet'
+        : this.recentDispatches.map((line) => `<code>${line}</code>`).join('<br>'),
     ];
 
     const chat = (globalThis as { ChatMessage?: { create?: (data: unknown) => unknown } })
