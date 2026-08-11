@@ -92,6 +92,12 @@ export class TongsBrowser {
    */
   private readonly recentDispatches: string[] = [];
 
+  /** Highest Foundry interaction state seen during the current gesture. See recordDispatch. */
+  private peakInteractionState = 0;
+
+  /** Most drag preview objects seen during the current gesture. Non zero means a drag really began. */
+  private peakPreviewCount = 0;
+
   public constructor(private readonly options: TongsBrowserOptions) {
     const { document: doc, window: win } = options;
 
@@ -506,6 +512,32 @@ export class TongsBrowser {
      */
     if (descriptor.type === 'pointerdown') {
       this.recentDispatches.length = 0;
+      this.peakInteractionState = 0;
+      this.peakPreviewCount = 0;
+    }
+
+    /*
+     * Sample Foundry's interaction state AS IT HAPPENS, and keep the peak.
+     *
+     * Reading it when the report is written measures the aftermath rather than the event: Foundry
+     * resets the manager to NONE once the interaction ends, so a report taken afterwards says NONE
+     * whether the drag never started or ran perfectly and committed. The peak survives the gesture,
+     * which is the only reason it can answer the question.
+     */
+    const controlled = (
+      globalThis as {
+        canvas?: { tokens?: { controlled?: unknown[]; preview?: { children?: unknown[] } } };
+      }
+    ).canvas?.tokens;
+    const state = (
+      controlled?.controlled?.[0] as { mouseInteractionManager?: { state?: number } } | undefined
+    )?.mouseInteractionManager?.state;
+    if (typeof state === 'number' && state > this.peakInteractionState) {
+      this.peakInteractionState = state;
+    }
+    const previews = controlled?.preview?.children?.length ?? 0;
+    if (previews > this.peakPreviewCount) {
+      this.peakPreviewCount = previews;
     }
 
     const buttons = descriptor.buttons ?? 0;
@@ -595,11 +627,9 @@ export class TongsBrowser {
        * all. If it reaches DRAG and a preview exists, the drag is running and the DROP is what fails.
        * Those are completely different bugs and nothing else visible distinguishes them.
        */
-      `Foundry interaction state: ${describeInteractionState(selected)}`,
-      `drag preview objects: ${String(
-        (canvasGlobal?.['tokens'] as { preview?: { children?: unknown[] } } | undefined)?.preview
-          ?.children?.length ?? 'n/a'
-      )}`,
+      `interaction state now: ${describeInteractionState(selected)}`,
+      `<strong>PEAK during last gesture: ${INTERACTION_STATE_NAMES[this.peakInteractionState] ?? 'UNKNOWN'} (${String(this.peakInteractionState)})</strong>`,
+      `peak drag previews during last gesture: ${String(this.peakPreviewCount)}`,
       `agent: ${navigator.userAgent}`,
       `<strong>last ${String(this.recentDispatches.length)} events dispatched</strong> <em>(grab, drag, drop, THEN tap this)</em>`,
       this.recentDispatches.length === 0
