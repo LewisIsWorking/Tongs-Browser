@@ -7,6 +7,8 @@ import { TouchBinder } from './gesture/TouchBinder.js';
 import type { GestureConfig } from './gesture/GestureTypes.js';
 import { KeyboardSynthesizer, type KeyboardManagerLike } from './modifiers/KeyboardSynthesizer.js';
 import { ModifierBar, type BarPosition, type TrayAction } from './modifiers/ModifierBar.js';
+import { MODULE_ID } from './constants.js';
+import { PauseRelay, type SocketLike } from './relay/PauseRelay.js';
 import { CursorOverlay } from './pointer/CursorOverlay.js';
 import { EventDispatcher } from './pointer/EventDispatcher.js';
 import { HitTester } from './pointer/HitTester.js';
@@ -53,6 +55,8 @@ export class TongsBrowser {
   private readonly scaler: UiScaler;
   private readonly clampBinder: WindowClampBinder;
   private readonly debug: DebugOverlay;
+  private readonly pauseRelay: PauseRelay;
+  private sidebarMenu: HTMLDivElement | null = null;
   private enabled = false;
 
   public constructor(private readonly options: TongsBrowserOptions) {
@@ -141,6 +145,24 @@ export class TongsBrowser {
 
     this.clampBinder = new WindowClampBinder({ document: doc, window: win, logger });
 
+    /*
+     * Resolved lazily on every call rather than captured now. The socket, the user list and who
+     * counts as the designated GM all change during a session, and a GM disconnecting mid game is
+     * exactly when the relay has to still pick the right client.
+     */
+    this.pauseRelay = new PauseRelay({
+      get socket(): SocketLike | null {
+        return (globalThis as { game?: { socket?: SocketLike } }).game?.socket ?? null;
+      },
+      channel: `module.${MODULE_ID}`,
+      isDesignatedGm: () => this.isDesignatedGm(),
+      applyPause: (pause) => {
+        this.applyPause(pause);
+      },
+      getPaused: () => (globalThis as { game?: { paused?: boolean } }).game?.paused === true,
+      logger,
+    });
+
     this.binder = new TouchBinder({
       target: doc,
       exclusions: new ExclusionZones(),
@@ -161,6 +183,8 @@ export class TongsBrowser {
     this.binder.bind();
     this.scaler.apply();
     this.clampBinder.bind();
+    // Bound even for a GM: this client may be the one that has to answer a player's request.
+    this.pauseRelay.bind();
     this.debug.setEnabled(this.options.debugOverlay ?? false);
 
     if (this.options.modifierBarEnabled ?? true) {
@@ -187,6 +211,8 @@ export class TongsBrowser {
     this.modifierBar.detach();
     this.cursor.detach();
     this.clampBinder.unbind();
+    this.pauseRelay.unbind();
+    this.closeSidebarMenu();
     this.debug.setEnabled(false);
     // Removes the property rather than setting it back to 1, so Foundry's own layout is restored
     // exactly and nothing is left behind.
@@ -407,25 +433,140 @@ export class TongsBrowser {
       | undefined;
     const macro = macros?.getName?.(PAUSE_MACRO_NAME) ?? null;
 
+    /*
+     * An explicitly authored macro wins, because a GM who wrote one meant it to be used.
+     *
+     * ⚠️ It only helps a PLAYER if the macro itself reaches a GM somehow. Core Foundry has no
+     * execute-as-GM: verified against the installed 14.365, where executeAsGM, execute-as and asGM
+     * appear nowhere in client or common. That feature comes from modules such as Advanced Macros.
+     * An ordinary script macro run by a player touches that player's client alone. The relay is what
+     * actually makes this work for everyone.
+     */
     if (macro?.execute !== undefined && macro.canExecute !== false) {
       void macro.execute();
       return;
     }
 
-    const toggle = game['togglePause'] as
-      ((pause?: boolean, options?: { broadcast?: boolean }) => boolean) | undefined;
-    if (toggle === undefined) {
+    this.pauseRelay.request();
+  }
+
+  /**
+   * A picker listing every sidebar tab, built from our own DOM.
+   *
+   * Foundry's own tab strip is 27px wide on a phone, which is what made the sidebar unreachable in
+   * the first place, so reusing it to choose a tab would inherit exactly the problem being solved.
+   * These are 44px rows in an element this module controls, marked with the ignore attribute so the
+   * gesture layer routes taps straight to them rather than through the virtual pointer.
+   */
+  private openSidebarMenu(tabNames: readonly string[]): void {
+    const doc = this.options.document;
+    const menu = doc.createElement('div');
+    menu.className = 'tb-sidebar-menu';
+    menu.setAttribute('data-tongs-browser', 'ignore');
+
+    for (const name of tabNames) {
+      const item = doc.createElement('button');
+      item.type = 'button';
+      item.className = 'tb-sidebar-menu__item';
+      item.dataset['tab'] = name;
+      // Foundry's tab names are already lower case single words, so this is all the label needed.
+      item.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+      item.addEventListener('click', () => {
+        this.closeSidebarMenu();
+        this.popOutSidebarTab(name);
+      });
+      menu.append(item);
+    }
+
+    doc.body.append(menu);
+    this.sidebarMenu = menu;
+  }
+
+  private closeSidebarMenu(): void {
+    this.sidebarMenu?.remove();
+    this.sidebarMenu = null;
+  }
+
+  /**
+   * Which sidebar tabs this user can actually open.
+   *
+   * Read from the Sidebar class's static TABS, because that is where Foundry defines them; the tab
+   * applications themselves are separate objects hanging off `ui`. A tab is only offered if its
+   * application exists and can pop out, so a build that renames or removes one degrades to a shorter
+   * list rather than to a row of buttons that do nothing.
+   */
+  private resolveSidebarTabNames(): string[] {
+    const ui = (globalThis as { ui?: Record<string, unknown> }).ui;
+    const sidebar = ui?.['sidebar'] as
+      { constructor?: { TABS?: Record<string, { gmOnly?: boolean }> } } | undefined;
+    const tabs = sidebar?.constructor?.TABS;
+    if (tabs === undefined) {
+      return [];
+    }
+
+    const isGm = (globalThis as { game?: { user?: { isGM?: boolean } } }).game?.user?.isGM === true;
+
+    return Object.entries(tabs)
+      .filter(([, definition]) => definition.gmOnly !== true || isGm)
+      .map(([name]) => name)
+      .filter((name) => {
+        const app = ui?.[name] as { renderPopout?: () => unknown } | undefined;
+        return app?.renderPopout !== undefined;
+      });
+  }
+
+  /** Pop a named sidebar tab out as a window, closing it again if it is already open. */
+  private popOutSidebarTab(name: string): void {
+    const ui = (globalThis as { ui?: Record<string, unknown> }).ui;
+    const sidebar = ui?.['sidebar'] as
+      { popouts?: Record<string, { close?: () => unknown }> } | undefined;
+
+    const open = sidebar?.popouts?.[name];
+    if (open?.close !== undefined) {
+      void open.close();
       return;
     }
 
-    const isGm = (game['user'] as { isGM?: boolean } | undefined)?.isGM === true;
-    toggle.call(game, undefined, { broadcast: isGm });
+    const app = ui?.[name] as { renderPopout?: () => unknown } | undefined;
+    void app?.renderPopout?.();
+  }
 
-    if (!isGm) {
-      logger.warn(
-        `Paused locally only. Pausing for everyone needs a GM, or a "${PAUSE_MACRO_NAME}" macro backed by a GM side relay.`
-      );
+  /**
+   * Whether this client is the ONE GM that should act on a relayed request.
+   *
+   * `game.users.activeGM` is Foundry's own designated user: it picks the same single GM on every
+   * client, deterministically. Using "am I a GM" instead would have every connected GM answer the
+   * same request, flipping the pause state once per GM and landing wherever the race ended.
+   */
+  private isDesignatedGm(): boolean {
+    const game = (
+      globalThis as {
+        game?: {
+          users?: { activeGM?: { id?: string } | null };
+          user?: { id?: string; isGM?: boolean };
+        };
+      }
+    ).game;
+    if (game === undefined) {
+      return false;
     }
+
+    const designated = game.users?.activeGM ?? null;
+    if (designated?.id !== undefined && game.user?.id !== undefined) {
+      return designated.id === game.user.id;
+    }
+
+    // Older builds without activeGM: fall back to plain GM, which is still correct for a solo GM.
+    return game.user?.isGM === true;
+  }
+
+  /** The authoritative toggle. Only ever reached on the designated GM's client. */
+  private applyPause(pause: boolean): void {
+    const game = (globalThis as { game?: Record<string, unknown> }).game;
+    const toggle = game?.['togglePause'] as
+      ((pause?: boolean, options?: { broadcast?: boolean }) => boolean) | undefined;
+    // broadcast is what tells every other client, and Foundry only honours it from a GM.
+    toggle?.call(game, pause, { broadcast: true });
   }
 
   /**
@@ -542,6 +683,33 @@ export class TongsBrowser {
      *
      * It also toggles honestly: a second tap closes the window it opened.
      */
+    /*
+     * Offer EVERY tab, not just the active one.
+     *
+     * Popping out the active tab gave chat and nothing else, because the only way to change tabs is
+     * the docked tab strip, which is the 27px column that started all of this. So the button opens a
+     * small picker of its own instead: our DOM, our sizing, guaranteed tappable.
+     */
+    if (this.sidebarMenu !== null) {
+      this.closeSidebarMenu();
+      return;
+    }
+
+    /*
+     * The tab NAMES come from Sidebar.TABS, a static definition map, and the tab APPLICATIONS live
+     * on `ui` directly as ui.chat, ui.actors and so on. There is no instance collection joining the
+     * two, which is what the first attempt assumed: it read `sidebar.tabs`, found nothing, offered
+     * no tabs, and silently fell through to popping out chat again.
+     *
+     * gmOnly entries are dropped for players, matching what Foundry's own tab strip renders, so a
+     * player is never offered a Scenes tab that would refuse to open.
+     */
+    const tabNames = this.resolveSidebarTabNames();
+    if (tabNames.length > 1) {
+      this.openSidebarMenu(tabNames);
+      return;
+    }
+
     const tabName = sidebar.tabGroups?.primary ?? 'chat';
     const existingPopout = sidebar.popouts?.[tabName];
     if (existingPopout?.close !== undefined) {

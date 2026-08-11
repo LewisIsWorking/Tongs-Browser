@@ -177,6 +177,48 @@
   background: rgb(120 170 255 / 34%);
 }
 
+/*
+ * Sidebar tab picker.
+ *
+ * Deliberately our own element rather than Foundry's tab strip, which is 27px wide on a phone and is
+ * the reason the sidebar was unreachable at all. Centred and above the cursor, so it cannot land off
+ * an edge the way a docked strip can.
+ */
+.tb-sidebar-menu {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: calc(var(--tb-cursor-z-index) + 10);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid rgb(0 0 0 / 60%);
+  border-radius: 8px;
+  background: rgb(28 28 32 / 97%);
+  box-shadow: 0 4px 20px rgb(0 0 0 / 60%);
+  font-family: sans-serif;
+}
+
+.tb-sidebar-menu__item {
+  min-width: 180px;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 5px;
+  background: rgb(120 170 255 / 16%);
+  color: rgb(255 255 255 / 92%);
+  font-size: 16px;
+  text-align: left;
+}
+
+.tb-sidebar-menu__item:active {
+  background: rgb(120 170 255 / 34%);
+}
+
 .tb-modifier-bar__keys {
   display: flex;
   /* Wraps for the same reason the bar does: the keys alone are 380px, wider than a 412px phone. */
