@@ -74,6 +74,21 @@ violent, that was this and it is fixed.**
 - Two finger drag pans the canvas, map moving with the fingers, without changing the zoom.
 - Pinch scales relative to wherever the canvas already is, and pinching back in returns to the start.
 
+`npm run check:drag` answers the one question none of the above can: **does a token actually move?**
+It drives the module's own virtual pointer through grab, move and drop against a live world, and
+passes only if `token.document.x` ends up roughly where the pointer went. Every other drag test in
+this repo asserts on the event stream, which stayed green through three releases that a real phone
+said were broken. See [ADR 0011](adr/0011-a-drag-is-a-token-that-moved.md), which is worth reading
+before adding a check of your own: three of its four safeguards exist because this check accused the
+module of a bug that was in the check.
+
+Measured 2026-08-11 against Foundry 14.365: pointer, Foundry's drag destination, the drag clone and
+the committed document all track a 240px drag. **Dragging works.** What did not work was the grab
+button never saying it was still holding something, so a held grab reads exactly like a dead drag.
+
+- A 240px drag moves the token about 240 canvas units, allowing one grid square for snapping.
+- The grab button reads `DROP` while it holds, and Foundry commits the move on that drop.
+
 `npm run check:android` runs all of the above shapes against **Chrome on a real Android device**,
 over the DevTools socket `adb` forwards, so the viewport is a real phone viewport and the touchscreen
 is real hardware. Measured 2026-08-10 on the `coo_phone` emulator at 412x783, dpr 2.625, Foundry

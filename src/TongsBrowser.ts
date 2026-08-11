@@ -170,6 +170,10 @@ export class TongsBrowser {
   /** Raw touch input reaching the gesture layer, counted by type. Never reset, so it is cumulative. */
   private readonly gestureInputCounts: Record<string, number> = {};
 
+  /** Where the token was when the grab began, and whether the grab was ever released. */
+  private tokenAtGrab: { x: number; y: number } | null = null;
+  private sawDropDuringDrag = false;
+
   public constructor(private readonly options: TongsBrowserOptions) {
     const { document: doc, window: win } = options;
 
@@ -495,10 +499,18 @@ export class TongsBrowser {
        * This holds the button down at the pointer until it is tapped again, so dragging becomes:
        * grab, move the pointer the ordinary way, drop. It is also how a window gets dragged, which is
        * the same complaint from the other end.
+       *
+       * ⚠️ The label CHANGES while a grab is held, and that is not decoration. Measured against a
+       * live Foundry 14.365 on 2026-08-11: our pointer, Foundry's recorded drag destination and the
+       * drag clone all tracked a 240px drag exactly, and the token committed to its new square. The
+       * drag was never broken. What was broken was that nothing on screen said the held grab still
+       * had to be let go, so a device report came back mid drag, with the token quite correctly
+       * sitting where it started because Foundry only commits a move on the DROP.
        */
       {
         id: 'grab',
         label: '✋',
+        getLabel: () => (this.pointer.isDragging() ? 'DROP' : '✋'),
         title: 'Grab and hold, then move the pointer to drag. Tap again to drop.',
         activate: () => {
           if (this.pointer.isDragging()) {
@@ -652,6 +664,26 @@ export class TongsBrowser {
       this.peakDragDistance = 0;
       this.lastDragDistance = Number.NaN;
       this.capturingDrag = true;
+      /*
+       * Remember where the token was when the grab started.
+       *
+       * "Did the drag work" is a question about the token, and every field so far answered questions
+       * about events. Comparing this against the position now says outright whether the gesture
+       * achieved anything, which is the only thing anyone actually cares about.
+       */
+      const grabbed = (
+        globalThis as {
+          canvas?: { tokens?: { controlled?: { document?: { x?: number; y?: number } }[] } };
+        }
+      ).canvas?.tokens?.controlled?.[0]?.document;
+      this.tokenAtGrab =
+        grabbed?.x === undefined || grabbed.y === undefined ? null : { x: grabbed.x, y: grabbed.y };
+      this.sawDropDuringDrag = false;
+    }
+
+    // A release during the captured drag. Without one, Foundry never commits the move.
+    if (this.capturingDrag && (descriptor.type === 'pointerup' || descriptor.type === 'mouseup')) {
+      this.sawDropDuringDrag = true;
     }
     this.wasDragging = dragging;
 
@@ -758,6 +790,23 @@ export class TongsBrowser {
     }
   }
 
+  /** Where the token was when the grab began, against where it is now. */
+  private describeTokenMovement(): string {
+    if (this.tokenAtGrab === null) {
+      return 'no grab recorded yet';
+    }
+    const now = (
+      globalThis as {
+        canvas?: { tokens?: { controlled?: { document?: { x?: number; y?: number } }[] } };
+      }
+    ).canvas?.tokens?.controlled?.[0]?.document;
+    if (now?.x === undefined || now.y === undefined) {
+      return 'no token selected now';
+    }
+    const moved = now.x !== this.tokenAtGrab.x || now.y !== this.tokenAtGrab.y;
+    return `${moved ? 'YES' : 'NO'} (${String(this.tokenAtGrab.x)},${String(this.tokenAtGrab.y)} -> ${String(now.x)},${String(now.y)})`;
+  }
+
   /**
    * Whisper a diagnostic report into chat.
    *
@@ -815,6 +864,9 @@ export class TongsBrowser {
      */
     const lines = [
       `<strong>Tongs Browser diagnostics</strong>`,
+      // The only line that answers the actual question. Everything else explains it.
+      `<strong>DID IT MOVE: ${this.describeTokenMovement()}</strong>`,
+      `<strong>released during drag: ${String(this.sawDropDuringDrag)}${this.sawDropDuringDrag ? '' : ' <em>(tap the hand OFF before tapping this)</em>'}</strong>`,
       `<strong>DRAG GATE: peak distance ${this.peakDragDistance.toFixed(1)}px, needs >= 10</strong>`,
       `<strong>PEAK state: ${INTERACTION_STATE_NAMES[this.peakInteractionState] ?? 'UNKNOWN'} (${String(this.peakInteractionState)}), previews ${String(this.peakPreviewCount)}</strong>`,
       `<strong>PIXI moves: layer=${String(this.layerMoveCount)} stage=${String(this.stageMoveCount)}</strong>`,
