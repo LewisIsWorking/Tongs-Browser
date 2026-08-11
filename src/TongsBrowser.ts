@@ -14,6 +14,14 @@ import { VirtualPointer } from './pointer/VirtualPointer.js';
 import { UiScaler } from './scaling/UiScaler.js';
 import { WindowClampBinder } from './scaling/WindowClampBinder.js';
 
+/**
+ * The macro the pause button looks for before falling back to Foundry's own toggle.
+ *
+ * A GM can create it and grant every player ownership, which is what was asked for. See togglePause
+ * for why macro ownership alone still cannot let a player pause the whole world.
+ */
+const PAUSE_MACRO_NAME = 'Tongs Pause';
+
 export interface TongsBrowserOptions {
   readonly document: Document;
   readonly window: Window;
@@ -311,6 +319,14 @@ export class TongsBrowser {
         },
       },
       {
+        id: 'pause',
+        label: '⏸',
+        title: 'Pause or unpause the game',
+        activate: () => {
+          this.togglePause();
+        },
+      },
+      {
         id: 'zoom-in',
         label: '+',
         title: 'Zoom in',
@@ -361,6 +377,55 @@ export class TongsBrowser {
         },
       },
     ];
+  }
+
+  /**
+   * Pause or unpause the game.
+   *
+   * A macro is tried FIRST, by name, exactly as asked for: a GM can write "Tongs Pause", give every
+   * player ownership of it, and this button will run it. That keeps the behaviour in the world's
+   * hands rather than hard coded here.
+   *
+   * ⚠️ Being straight about the limit, because it is not obvious and macro ownership looks like it
+   * should solve it: a macro cannot give a player the ability to pause the WORLD. Foundry's
+   * Game#togglePause only emits the socket message `if (options.broadcast && game.user.isGM)`, so a
+   * player running any macro toggles their own client and nobody else's. The check is on the emit
+   * path, not on macro permissions. Genuinely letting players pause needs a GM side relay, which is
+   * a separate piece of work.
+   *
+   * So: macro if there is one, otherwise Foundry's own toggle, which broadcasts for a GM and is
+   * local for everyone else.
+   */
+  private togglePause(): void {
+    const game = (globalThis as { game?: Record<string, unknown> }).game;
+    if (game === undefined) {
+      return;
+    }
+
+    const macros = game['macros'] as
+      | { getName?: (name: string) => { canExecute?: boolean; execute?: () => unknown } | null }
+      | undefined;
+    const macro = macros?.getName?.(PAUSE_MACRO_NAME) ?? null;
+
+    if (macro?.execute !== undefined && macro.canExecute !== false) {
+      void macro.execute();
+      return;
+    }
+
+    const toggle = game['togglePause'] as
+      ((pause?: boolean, options?: { broadcast?: boolean }) => boolean) | undefined;
+    if (toggle === undefined) {
+      return;
+    }
+
+    const isGm = (game['user'] as { isGM?: boolean } | undefined)?.isGM === true;
+    toggle.call(game, undefined, { broadcast: isGm });
+
+    if (!isGm) {
+      logger.warn(
+        `Paused locally only. Pausing for everyone needs a GM, or a "${PAUSE_MACRO_NAME}" macro backed by a GM side relay.`
+      );
+    }
   }
 
   /**
@@ -448,12 +513,16 @@ export class TongsBrowser {
    * because a button that throws is worse than a button that is merely inert.
    */
   private toggleFoundrySidebar(): void {
-    const sidebar = (globalThis as { ui?: { sidebar?: unknown } }).ui?.sidebar as
+    const ui = (globalThis as { ui?: Record<string, unknown> }).ui;
+    const sidebar = ui?.['sidebar'] as
       | {
           expanded?: boolean;
           toggleExpanded?: (expanded?: boolean) => void;
           expand?: () => void;
           collapse?: () => void;
+          tabGroups?: { primary?: string };
+          tabs?: Record<string, { renderPopout?: () => unknown; popout?: unknown }>;
+          popouts?: Record<string, { close?: () => unknown }>;
         }
       | undefined;
 
@@ -461,11 +530,37 @@ export class TongsBrowser {
       return;
     }
 
+    /*
+     * Pop the active tab out as a window rather than relying on the docked sidebar.
+     *
+     * Expanding the docked sidebar is the obvious thing and it is not good enough. Measured on a
+     * real device: toggling `expanded` genuinely flips, and nothing appears, because the docked
+     * sidebar is a 48px column pinned to the right edge of a layout that a phone browser does not
+     * put where the maths says it should be. A popped out tab is an ordinary application window,
+     * which WindowClampBinder already keeps inside the viewport, so it is visible by construction
+     * rather than by luck.
+     *
+     * It also toggles honestly: a second tap closes the window it opened.
+     */
+    const tabName = sidebar.tabGroups?.primary ?? 'chat';
+    const existingPopout = sidebar.popouts?.[tabName];
+    if (existingPopout?.close !== undefined) {
+      void existingPopout.close();
+      return;
+    }
+
+    const tab =
+      sidebar.tabs?.[tabName] ?? (ui?.[tabName] as { renderPopout?: () => unknown } | undefined);
+    if (tab?.renderPopout !== undefined) {
+      void tab.renderPopout();
+      return;
+    }
+
+    // Nothing to pop out on this build, so fall back to the docked sidebar.
     if (typeof sidebar.toggleExpanded === 'function') {
       sidebar.toggleExpanded();
       return;
     }
-
     if (sidebar.expanded === true) {
       sidebar.collapse?.();
     } else {
