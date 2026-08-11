@@ -178,6 +178,30 @@
 }
 
 /*
+ * Kill the browser's own tap and focus highlights on every control in the bar.
+ *
+ * ⚠️ Not cosmetic. Reported from a device: the pause button appeared lit while the game was NOT
+ * paused, because Vivaldi's orange tap highlight sat on the last button touched and looked exactly
+ * like a latched state. A control that reports a state it does not have is worse than one that
+ * reports nothing, since it invites the tap that undoes what you wanted.
+ *
+ * The states this module owns stay visible: the latched styling below changes border WEIGHT as well
+ * as colour, so it cannot be confused with a flat highlight.
+ */
+.tb-modifier-bar button,
+.tb-sidebar-menu button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tb-modifier-bar button:focus,
+.tb-modifier-bar button:focus-visible,
+.tb-sidebar-menu button:focus,
+.tb-sidebar-menu button:focus-visible {
+  outline: 2px solid rgb(140 190 255 / 70%);
+  outline-offset: -2px;
+}
+
+/*
  * A tray action whose thing is currently ON: the game is paused, or a grab is being held.
  *
  * Distinguished by border weight and a marker as well as colour, for the same reason the latched
