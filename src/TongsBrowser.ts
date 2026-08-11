@@ -116,6 +116,10 @@ export class TongsBrowser {
   private stageMoveCount = 0;
   private pixiProbeAttached = false;
 
+  /** The distance Foundry itself gates the drag on. Must reach 10 or no drag ever starts. */
+  private peakDragDistance = 0;
+  private lastDragDistance = Number.NaN;
+
   public constructor(private readonly options: TongsBrowserOptions) {
     const { document: doc, window: win } = options;
 
@@ -571,6 +575,8 @@ export class TongsBrowser {
       this.peakPreviewCount = 0;
       this.layerMoveCount = 0;
       this.stageMoveCount = 0;
+      this.peakDragDistance = 0;
+      this.lastDragDistance = Number.NaN;
     }
 
     /*
@@ -595,6 +601,44 @@ export class TongsBrowser {
     const previews = controlled?.preview?.children?.length ?? 0;
     if (previews > this.peakPreviewCount) {
       this.peakPreviewCount = previews;
+    }
+
+    /*
+     * Compute exactly the number Foundry gates the drag on.
+     *
+     * #handlePointerMove starts a drag only when
+     *
+     *   Math.hypot(event.global.x - screenOrigin.x, event.global.y - screenOrigin.y) >= dragResistance
+     *
+     * with a default resistance of 10. The layer is provably receiving moves and the state provably
+     * stays at GRABBED, so this distance is either never reaching 10 or is NaN, and NaN >= 10 is
+     * false, which fails silently forever. Reading PIXI's own pointer rather than our cursor, because
+     * `event.global` is what Foundry actually measures and the two disagreeing is itself a candidate.
+     */
+    const manager = (
+      controlled?.controlled?.[0] as
+        | {
+            mouseInteractionManager?: {
+              interactionData?: { screenOrigin?: { x: number; y: number } };
+            };
+          }
+        | undefined
+    )?.mouseInteractionManager;
+    const origin = manager?.interactionData?.screenOrigin;
+    const pixiPointer = (
+      globalThis as {
+        canvas?: {
+          app?: { renderer?: { events?: { pointer?: { global?: { x: number; y: number } } } } };
+        };
+      }
+    ).canvas?.app?.renderer?.events?.pointer?.global;
+
+    if (origin !== undefined && pixiPointer !== undefined) {
+      const distance = Math.hypot(pixiPointer.x - origin.x, pixiPointer.y - origin.y);
+      this.lastDragDistance = distance;
+      if (Number.isFinite(distance) && distance > this.peakDragDistance) {
+        this.peakDragDistance = distance;
+      }
     }
 
     const buttons = descriptor.buttons ?? 0;
@@ -663,8 +707,19 @@ export class TongsBrowser {
       (mouse.y ?? 0) >= (selected.document.y ?? 0) &&
       (mouse.y ?? 0) <= (selected.document.y ?? 0) + (selected.h ?? 0);
 
+    /*
+     * The decisive numbers go FIRST.
+     *
+     * A phone chat window shows about fifteen lines, and the previous report was cut off exactly at
+     * the field the whole round existed to read. Ordering a diagnostic by narrative rather than by
+     * how much each line discriminates costs a whole round trip per mistake.
+     */
     const lines = [
       `<strong>Tongs Browser diagnostics</strong>`,
+      `<strong>DRAG GATE: peak distance ${this.peakDragDistance.toFixed(1)}px, needs >= 10</strong>`,
+      `<strong>PEAK state: ${INTERACTION_STATE_NAMES[this.peakInteractionState] ?? 'UNKNOWN'} (${String(this.peakInteractionState)}), previews ${String(this.peakPreviewCount)}</strong>`,
+      `<strong>PIXI moves: layer=${String(this.layerMoveCount)} stage=${String(this.stageMoveCount)}</strong>`,
+      `last gate distance: ${Number.isNaN(this.lastDragDistance) ? 'NaN (origin or pointer missing)' : this.lastDragDistance.toFixed(1)}`,
       // The BUILD stamp first, because the manifest one is read once at server start and goes stale
       // the moment module files are replaced under a running server.
       `build: ${__TB_BUILD_VERSION__} (manifest says ${(game['modules'] as { get: (id: string) => { version?: string } | undefined }).get(MODULE_ID)?.version ?? 'unknown'}, stale if they differ)`,
@@ -684,12 +739,7 @@ export class TongsBrowser {
        * all. If it reaches DRAG and a preview exists, the drag is running and the DROP is what fails.
        * Those are completely different bugs and nothing else visible distinguishes them.
        */
-      `interaction state now: ${describeInteractionState(selected)}`,
-      `<strong>PEAK during last gesture: ${INTERACTION_STATE_NAMES[this.peakInteractionState] ?? 'UNKNOWN'} (${String(this.peakInteractionState)})</strong>`,
-      `peak drag previews during last gesture: ${String(this.peakPreviewCount)}`,
-      // Foundry binds the drag's move handler on the LAYER, so this is the number that decides
-      // whether PIXI is delivering moves at all or the layer is getting them and not acting.
-      `<strong>PIXI moves delivered: layer=${String(this.layerMoveCount)} stage=${String(this.stageMoveCount)}</strong> (probe attached: ${String(this.pixiProbeAttached)})`,
+      `interaction state now: ${describeInteractionState(selected)} (probe attached: ${String(this.pixiProbeAttached)})`,
       `agent: ${navigator.userAgent}`,
       `<strong>last ${String(this.recentDispatches.length)} events dispatched</strong> <em>(grab, drag, drop, THEN tap this)</em>`,
       this.recentDispatches.length === 0
