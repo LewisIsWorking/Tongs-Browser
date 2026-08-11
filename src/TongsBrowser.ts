@@ -157,6 +157,24 @@ export class TongsBrowser {
   private watchedToken: unknown = undefined;
 
   /**
+   * Which of Foundry's two drag endings actually ran: the DROP, or the CANCEL.
+   *
+   * ⚠️ The drag now reaches DRAG with a preview clone and the token still does not move, so the
+   * failure has moved from the gate to the ending. Those are two different handlers on Foundry's
+   * Token, and every number in this report is silent about which one fired:
+   *
+   *   _onDragLeftDrop   -> reads interactionData.clones and writes the new position
+   *   _onDragLeftCancel -> destroys the preview and writes nothing
+   *
+   * They are indistinguishable from outside. Both leave the state reset, both leave no preview, and
+   * both leave the token where it was if the drop refuses. Wrapping them is the only way to see it,
+   * and it is done once and left in place because a diagnostic that has to be installed during the
+   * bug is a diagnostic nobody has when the bug happens.
+   */
+  private dragEndings: string[] = [];
+  private dragEndingHooked = false;
+
+  /**
    * The distance Foundry itself gates the drag on. Must reach 10 or no drag ever starts.
    *
    * ⚠️ `peakDragDistance` starts at 0 and is only ever written when BOTH Foundry's `screenOrigin`
@@ -736,6 +754,42 @@ export class TongsBrowser {
    * is selected right now. Guarded on identity so calling this per dispatch does not stack listeners
    * on the same token.
    */
+  /**
+   * Wrap Foundry's drop and cancel handlers so the report can say which one ended the drag.
+   *
+   * Wrapped rather than replaced: the original is called with the original `this` and its result
+   * returned untouched, so this observes without changing behaviour. Done once, on the prototype,
+   * because the token object is replaced whenever the scene redraws.
+   */
+  private hookDragEndings(): void {
+    if (this.dragEndingHooked) {
+      return;
+    }
+    const tokenClass = (
+      globalThis as {
+        CONFIG?: { Token?: { objectClass?: { prototype?: Record<string, unknown> } } };
+      }
+    ).CONFIG?.Token?.objectClass?.prototype;
+    if (tokenClass === undefined) {
+      return;
+    }
+
+    for (const name of ['_onDragLeftDrop', '_onDragLeftCancel', '_onDragLeftStart']) {
+      const original = tokenClass[name];
+      if (typeof original !== 'function') {
+        continue;
+      }
+      const record = (outcome: string): void => {
+        this.dragEndings.push(outcome);
+      };
+      tokenClass[name] = function wrapped(this: unknown, ...args: unknown[]): unknown {
+        record(name);
+        return (original as (...inner: unknown[]) => unknown).apply(this, args);
+      };
+    }
+    this.dragEndingHooked = true;
+  }
+
   private attachTokenProbe(): void {
     const token = (
       globalThis as {
@@ -767,6 +821,7 @@ export class TongsBrowser {
      */
     this.attachPixiProbe();
     this.attachTokenProbe();
+    this.hookDragEndings();
 
     /*
      * Scope the record to the DRAG, not to the last pointerdown.
@@ -829,10 +884,17 @@ export class TongsBrowser {
       this.dragMovesDispatched += 1;
     }
 
-    // A release during the captured drag. Without one, Foundry never commits the move.
-    if (this.capturingDrag && (descriptor.type === 'pointerup' || descriptor.type === 'mouseup')) {
-      this.sawDropDuringDrag = true;
-    }
+    /*
+     * A release during the captured drag. Without one, Foundry never commits the move.
+     *
+     * ⚠️ `isRelease` is computed here but the flag is set AFTER the freeze below, and the ordering is
+     * the fix for an off by one that hid the single most important event in the trace. `endDrag`
+     * clears the dragging flag before dispatching, so at the release `dragging` is already false;
+     * setting `sawDropDuringDrag` first meant the freeze fired on the release itself and the
+     * `pointerup` was never recorded. Every device trace ended on a `pointermove`, making a released
+     * drag look identical to one still held.
+     */
+    const isRelease = descriptor.type === 'pointerup' || descriptor.type === 'mouseup';
     this.wasDragging = dragging;
 
     // Once a drag has been captured, later taps are ignored rather than allowed to overwrite it.
@@ -864,6 +926,12 @@ export class TongsBrowser {
      */
     if (!dragging && this.sawDropDuringDrag) {
       return;
+    }
+
+    // Set AFTER the freeze, so the release that ends the drag is the last thing recorded rather than
+    // the first thing discarded. See isRelease above.
+    if (this.capturingDrag && isRelease) {
+      this.sawDropDuringDrag = true;
     }
 
     /*
@@ -1168,6 +1236,21 @@ export class TongsBrowser {
        * its drag gate in a handler on the object, so a zero here means the gate was never evaluated
        * after the press and no amount of travel could have opened it.
        */
+      /*
+       * The two endings, which is now the whole question. Foundry commits a move in _onDragLeftDrop
+       * and writes nothing in _onDragLeftCancel, and from outside they are indistinguishable: both
+       * reset the state, both clear the preview, both leave the token where it was.
+       */
+      `<strong>FOUNDRY'S DRAG ENDING: ${
+        this.dragEndings.length === 0
+          ? 'NEITHER ran. Foundry never started or ended a drag on this token.'
+          : this.dragEndings.join(' then ') +
+            (this.dragEndings.includes('_onDragLeftCancel')
+              ? ' <em>(CANCELLED, which writes nothing. Something aborted the drag.)</em>'
+              : this.dragEndings.includes('_onDragLeftDrop')
+                ? ' <em>(dropped, so Foundry tried to commit and the write itself refused.)</em>'
+                : ' <em>(started but never ended.)</em>')
+      }</strong>`,
       `<strong>PIXI moves TO THE TOKEN: ${String(this.tokenMoveCount)}${
         this.tokenMoveCount === 0
           ? ' <em>(ZERO. Foundry checks its drag gate on the token itself, so it was never checked.)</em>'
