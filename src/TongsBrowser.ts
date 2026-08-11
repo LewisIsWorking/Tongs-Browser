@@ -37,6 +37,38 @@ const DISPATCH_TRACE_LENGTH = 18;
 /** Stamped in at build time by Vite. See vite.config.ts for why the manifest version is not enough. */
 declare const __TB_BUILD_VERSION__: string;
 
+/**
+ * How thin is too thin for a peak to describe a gesture.
+ *
+ * A peak sampled a handful of times across hundreds of moves is not a small measurement, it is a
+ * measurement of a different thing: whatever was true during those few samples. A tenth of the moves
+ * is a generous floor and still catches the case that actually happened, 2 samples against 235.
+ */
+const THIN_SAMPLE_RATIO = 0.1;
+
+/**
+ * Render a peak, or refuse to, saying which and why.
+ *
+ * The refusal matters more than the number. A confidently printed `0.0px` was read as "the pointer
+ * never moved" on three separate occasions, each time sending the investigation off after something
+ * that was not happening, when the honest answer was that nothing had been measured.
+ */
+function describeThinly(sampled: boolean, peak: number, samples: number, moves: number): string {
+  if (!sampled) {
+    return 'NOT MEASURABLE, Foundry never exposed a drag origin (this is not a distance of zero)';
+  }
+  const thin = moves > 0 && samples < moves * THIN_SAMPLE_RATIO;
+  const reading = `${peak.toFixed(1)}px over ${String(samples)} samples`;
+  if (!thin) {
+    return reading;
+  }
+  return (
+    `${reading} of ${String(moves)} moves. <em>IGNORE THIS NUMBER: Foundry's interactionData is ` +
+    `transient and was readable for almost none of the gesture, so this describes the press rather ` +
+    `than the drag.</em>`
+  );
+}
+
 export interface TongsBrowserOptions {
   readonly document: Document;
   readonly window: Window;
@@ -1050,20 +1082,32 @@ export class TongsBrowser {
        */
       // The denominator. Every "over N samples" below is only meaningful against this.
       `<strong>drag moves dispatched: ${String(this.dragMovesDispatched)}</strong>`,
-      `<strong>Foundry's drag ORIGIN drifted: ${
-        this.sampledOriginDrift
-          ? `${this.peakOriginDrift.toFixed(1)}px over ${String(this.originDriftSamples)} samples${
-              this.peakOriginDrift > 5
-                ? ' <em>(IT SHOULD BE 0. An origin that follows the pointer can never be 10px from it, so no drag can ever start.)</em>'
-                : ' (correct, it should be 0)'
-            }`
-          : 'not measurable'
-      }</strong>`,
-      `<strong>DRAG GATE: ${
-        this.sampledDragDistance
-          ? `peak distance ${this.peakDragDistance.toFixed(1)}px over ${String(this.dragDistanceSamples)} samples, needs >= 10`
-          : 'NOT MEASURABLE, Foundry never exposed a drag origin (this is not a distance of zero)'
-      }</strong>`,
+      /*
+       * ⚠️ Both of the next two lines read Foundry's `interactionData`, which is TRANSIENT.
+       *
+       * It exists while Foundry is handling an event and is gone again afterwards, and this reads it
+       * after `dispatchEvent` has returned, so almost every read finds nothing. Measured on a device
+       * three times running: 2 samples against 55, 235 and 305 dispatched moves. Two is exactly the
+       * number of dispatches in a grab, `pointerdown` and `mousedown`, which is the one moment the
+       * field reliably exists.
+       *
+       * That makes both numbers worthless as descriptions of a gesture, and worse than worthless
+       * while they look authoritative: "0.0px, needs >= 10" was read three times as "the pointer
+       * never moved" and sent the investigation somewhere else each time. They now say outright when
+       * the sampling is too thin to mean anything, using the move count as the denominator.
+       */
+      `<strong>Foundry's drag ORIGIN drifted: ${describeThinly(
+        this.sampledOriginDrift,
+        this.peakOriginDrift,
+        this.originDriftSamples,
+        this.dragMovesDispatched
+      )}</strong>`,
+      `<strong>DRAG GATE: ${describeThinly(
+        this.sampledDragDistance,
+        this.peakDragDistance,
+        this.dragDistanceSamples,
+        this.dragMovesDispatched
+      )}${this.dragDistanceSamples > 0 ? ', needs >= 10' : ''}</strong>`,
       /*
        * The line that says whether any other position in this report means anything. Foundry gates
        * the drag on PIXI's pointer, so if ours and PIXI's disagree, ours is the only one describing

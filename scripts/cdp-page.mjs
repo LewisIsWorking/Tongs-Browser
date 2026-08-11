@@ -63,7 +63,23 @@ export async function connectCdpPage({ endpoint = 'http://127.0.0.1:9222', match
     }
     pending.delete(message.id);
     if (message.error) {
-      waiter.reject(new Error(message.error.message ?? 'CDP error'));
+      /*
+       * The tab went away underneath us, which is a fact about the session and not a bug in the
+       * check. Measured twice on 2026-08-11: a reload of Foundry on the phone mid run produced
+       * `Inspected target navigated or closed` as a raw stack trace out of this very handler,
+       * followed by a confusing `ReferenceError: canvas is not defined` from the cleanup running
+       * against a context that no longer existed. Both read like code faults and neither was one.
+       */
+      const detail = message.error.message ?? 'CDP error';
+      const navigated = /navigated or closed|Target closed|Session .* not found/i.test(detail);
+      waiter.reject(
+        new Error(
+          navigated
+            ? `the tab went away mid check: ${detail}. Foundry was probably reloaded or the tab was ` +
+                `discarded. Nothing is wrong with the module or the check; run it again.`
+            : detail
+        )
+      );
       return;
     }
     waiter.resolve(message.result);
