@@ -151,6 +151,23 @@
   transform: scaleX(-1);
 }
 
+/*
+ * Tray actions, such as showing Foundry's sidebar. Sized to the 44px touch target minimum for the
+ * same reason the keys are: this is reached with a thumb, on the device the module exists for.
+ */
+.tb-modifier-bar__action {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 5px;
+  background: rgb(255 255 255 / 8%);
+  color: rgb(255 255 255 / 90%);
+  font-size: 16px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
 .tb-modifier-bar__keys {
   display: flex;
   /* Wraps for the same reason the bar does: the keys alone are 380px, wider than a 412px phone. */
