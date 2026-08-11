@@ -98,6 +98,24 @@ export class TongsBrowser {
   /** Most drag preview objects seen during the current gesture. Non zero means a drag really began. */
   private peakPreviewCount = 0;
 
+  /**
+   * How many pointermove events PIXI delivered to the token LAYER during this gesture.
+   *
+   * This is the measurement that separates the two remaining possibilities, and it exists because
+   * Foundry's MouseInteractionManager binds the drag's move handler on `this.layer`, not on the
+   * object and not on the DOM:
+   *
+   *     this.layer.on("pointermove", this.#handlers.pointermove)
+   *
+   * A device reported peaking at GRABBED, which proves pointerdown DID reach the token through PIXI,
+   * so PIXI delivery works for the press. GRABBED advances to DRAG only when moves reach the layer.
+   * Counting them says whether PIXI is delivering them at all, which is a completely different fix
+   * from the layer receiving them and declining to act.
+   */
+  private layerMoveCount = 0;
+  private stageMoveCount = 0;
+  private pixiProbeAttached = false;
+
   public constructor(private readonly options: TongsBrowserOptions) {
     const { document: doc, window: win } = options;
 
@@ -501,6 +519,41 @@ export class TongsBrowser {
    * down and the up, or Foundry reads the stream as a hover and nothing follows the pointer. Seeing
    * `pointermove buttons=0` in this list while a grab is held would name the bug outright.
    */
+  /**
+   * Attach counters to PIXI's own layer and stage, once, lazily.
+   *
+   * Lazily because the canvas does not exist when the module is constructed, and once because these
+   * are diagnostic listeners on objects Foundry owns: adding a set per gesture would leak them into
+   * a scene change.
+   */
+  private attachPixiProbe(): void {
+    if (this.pixiProbeAttached) {
+      return;
+    }
+    const canvasGlobal = (
+      globalThis as {
+        canvas?: {
+          tokens?: { on?: (event: string, fn: () => void) => void };
+          stage?: { on?: (event: string, fn: () => void) => void };
+        };
+      }
+    ).canvas;
+
+    const layer = canvasGlobal?.tokens;
+    const stage = canvasGlobal?.stage;
+    if (layer?.on === undefined || stage?.on === undefined) {
+      return;
+    }
+
+    layer.on('pointermove', () => {
+      this.layerMoveCount += 1;
+    });
+    stage.on('pointermove', () => {
+      this.stageMoveCount += 1;
+    });
+    this.pixiProbeAttached = true;
+  }
+
   private recordDispatch(descriptor: { type: string; buttons?: number }, target: Element): void {
     /*
      * A gesture starts at a pointerdown, so the buffer restarts there.
@@ -510,10 +563,14 @@ export class TongsBrowser {
      * and the release reached the same element is precisely the question. Middle moves are the least
      * informative part, so they are the ones that get collapsed.
      */
+    this.attachPixiProbe();
+
     if (descriptor.type === 'pointerdown') {
       this.recentDispatches.length = 0;
       this.peakInteractionState = 0;
       this.peakPreviewCount = 0;
+      this.layerMoveCount = 0;
+      this.stageMoveCount = 0;
     }
 
     /*
@@ -630,6 +687,9 @@ export class TongsBrowser {
       `interaction state now: ${describeInteractionState(selected)}`,
       `<strong>PEAK during last gesture: ${INTERACTION_STATE_NAMES[this.peakInteractionState] ?? 'UNKNOWN'} (${String(this.peakInteractionState)})</strong>`,
       `peak drag previews during last gesture: ${String(this.peakPreviewCount)}`,
+      // Foundry binds the drag's move handler on the LAYER, so this is the number that decides
+      // whether PIXI is delivering moves at all or the layer is getting them and not acting.
+      `<strong>PIXI moves delivered: layer=${String(this.layerMoveCount)} stage=${String(this.stageMoveCount)}</strong> (probe attached: ${String(this.pixiProbeAttached)})`,
       `agent: ${navigator.userAgent}`,
       `<strong>last ${String(this.recentDispatches.length)} events dispatched</strong> <em>(grab, drag, drop, THEN tap this)</em>`,
       this.recentDispatches.length === 0
