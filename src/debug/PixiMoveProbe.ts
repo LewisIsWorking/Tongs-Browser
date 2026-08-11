@@ -20,7 +20,20 @@
 export interface PixiMoveCounts {
   readonly layer: number;
   readonly stage: number;
+  /**
+   * Moves delivered to the controlled TOKEN itself, which is the count that matters.
+   *
+   * ⚠️ Foundry gates the start of a drag inside a handler bound on the OBJECT, not on the layer, and
+   * PIXI delivers to an object only while the pointer is over it. So the gate is evaluated only
+   * while the pointer is still standing on the token, and if it has not opened by the time the
+   * pointer leaves, it never will.
+   *
+   * Every count here so far has been of the LAYER, which is a different thing and has been reported
+   * as though it answered this. A layer count stays healthy while the object receives nothing.
+   */
+  readonly token: number;
   readonly attached: boolean;
+  readonly tokenAttached: boolean;
 }
 
 interface EmitterLike {
@@ -28,26 +41,32 @@ interface EmitterLike {
 }
 
 interface CanvasWithEmitters {
-  readonly tokens?: EmitterLike;
+  readonly tokens?: EmitterLike & { readonly controlled?: EmitterLike[] };
   readonly stage?: EmitterLike;
 }
 
 export class PixiMoveProbe {
   private layerMoves = 0;
   private stageMoves = 0;
+  private tokenMoves = 0;
   private attached = false;
+  private tokenAttached = false;
+
+  /** The token currently listened to, so a call per dispatch cannot stack listeners on it. */
+  private watchedToken: EmitterLike | undefined = undefined;
 
   /**
-   * Attach the counters, once, lazily.
-   *
-   * Lazily because the canvas does not exist when the module is constructed, and once because these
-   * are listeners on objects Foundry owns: a set per gesture would leak them across a scene change.
-   *
    * The canvas is read through a getter so a test can supply one, rather than reached for on
    * `globalThis` where nothing can substitute it.
    */
   public constructor(private readonly getCanvas: () => CanvasWithEmitters | undefined) {}
 
+  /**
+   * Attach the layer and stage counters, once, lazily.
+   *
+   * Lazily because the canvas does not exist when the module is constructed, and once because these
+   * are listeners on objects Foundry owns: a set per gesture would leak them across a scene change.
+   */
   public attach(): void {
     if (this.attached) {
       return;
@@ -71,13 +90,40 @@ export class PixiMoveProbe {
     this.attached = true;
   }
 
+  /**
+   * Attach to the controlled token, separately and repeatedly.
+   *
+   * Separate from `attach` because the token is not there when the canvas is: it is whatever the
+   * user has selected right now, and it changes. Re-attaching to the SAME token is guarded by
+   * remembering the object, so a call per dispatch does not stack listeners on it.
+   */
+  public attachToControlledToken(): void {
+    const token = this.getCanvas()?.tokens?.controlled?.[0];
+    if (token?.on === undefined || token === this.watchedToken) {
+      return;
+    }
+    this.watchedToken = token;
+    this.tokenMoves = 0;
+    token.on('pointermove', () => {
+      this.tokenMoves += 1;
+    });
+    this.tokenAttached = true;
+  }
+
   public getCounts(): PixiMoveCounts {
-    return { layer: this.layerMoves, stage: this.stageMoves, attached: this.attached };
+    return {
+      layer: this.layerMoves,
+      stage: this.stageMoves,
+      token: this.tokenMoves,
+      attached: this.attached,
+      tokenAttached: this.tokenAttached,
+    };
   }
 
   /** Reset for a fresh gesture. The attachment survives, since the listeners are still bound. */
   public resetCounts(): void {
     this.layerMoves = 0;
     this.stageMoves = 0;
+    this.tokenMoves = 0;
   }
 }
