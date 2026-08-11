@@ -111,6 +111,30 @@ export class TouchBinder {
      * action is visible, and this produces nothing at all.
      */
     target.addEventListener('pointercancel', this.onNativePointer, { capture: true, signal });
+
+    /*
+     * ⚠️ contextmenu, which is what has been CANCELLING every drag. Added 2026-08-11.
+     *
+     * Read out of Foundry's own `client/canvas/interaction/mouse-handler.mjs`, where
+     * MouseInteractionManager builds its handler map:
+     *
+     *     contextmenu: this.#handleDragCancel.bind(this)
+     *
+     * A `contextmenu` event cancels an in progress drag outright. `_onDragLeftCancel` writes nothing,
+     * so the token stays exactly where it was and every other measurement looks healthy: the gate
+     * opens, the state reaches DRAG, a preview clone is created, and then the whole thing is thrown
+     * away. A device reported precisely that, three cancels and not one drop.
+     *
+     * On a phone a long press on the canvas produces a native `contextmenu`, and a finger dwelling
+     * mid drag is not an edge case, it is how people drag. A mouse only produces one on a deliberate
+     * right click, which is why no desktop run has ever seen this and why it survived every
+     * measurement that did not come from the hardware.
+     *
+     * `isTrusted` separates the two cases exactly: the browser's own event is trusted, and the one
+     * this module synthesises for a long press gesture is not. So a real long press is swallowed and
+     * the module's deliberate right click still reaches Foundry.
+     */
+    target.addEventListener('contextmenu', this.onNativeContextMenu, { capture: true, signal });
   }
 
   public unbind(): void {
@@ -136,6 +160,27 @@ export class TouchBinder {
     if (this.options.exclusions.isExcluded(event.target)) {
       return;
     }
+    event.stopPropagation();
+  };
+
+  /**
+   * Swallow the browser's own contextmenu, which Foundry treats as "cancel the drag".
+   *
+   * Only the TRUSTED one. This module synthesises a `contextmenu` for its long press gesture, and
+   * that one is deliberate and must reach Foundry; the browser's, produced by a finger dwelling
+   * during a drag, must not. `isTrusted` is exactly that distinction and needs no bookkeeping.
+   *
+   * `preventDefault` as well as `stopPropagation`, so the platform's own menu does not appear either.
+   * An excluded region keeps its normal behaviour, so a long press in chat still offers copy.
+   */
+  private readonly onNativeContextMenu = (event: Event): void => {
+    if (!this.options.suppressNativeTouch() || !event.isTrusted) {
+      return;
+    }
+    if (this.options.exclusions.isExcluded(event.target)) {
+      return;
+    }
+    event.preventDefault();
     event.stopPropagation();
   };
 
