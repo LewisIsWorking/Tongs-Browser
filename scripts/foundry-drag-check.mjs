@@ -22,6 +22,7 @@
  */
 import {
   BASE,
+  connectAndroidBrowser,
   ensureActiveScene,
   ensureModuleEnabled,
   joinWorld,
@@ -30,6 +31,21 @@ import {
   requireActiveWorld,
   PROBE_PREFIX,
 } from './foundry-session.mjs';
+
+/**
+ * `--android` drives Chrome on the actual phone instead of desktop Chromium.
+ *
+ * This check passes on desktop and the same gesture fails on a device, which means desktop can no
+ * longer answer the question. Running the identical assertions against real hardware is the only way
+ * to see the difference rather than infer it from a pasted report, and inferring it has now cost
+ * three releases.
+ *
+ * Needs the adb forward and an address the DEVICE can reach:
+ *
+ *   adb forward tcp:9222 localabstract:chrome_devtools_remote
+ *   FOUNDRY_URL=http://<host-lan-ip>:30000 npm run check:drag -- --android
+ */
+const USE_ANDROID = process.argv.includes('--android');
 
 /**
  * How far to drag, and in how many steps.
@@ -62,7 +78,17 @@ const TRAVEL_TOLERANCE = 100;
 async function main() {
   await requireActiveWorld();
 
-  const { browser, page } = await launchBrowser();
+  const { browser, page, device } = USE_ANDROID
+    ? await connectAndroidBrowser()
+    : await launchBrowser();
+
+  if (device !== undefined) {
+    console.log(
+      `Android: ${String(device.width)}x${String(device.height)} dpr ${String(device.devicePixelRatio)}, ` +
+        `${String(device.maxTouchPoints)} touch points`
+    );
+  }
+
   const failures = [];
   let sceneId = null;
   let created = null;
@@ -126,7 +152,17 @@ async function main() {
       });
     }
     await removeProbeScene(page, sceneId);
-    await browser.close();
+    /*
+     * Do NOT close a browser we merely attached to. On Android this is the user's own Chrome, with
+     * their own tabs in it, and closing it to tidy up after a check would be a rude way to end a
+     * diagnostic. Disconnecting is enough; the tab stays where it is, which is also useful when the
+     * check fails and someone wants to look at the screen.
+     */
+    if (USE_ANDROID) {
+      await browser.close({ reason: 'detaching from the device' }).catch(() => undefined);
+    } else {
+      await browser.close();
+    }
   }
 
   if (failures.length > 0) {
@@ -263,7 +299,18 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
        */
       const trace = [];
       let originAliasesPointer = null;
-      const stride = dragDistance / dragSteps;
+      /*
+       * Never drag further than the viewport can hold.
+       *
+       * The hit tester clamps the pointer inside the viewport, so a 240px drag on a 360px wide phone
+       * would press at the middle, run into the right edge, and stop. The pointer would then be
+       * exactly where the clamp put it rather than where it was sent, the token would move less than
+       * asked, and the check would report "the drag is not following the pointer" about its own
+       * arithmetic. A third of the viewport clears Foundry's 10px gate many times over on any screen
+       * it runs on.
+       */
+      const usable = Math.min(dragDistance, Math.floor(window.innerWidth / 3));
+      const stride = usable / dragSteps;
       for (let step = 0; step < dragSteps; step += 1) {
         pointer.moveBy(stride, 0);
         // A frame between steps, so PIXI actually processes each move rather than coalescing the
@@ -340,7 +387,7 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
         // How far the token went, against how far the pointer went. Both in canvas units, so the
         // comparison holds at any zoom: client pixels divided by the stage scale ARE canvas units.
         travelled: Math.hypot(after.x - before.x, after.y - before.y),
-        expected: dragDistance / canvas.stage.scale.x,
+        expected: usable / canvas.stage.scale.x,
         peakState,
         peakClones,
         pointerStillDragging: pointer.isDragging(),

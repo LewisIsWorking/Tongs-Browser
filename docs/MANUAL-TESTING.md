@@ -89,6 +89,21 @@ button never saying it was still holding something, so a held grab reads exactly
 - A 240px drag moves the token about 240 canvas units, allowing one grid square for snapping.
 - The grab button reads `DROP` while it holds, and Foundry commits the move on that drop.
 
+⚠️ **Desktop passing is not the phone passing.** A device on Chrome 150 still reports a token that
+does not move, with `PEAK state: GRABBED (3)`, while this check is green on desktop against the same
+build. So run it on the hardware:
+
+```bash
+adb forward tcp:9222 localabstract:chrome_devtools_remote
+FOUNDRY_URL=http://<host-lan-ip>:30000 npm run check:drag -- --android
+```
+
+The drag distance becomes a third of the viewport there rather than a flat 240px, because the hit
+tester clamps the pointer inside the viewport and a 240px drag across a 360px phone would run into
+the edge, move the token less than asked, and report "the drag is not following the pointer" about
+the harness's own arithmetic. It also **does not close the browser** on the way out, since that is
+the user's own Chrome with their own tabs in it.
+
 `npm run check:android` runs all of the above shapes against **Chrome on a real Android device**,
 over the DevTools socket `adb` forwards, so the viewport is a real phone viewport and the touchscreen
 is real hardware. Measured 2026-08-10 on the `coo_phone` emulator at 412x783, dpr 2.625, Foundry
