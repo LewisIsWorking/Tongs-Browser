@@ -1,5 +1,57 @@
 # tongs-browser
 
+## 0.22.1
+
+### Patch Changes
+
+- [#83](https://github.com/LewisIsWorking/Tongs-Browser/pull/83) [`f81cc4b`](https://github.com/LewisIsWorking/Tongs-Browser/commit/f81cc4b6768189be9a80a1eba0f55de74036bd8c) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Count the moves PIXI delivers to the **token itself**, which is the only one of the three that decides
+  a drag.
+
+  Stopping the raw touch stream reaching PIXI was a real bug and was not this one: v0.22.0 changed
+  nothing on the device. The report still says `PEAK state: GRABBED (3)` with a pointer that travelled
+  122px.
+
+  Foundry evaluates its 10px drag gate inside a handler bound on the **object**, and PIXI delivers to an
+  object only while the pointer is over it. So the gate is checked only while the pointer is still
+  standing on the token, and if it has not opened by the time the pointer leaves, it never will. Every
+  PIXI count in this report so far has been of the **layer**, which is a different object entirely, and
+  it was read three times as though it answered this. A layer count stays perfectly healthy while the
+  token receives nothing at all.
+
+  `PIXI moves TO THE TOKEN` now leads that section, and calls out a zero explicitly, because a zero
+  means the gate was never evaluated after the press and no amount of travel could have opened it.
+
+  Also adds `scripts/await-device-then.ts`. Chrome on Android serves its debugging socket only while
+  the browser is in the foreground, which turns every device run into a rendezvous the user cannot keep:
+  the way they report a result is by switching to another app to paste it. Four runs died to that, each
+  looking like a different fault. The check now waits for the socket and starts itself, re-establishing
+  the adb forward on each attempt since a forward survives the socket going away and then points at
+  nothing.
+
+- [#85](https://github.com/LewisIsWorking/Tongs-Browser/pull/85) [`ed1ce70`](https://github.com/LewisIsWorking/Tongs-Browser/commit/ed1ce70bd5c1d3fea4da2b69576bc79017ff9993) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The tooling scripts are TypeScript. They were `.mjs` and outside the typed program entirely, so 3,795
+  lines of harness that drives a live Foundry had no checking at all.
+
+  Node 26 runs TypeScript directly by stripping types, so this needs no bundler, no `tsx` and no new
+  dependency: `node scripts/foundry-drag-check.ts` simply works, and the npm scripts and the release
+  workflow point at `.ts` now.
+
+  `scripts/foundry-globals.d.ts` declares Foundry's in-page globals, which removed 280 of the 591
+  errors the rename exposed. They are typed as `any` on purpose. Foundry ships no types, and a hand
+  written partial interface would be wrong in a specific and dangerous way: authoritative-looking,
+  describing whatever subset somebody needed on the day, and drifting with every Foundry release. An
+  honest `any` says "unchecked" out loud where a half accurate interface would claim otherwise.
+
+  `npm run typecheck:scripts` checks them against `tsconfig.scripts.json`, which relaxes exactly two of
+  the app's rules, `noPropertyAccessFromIndexSignature` and `exactOptionalPropertyTypes`. Both fire on
+  every `process.env.FOO` and on optional fields handed to Playwright, and neither describes a defect in
+  a script. `strict` still applies.
+
+  **293 type errors remain**, all in harness files that predate this change, almost all missing
+  annotations on Playwright callbacks. They are reported rather than hidden, and `typecheck:scripts` is
+  deliberately not yet part of `verify`, because wiring a red check into the gate would only teach
+  everyone to ignore it. Type aware lint rules are also still off for `scripts/**`: turning them on
+  produces 1,895 findings, which is a migration of its own rather than something to bundle in here.
+
 ## 0.22.0
 
 ### Minor Changes
