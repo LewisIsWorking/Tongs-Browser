@@ -54,6 +54,20 @@ export interface TrayAction {
    * frozen is worse than no button: it invites a second tap that undoes the first.
    */
   readonly isActive?: () => boolean;
+  /**
+   * The label to show right now, when it depends on state.
+   *
+   * ⚠️ Added 2026-08-11 because a latched button whose label never changes cost a whole round of
+   * device diagnostics. The grab button holds the mouse button down until it is tapped again, and it
+   * showed the same open hand whether it was holding a token or idle. The gold latched styling says
+   * "on", but "on" does not tell you that the next thing to do is tap it OFF, and a token stays
+   * exactly where it was until the grab is released. A device report came back with the drag never
+   * dropped and the token never moved, which read as a broken drag and was a control that did not
+   * say what it wanted.
+   *
+   * Colour alone was never going to carry this. The word is the fix.
+   */
+  readonly getLabel?: () => string;
   /** Buttons sharing a group are rendered together, so related controls cluster rather than wrap. */
   readonly group?: string;
 }
@@ -100,6 +114,7 @@ export class ModifierBar {
   private readonly buttons = new Map<string, HTMLButtonElement>();
   private readonly actionButtons = new Map<string, HTMLButtonElement>();
   private readonly statefulActions = new Map<string, () => boolean>();
+  private readonly dynamicLabels = new Map<string, () => string>();
   private latches: ModifierLatchMap = ALL_OFF;
   private position: BarPosition;
   private collapsed: boolean;
@@ -178,6 +193,9 @@ export class ModifierBar {
       if (action.isActive !== undefined) {
         this.statefulActions.set(action.id, action.isActive);
       }
+      if (action.getLabel !== undefined) {
+        this.dynamicLabels.set(action.id, action.getLabel);
+      }
     }
 
     this.keysContainer = doc.createElement('div');
@@ -243,6 +261,13 @@ export class ModifierBar {
    * only looks pressed is invisible to anyone not looking at it.
    */
   public refreshActions(): void {
+    for (const [id, getLabel] of this.dynamicLabels) {
+      const button = this.actionButtons.get(id);
+      if (button !== undefined) {
+        button.textContent = getLabel();
+      }
+    }
+
     for (const [id, isActive] of this.statefulActions) {
       const button = this.actionButtons.get(id);
       if (button === undefined) {

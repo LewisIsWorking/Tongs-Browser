@@ -489,6 +489,49 @@ describe('ModifierBar tray actions', () => {
     expect(button?.getAttribute('aria-pressed')).toBe('true');
   });
 
+  /**
+   * A held grab has to SAY it wants letting go.
+   *
+   * Named for the requirement rather than for getLabel, because the requirement is what must not
+   * regress: the latched colour is not enough on its own. A device report on 2026-08-11 came back
+   * with a drag still held and a token that had not moved, which read as a broken drag and was
+   * Foundry correctly declining to commit a move that had never been dropped. Everything else in
+   * that gesture measured perfectly against a live 14.365.
+   */
+  it('tells a held grab to be let go, rather than only colouring it', () => {
+    let held = false;
+    const bar = new ModifierBar({
+      document,
+      synthesizer: synthesizer(null),
+      onFlagsChanged: () => undefined,
+      trayActions: [
+        {
+          id: 'grab',
+          label: '✋',
+          getLabel: () => (held ? 'DROP' : '✋'),
+          title: 'Grab',
+          activate: () => {
+            held = !held;
+          },
+          isActive: () => held,
+        },
+      ],
+    });
+    bar.attach();
+    const button = bar.getElement().querySelector<HTMLButtonElement>('[data-action="grab"]');
+
+    expect(button?.textContent).toBe('✋');
+
+    button?.click();
+
+    expect(held).toBe(true);
+    expect(button?.textContent).toBe('DROP');
+
+    button?.click();
+
+    expect(button?.textContent).toBe('✋');
+  });
+
   /** Tapping refreshes immediately, so the button is never a tap behind what it controls. */
   it('refreshes its own state as soon as it is tapped', () => {
     let held = false;
