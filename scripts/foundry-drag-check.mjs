@@ -262,6 +262,7 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
        * against clone is Foundry declining to follow.
        */
       const trace = [];
+      let originAliasesPointer = null;
       const stride = dragDistance / dragSteps;
       for (let step = 0; step < dragSteps; step += 1) {
         pointer.moveBy(stride, 0);
@@ -270,6 +271,18 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
         await new Promise((resolve) => requestAnimationFrame(resolve));
 
         const data = token.mouseInteractionManager?.interactionData;
+        /*
+         * Is Foundry's recorded drag origin the SAME OBJECT as PIXI's live pointer?
+         *
+         * If it is, then every diagnostic that computes `hypot(pointer - screenOrigin)` is
+         * subtracting a value from itself and can only ever report 0.0, forever, on every device,
+         * whether the drag works or not. A device reported exactly 0.0 across a whole gesture, which
+         * is far too clean for a real measurement. PIXI reuses one rootPointerEvent and mutates its
+         * `global` in place, so an assignment without a clone aliases the two.
+         */
+        if (originAliasesPointer === null && data?.screenOrigin !== undefined) {
+          originAliasesPointer = data.screenOrigin === canvas.app.renderer.events.pointer.global;
+        }
         trace.push({
           step,
           ours: Math.round(pointer.getPosition().clientX),
@@ -334,6 +347,7 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
         controlled: canvas.tokens.controlled.length,
         controlledAtStart,
         trace,
+        originAliasesPointer,
         scale: canvas.stage.scale.x,
         centre: { x: Math.round(centre.x), y: Math.round(centre.y) },
         client: { x: Math.round(client.x), y: Math.round(client.y) },
@@ -366,6 +380,12 @@ function report(result) {
   console.log(`  active tool    : ${String(result.activeTool)}`);
   console.log(`  token locked   : ${String(result.locked)}`);
   console.log(`  still dragging : ${String(result.pointerStillDragging)}`);
+  console.log(
+    `  origin aliases PIXI pointer: ${String(result.originAliasesPointer)}` +
+      (result.originAliasesPointer === true
+        ? '  <-- any hypot(pointer - screenOrigin) is structurally 0.0'
+        : '')
+  );
   console.log('  per step (ours / foundry destination / clone x / state):');
   for (const entry of result.trace) {
     console.log(
