@@ -73,6 +73,20 @@ const USE_MOBILE = process.argv.includes('--mobile');
 const MOBILE_DPR = 3;
 
 /**
+ * `--pan` pans the canvas while the drag is in progress.
+ *
+ * The remaining candidate for a drag origin that follows the pointer. `screenOrigin` is in SCREEN
+ * space, so when the canvas pans, the same world point lands on different screen pixels and Foundry
+ * has to rewrite it or the drag would jump. That rewrite is correct in isolation. It stops being
+ * correct if the canvas is panning WITH the pointer, because then the origin chases the pointer and
+ * Foundry's 10px gate can never open however far you drag.
+ *
+ * On a phone, a one finger drag moves the pointer, and anything that also nudges the canvas would
+ * produce exactly this. Desktop never pans during a drag, which is why desktop has never seen it.
+ */
+const PAN_DURING_DRAG = process.argv.includes('--pan');
+
+/**
  * How far to drag, and in how many steps.
  *
  * Foundry's MouseInteractionManager will not start a drag until the pointer has travelled its
@@ -273,7 +287,7 @@ async function removeProbeToken(page, { actorId, tokenId }) {
  */
 async function dragControlledToken(page, { distance, steps, timeout }) {
   return page.evaluate(
-    async ({ dragDistance, dragSteps, commitTimeout }) => {
+    async ({ dragDistance, dragSteps, commitTimeout, panDuringDrag }) => {
       const api = game.modules.get('tongs-browser')?.api;
       if (api === undefined) {
         throw new Error('the module exposes no api, so it did not reach its ready hook.');
@@ -363,6 +377,12 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
       const stride = usable / dragSteps;
       for (let step = 0; step < dragSteps; step += 1) {
         pointer.moveBy(stride, 0);
+
+        // Pan WITH the pointer, which is the arrangement under suspicion. See PAN_DURING_DRAG.
+        if (panDuringDrag) {
+          const centre = canvas.stage.pivot;
+          canvas.pan({ x: centre.x + stride, y: centre.y });
+        }
         // A frame between steps, so PIXI actually processes each move rather than coalescing the
         // whole drag into one. A real finger cannot produce twelve moves inside one frame either.
         await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -457,7 +477,12 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
         locked: token.document.locked === true,
       };
     },
-    { dragDistance: distance, dragSteps: steps, commitTimeout: timeout }
+    {
+      dragDistance: distance,
+      dragSteps: steps,
+      commitTimeout: timeout,
+      panDuringDrag: PAN_DURING_DRAG,
+    }
   );
 }
 
