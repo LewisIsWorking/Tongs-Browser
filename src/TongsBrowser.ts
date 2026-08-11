@@ -76,6 +76,60 @@ function describePointers(): string {
   return parts.join(' ');
 }
 
+/**
+ * Whether the pointer is standing on the controlled token, judged at the moment of the grab.
+ *
+ * Foundry begins a drag from a pointerdown that HITS a placeable. A press a few pixels off the token
+ * starts a selection rectangle instead: no origin is recorded, the interaction peaks at HOVER, and
+ * every number in the report is then correct about a gesture nobody meant to perform.
+ *
+ * The bounds come from the token's own document rather than from a hit test, because a hit test asks
+ * PIXI what is under the pointer NOW and this needs to be answered later, in a report. Width and
+ * height are in grid squares in Foundry's data model, so they are multiplied by the grid size.
+ */
+function describeGrabTarget(): string {
+  const canvasGlobal = (
+    globalThis as {
+      canvas?: {
+        mousePosition?: { x: number; y: number };
+        grid?: { size?: number };
+        tokens?: {
+          controlled?: {
+            name?: string;
+            document?: { x?: number; y?: number; width?: number; height?: number };
+          }[];
+        };
+      };
+    }
+  ).canvas;
+
+  const token = canvasGlobal?.tokens?.controlled?.[0];
+  const doc = token?.document;
+  const at = canvasGlobal?.mousePosition;
+
+  if (doc?.x === undefined || doc.y === undefined || at === undefined) {
+    return 'no controlled token, so there was nothing to grab';
+  }
+
+  const grid = canvasGlobal?.grid?.size ?? 100;
+  const right = doc.x + (doc.width ?? 1) * grid;
+  const bottom = doc.y + (doc.height ?? 1) * grid;
+  const inside = at.x >= doc.x && at.x <= right && at.y >= doc.y && at.y <= bottom;
+
+  const name = token?.name ?? 'the token';
+
+  if (inside) {
+    return `YES, on ${name}`;
+  }
+
+  const dx = at.x < doc.x ? doc.x - at.x : at.x > right ? at.x - right : 0;
+  const dy = at.y < doc.y ? doc.y - at.y : at.y > bottom ? at.y - bottom : 0;
+  return (
+    `NO, the pointer was ${String(Math.round(Math.hypot(dx, dy)))} canvas px OUTSIDE ` +
+    `${name}. Put the cursor ON the token before grabbing.`
+  );
+}
+
 /** Foundry's own view of where an interaction got to, named rather than left as a bare number. */
 function describeInteractionState(target: unknown): string {
   const manager = (target as { mouseInteractionManager?: { state?: number } } | undefined)
@@ -261,6 +315,22 @@ export class TongsBrowser {
   /** Where the token was when the grab began, and whether the grab was ever released. */
   private tokenAtGrab: { x: number; y: number } | null = null;
   private sawDropDuringDrag = false;
+
+  /**
+   * Was the pointer actually ON the controlled token at the moment of the grab?
+   *
+   * ⚠️ The question every unsuccessful drag turns out to hinge on, and the report has never answered
+   * it. Foundry starts an interaction from a pointerdown that HITS a placeable; a press on empty
+   * canvas starts a selection rectangle instead, records no drag origin, and produces a report full
+   * of measurements that are all individually correct and collectively describe nothing.
+   *
+   * Measured on a device 2026-08-11: token at (2900, 2200), pointer at canvas (3083, 2152), peak
+   * interaction state HOVER, no origin ever recorded. The drag was fine; the grab simply began next
+   * to the token rather than on it. Nothing in the report said so, and the previous line for it,
+   * `insideSelectedToken`, is read at REPORT time, long after the pointer has moved on and been used
+   * to tap the diagnose button.
+   */
+  private grabbedOnToken: string | null = null;
 
   public constructor(private readonly options: TongsBrowserOptions) {
     const { document: doc, window: win } = options;
@@ -780,6 +850,7 @@ export class TongsBrowser {
       this.tokenAtGrab =
         grabbed?.x === undefined || grabbed.y === undefined ? null : { x: grabbed.x, y: grabbed.y };
       this.sawDropDuringDrag = false;
+      this.grabbedOnToken = describeGrabTarget();
     }
 
     // The denominator for every sample count in this report. Moves we sent, against samples each
@@ -803,6 +874,27 @@ export class TongsBrowser {
       // A fresh press with no grab held: the drag record has served its purpose.
       this.capturingDrag = false;
       this.recentDispatches.length = 0;
+    }
+
+    /*
+     * ⚠️ FREEZE the record once the grab has been released.
+     *
+     * The whole point of scoping the record to the drag was that a later tap must not overwrite the
+     * gesture being diagnosed, and it still let the far more common case through: ordinary pointer
+     * movement AFTER the drop. Every one of those is a `pointermove` with `buttons=0`, they arrive by
+     * the hundred as soon as the finger moves again, and the trace is eighteen entries long.
+     *
+     * Measured on a device: a report showing 305 drag moves and eighteen consecutive `buttons=0`
+     * moves, which describes the moment after the drag rather than the drag. The counters were
+     * polluted the same way, since travel is measured from the grab point and the pointer keeps
+     * moving long after the drop.
+     *
+     * So the record closes on the drop and stays closed until the next grab opens a new one. This is
+     * the same lesson as sampling the interaction state during the gesture rather than at report
+     * time: a diagnostic that keeps recording after the event describes the aftermath.
+     */
+    if (!dragging && this.sawDropDuringDrag) {
+      return;
     }
 
     /*
@@ -1043,6 +1135,9 @@ export class TongsBrowser {
        * point, so Foundry cannot confound it. Under 10 and Foundry is right to refuse; well over 10
        * while Foundry's own gate reads 0 means Foundry's drag origin is following the pointer.
        */
+      // Asked and answered at the grab, because by report time the pointer has been used to tap the
+      // button that produced the report.
+      `<strong>GRABBED ON THE TOKEN: ${this.grabbedOnToken ?? 'no grab recorded yet'}</strong>`,
       `<strong>OUR pointer travelled: ${
         this.pointerAtGrab === null
           ? 'no grab recorded'
