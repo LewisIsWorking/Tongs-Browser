@@ -35,7 +35,7 @@ describe('PixiMoveProbe', () => {
     tokens.fire('pointermove');
     stage.fire('pointermove');
 
-    expect(probe.getCounts()).toEqual({ layer: 2, stage: 1, attached: true });
+    expect(probe.getCounts()).toMatchObject({ layer: 2, stage: 1, attached: true });
   });
 
   /** Attaching twice would double count and leak a listener set on every gesture. */
@@ -79,7 +79,7 @@ describe('PixiMoveProbe', () => {
 
     probe.attach();
 
-    expect(probe.getCounts()).toEqual({ layer: 0, stage: 0, attached: false });
+    expect(probe.getCounts()).toMatchObject({ layer: 0, stage: 0, attached: false });
   });
 
   /** A half built canvas, with a stage but no token layer, must not attach half a probe. */
@@ -107,12 +107,98 @@ describe('PixiMoveProbe', () => {
     stage.fire('pointermove');
     probe.resetCounts();
 
-    expect(probe.getCounts()).toEqual({ layer: 0, stage: 0, attached: true });
+    expect(probe.getCounts()).toMatchObject({ layer: 0, stage: 0, attached: true });
 
     probe.attach();
     tokens.fire('pointermove');
 
     // Still one listener, so one fire is one count. Two would mean reset had allowed a re-attach.
     expect(probe.getCounts().layer).toBe(1);
+  });
+});
+
+/**
+ * The token counter, which is the one that decides a drag.
+ *
+ * Foundry evaluates its 10px drag gate in a handler bound on the OBJECT, and PIXI delivers to an
+ * object only while the pointer is over it. A layer count stays perfectly healthy while the token
+ * receives nothing, which is exactly how a layer count came to be read three times as though it
+ * answered this question.
+ */
+describe('PixiMoveProbe and the controlled token', () => {
+  function tokenEmitter() {
+    const handlers: (() => void)[] = [];
+    return {
+      on: (_event: string, handler: () => void) => handlers.push(handler),
+      fire: () => {
+        for (const handler of handlers) {
+          handler();
+        }
+      },
+      listeners: () => handlers.length,
+    };
+  }
+
+  it('counts moves delivered to the controlled token', () => {
+    const token = tokenEmitter();
+    const probe = new PixiMoveProbe(() => ({ tokens: { controlled: [token] } }));
+
+    probe.attachToControlledToken();
+    token.fire();
+    token.fire();
+
+    expect(probe.getCounts().token).toBe(2);
+    expect(probe.getCounts().tokenAttached).toBe(true);
+  });
+
+  it('does not stack listeners when asked repeatedly for the same token', () => {
+    const token = tokenEmitter();
+    const probe = new PixiMoveProbe(() => ({ tokens: { controlled: [token] } }));
+
+    probe.attachToControlledToken();
+    probe.attachToControlledToken();
+    probe.attachToControlledToken();
+
+    expect(token.listeners()).toBe(1);
+  });
+
+  /** Selecting a different token must move the counter to it, and start it from zero. */
+  it('follows the selection to a new token and restarts the count', () => {
+    const first = tokenEmitter();
+    const second = tokenEmitter();
+    let controlled = [first];
+    const probe = new PixiMoveProbe(() => ({ tokens: { controlled } }));
+
+    probe.attachToControlledToken();
+    first.fire();
+    expect(probe.getCounts().token).toBe(1);
+
+    controlled = [second];
+    probe.attachToControlledToken();
+    expect(probe.getCounts().token).toBe(0);
+
+    second.fire();
+    expect(probe.getCounts().token).toBe(1);
+    expect(first.listeners()).toBe(1);
+  });
+
+  it('stays unattached when nothing is controlled', () => {
+    const probe = new PixiMoveProbe(() => ({ tokens: { controlled: [] } }));
+
+    probe.attachToControlledToken();
+
+    expect(probe.getCounts().tokenAttached).toBe(false);
+    expect(probe.getCounts().token).toBe(0);
+  });
+
+  it('clears the token count on reset', () => {
+    const token = tokenEmitter();
+    const probe = new PixiMoveProbe(() => ({ tokens: { controlled: [token] } }));
+
+    probe.attachToControlledToken();
+    token.fire();
+    probe.resetCounts();
+
+    expect(probe.getCounts().token).toBe(0);
   });
 });

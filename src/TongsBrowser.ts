@@ -143,6 +143,20 @@ export class TongsBrowser {
   private pixiProbeAttached = false;
 
   /**
+   * Moves delivered to the controlled TOKEN itself, which is the count that decides the drag.
+   *
+   * ⚠️ Foundry evaluates its 10px drag gate inside a handler bound on the OBJECT, and PIXI delivers
+   * to an object only while the pointer is over it. So the gate is checked only while the pointer is
+   * still standing on the token: if it has not opened by the time the pointer leaves, it never will.
+   *
+   * Every PIXI count in this report so far has been of the LAYER, which is a different object, and
+   * it was read three times as though it answered this. A layer count stays perfectly healthy while
+   * the token receives nothing at all.
+   */
+  private tokenMoveCount = 0;
+  private watchedToken: unknown = undefined;
+
+  /**
    * The distance Foundry itself gates the drag on. Must reach 10 or no drag ever starts.
    *
    * ⚠️ `peakDragDistance` starts at 0 and is only ever written when BOTH Foundry's `screenOrigin`
@@ -715,6 +729,30 @@ export class TongsBrowser {
     this.pixiProbeAttached = true;
   }
 
+  /**
+   * Attach a counter to the controlled token, re-attaching when the selection changes.
+   *
+   * Separate from the layer probe because the token is not there when the canvas is: it is whatever
+   * is selected right now. Guarded on identity so calling this per dispatch does not stack listeners
+   * on the same token.
+   */
+  private attachTokenProbe(): void {
+    const token = (
+      globalThis as {
+        canvas?: { tokens?: { controlled?: { on?: (event: string, fn: () => void) => void }[] } };
+      }
+    ).canvas?.tokens?.controlled?.[0];
+
+    if (token?.on === undefined || token === this.watchedToken) {
+      return;
+    }
+    this.watchedToken = token;
+    this.tokenMoveCount = 0;
+    token.on('pointermove', () => {
+      this.tokenMoveCount += 1;
+    });
+  }
+
   private recordDispatch(
     descriptor: { type: string; buttons?: number; position?: { clientX: number; clientY: number } },
     target: Element
@@ -728,6 +766,7 @@ export class TongsBrowser {
      * informative part, so they are the ones that get collapsed.
      */
     this.attachPixiProbe();
+    this.attachTokenProbe();
 
     /*
      * Scope the record to the DRAG, not to the last pointerdown.
@@ -748,6 +787,7 @@ export class TongsBrowser {
       this.peakPreviewCount = 0;
       this.layerMoveCount = 0;
       this.stageMoveCount = 0;
+      this.tokenMoveCount = 0;
       this.peakDragDistance = 0;
       this.lastDragDistance = Number.NaN;
       this.sampledDragDistance = false;
@@ -1123,7 +1163,17 @@ export class TongsBrowser {
           : 'not measurable'
       }</strong>`,
       `<strong>PEAK state: ${INTERACTION_STATE_NAMES[this.peakInteractionState] ?? 'UNKNOWN'} (${String(this.peakInteractionState)}), previews ${String(this.peakPreviewCount)}</strong>`,
-      `<strong>PIXI moves: layer=${String(this.layerMoveCount)} stage=${String(this.stageMoveCount)}</strong>`,
+      /*
+       * TOKEN first, because it is the only one of the three that decides anything. Foundry checks
+       * its drag gate in a handler on the object, so a zero here means the gate was never evaluated
+       * after the press and no amount of travel could have opened it.
+       */
+      `<strong>PIXI moves TO THE TOKEN: ${String(this.tokenMoveCount)}${
+        this.tokenMoveCount === 0
+          ? ' <em>(ZERO. Foundry checks its drag gate on the token itself, so it was never checked.)</em>'
+          : ''
+      }</strong>`,
+      `PIXI moves elsewhere: layer=${String(this.layerMoveCount)} stage=${String(this.stageMoveCount)} <em>(neither distinguishes a working drag from a broken one)</em>`,
       `last gate distance: ${Number.isNaN(this.lastDragDistance) ? 'NaN (origin or pointer missing)' : this.lastDragDistance.toFixed(1)}`,
       // Our pointer beside PIXI's. If ours moves and PIXI's does not, the mapping is the bug.
       `<strong>ours vs PIXI: ${describePointers()}</strong>`,
