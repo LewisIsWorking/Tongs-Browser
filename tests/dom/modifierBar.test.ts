@@ -511,6 +511,89 @@ describe('ModifierBar drag handle', () => {
     });
 
     /**
+     * Keeping out of the sidebar, using the numbers a real phone produced.
+     *
+     * Measured 2026-08-11 on a 412x915 viewport: Foundry's sidebar occupies the right edge from
+     * x 393, and the wrapped bar reached x 412, so the shipped default sat on top of the sidebar's
+     * icon column. That column is the only route to chat and actors on a phone.
+     */
+    it('keeps clear of the sidebar when there is room to do so', () => {
+      const bar = barSized(324, 130);
+      // 393 is where the sidebar started, less the 4px gap.
+      bar.setPosition({ x: 88, y: 120 });
+
+      const withSidebar = new ModifierBar({
+        document,
+        synthesizer: synthesizer(null),
+        onFlagsChanged: () => undefined,
+        initialPosition: { x: 88, y: 120 },
+        getAvailableWidth: () => 389,
+      });
+      withSidebar.attach();
+      Object.defineProperty(withSidebar.getElement(), 'offsetWidth', {
+        value: 324,
+        configurable: true,
+      });
+      Object.defineProperty(withSidebar.getElement(), 'offsetHeight', {
+        value: 130,
+        configurable: true,
+      });
+      withSidebar.setPosition({ x: 88, y: 120 });
+
+      // 389 - 324 = 65, so the bar has to come left to clear the sidebar.
+      expect(withSidebar.getPosition().x).toBe(65);
+      // Without the sidebar it would have been allowed all the way to 412 - 324 = 88.
+      expect(bar.getPosition().x).toBe(88);
+    });
+
+    /**
+     * The WIDTH is capped, not just the position.
+     *
+     * The bar is position: fixed with only `left` set, so it is shrink to fit against the remaining
+     * space and its right edge stays pinned to the viewport edge wherever it is placed. Measured on
+     * a 412px phone: clamping x from 88 to 65 made the bar WIDER, 324 to 347, and the right edge did
+     * not move at all. Capping max-width is the half that actually clears the sidebar.
+     */
+    it('caps its width so the right edge lands on the available width', () => {
+      const bar = new ModifierBar({
+        document,
+        synthesizer: synthesizer(null),
+        onFlagsChanged: () => undefined,
+        initialPosition: { x: 88, y: 120 },
+        getAvailableWidth: () => 389,
+      });
+      bar.attach();
+      Object.defineProperty(bar.getElement(), 'offsetWidth', { value: 301, configurable: true });
+      Object.defineProperty(bar.getElement(), 'offsetHeight', { value: 130, configurable: true });
+      bar.setPosition({ x: 88, y: 120 });
+
+      // 389 available minus a left edge of 88 leaves 301, so the right edge lands exactly on 389.
+      expect(bar.getElement().style.maxWidth).toBe('301px');
+    });
+
+    /**
+     * When the bar cannot fit beside the sidebar at all, overlapping is the lesser evil. Pushing it
+     * off the left edge would trade a covered sidebar for a bar with keys nobody can reach.
+     */
+    it('falls back to the window when it cannot fit beside the sidebar', () => {
+      const bar = new ModifierBar({
+        document,
+        synthesizer: synthesizer(null),
+        onFlagsChanged: () => undefined,
+        initialPosition: { x: 300, y: 120 },
+        // A wide expanded sidebar leaves less room than the bar needs.
+        getAvailableWidth: () => 100,
+      });
+      bar.attach();
+      Object.defineProperty(bar.getElement(), 'offsetWidth', { value: 324, configurable: true });
+      Object.defineProperty(bar.getElement(), 'offsetHeight', { value: 130, configurable: true });
+      bar.setPosition({ x: 300, y: 120 });
+
+      // Clamped to the window (412 - 324 = 88), not to the impossible 100 - 324.
+      expect(bar.getPosition().x).toBe(88);
+    });
+
+    /**
      * Before layout the element reports a size of zero, and a clamp built on that would slam the bar
      * to the top left on every attach. Doing nothing is the correct answer until a size is known.
      */
