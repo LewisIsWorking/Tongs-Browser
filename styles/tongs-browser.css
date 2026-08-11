@@ -161,11 +161,20 @@
   padding: 6px 8px;
   border: 1px solid rgb(255 255 255 / 25%);
   border-radius: 5px;
-  background: rgb(255 255 255 / 8%);
-  color: rgb(255 255 255 / 90%);
+  /*
+   * Tinted differently from the modifier keys on purpose. These DO something immediately, where a
+   * modifier key only changes what the next tap means, and a row of identical buttons that behave
+   * in two completely different ways is a trap.
+   */
+  background: rgb(120 170 255 / 16%);
+  color: rgb(255 255 255 / 92%);
   font-size: 16px;
   line-height: 1;
   flex: 0 0 auto;
+}
+
+.tb-modifier-bar__action:active {
+  background: rgb(120 170 255 / 34%);
 }
 
 .tb-modifier-bar__keys {

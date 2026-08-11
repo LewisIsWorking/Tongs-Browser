@@ -90,6 +90,11 @@ declare global {
    */
   interface FoundryCanvasStage {
     scale?: { x?: number; y?: number };
+    /**
+     * Where the viewport is centred, in scene coordinates. Added 2026-08-11, because panning has to
+     * read it: canvas.pan is absolute, so a relative pan is only expressible as pivot plus delta.
+     */
+    pivot?: { x: number; y: number };
   }
 
   interface FoundryCanvas {

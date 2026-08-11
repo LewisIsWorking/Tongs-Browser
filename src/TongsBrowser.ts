@@ -6,7 +6,7 @@ import { GestureController } from './gesture/GestureController.js';
 import { TouchBinder } from './gesture/TouchBinder.js';
 import type { GestureConfig } from './gesture/GestureTypes.js';
 import { KeyboardSynthesizer, type KeyboardManagerLike } from './modifiers/KeyboardSynthesizer.js';
-import { ModifierBar, type BarPosition } from './modifiers/ModifierBar.js';
+import { ModifierBar, type BarPosition, type TrayAction } from './modifiers/ModifierBar.js';
 import { CursorOverlay } from './pointer/CursorOverlay.js';
 import { EventDispatcher } from './pointer/EventDispatcher.js';
 import { HitTester } from './pointer/HitTester.js';
@@ -87,6 +87,7 @@ export class TongsBrowser {
     const canvasController = new CanvasController({
       getCanvas: () => this.resolveCanvas(),
       getScale: () => this.resolveCanvasScale(),
+      getPivot: () => this.resolveCanvasPivot(),
       getZoomLimits: () => this.resolveZoomLimits(),
       logger,
     });
@@ -122,16 +123,7 @@ export class TongsBrowser {
         ? {}
         : { onPositionChanged: options.onBarPositionChanged }),
       getAvailableWidth: () => this.resolveAvailableWidth(),
-      trayActions: [
-        {
-          id: 'sidebar',
-          label: '☰',
-          title: 'Show or hide the Foundry sidebar',
-          activate: () => {
-            this.toggleFoundrySidebar();
-          },
-        },
-      ],
+      trayActions: this.buildTrayActions(canvasController),
     });
 
     this.scaler = new UiScaler({
@@ -283,6 +275,161 @@ export class TongsBrowser {
       return null;
     }
     return canvas.stage?.scale?.x ?? null;
+  }
+
+  /**
+   * The buttons on the bar, beyond the modifier keys.
+   *
+   * Asked for after testing on a real phone, and every one of them exists because a touch only
+   * gesture proved unreliable or unreachable there. Arrows and zoom buttons give a way to navigate
+   * that does not depend on getting a two finger gesture recognised at all, which matters because a
+   * gesture that half works is worse than a button: you cannot tell whether you did it wrong.
+   *
+   * The pan step is in screen pixels and CanvasController converts it, so the map moves the same
+   * visible distance at every zoom level. A step in scene units would crawl when zoomed out and
+   * leap when zoomed in.
+   */
+  private buildTrayActions(canvasController: CanvasController): readonly TrayAction[] {
+    const PAN_STEP = 160;
+    const ZOOM_STEP = 1.25;
+
+    return [
+      {
+        id: 'sidebar',
+        label: '☰',
+        title: 'Show or hide the Foundry sidebar',
+        activate: () => {
+          this.toggleFoundrySidebar();
+        },
+      },
+      {
+        id: 'character',
+        label: 'C',
+        title: 'Open your character sheet',
+        activate: () => {
+          this.openCharacterSheet();
+        },
+      },
+      {
+        id: 'zoom-in',
+        label: '+',
+        title: 'Zoom in',
+        activate: () => {
+          canvasController.zoomBy(ZOOM_STEP);
+        },
+      },
+      {
+        id: 'zoom-out',
+        label: '−',
+        title: 'Zoom out',
+        activate: () => {
+          canvasController.zoomBy(1 / ZOOM_STEP);
+        },
+      },
+      // The signs match panBy's finger metaphor: pressing right moves the VIEW right, which is the
+      // same as dragging the map left.
+      {
+        id: 'pan-left',
+        label: '←',
+        title: 'Pan left',
+        activate: () => {
+          canvasController.panBy(PAN_STEP, 0);
+        },
+      },
+      {
+        id: 'pan-right',
+        label: '→',
+        title: 'Pan right',
+        activate: () => {
+          canvasController.panBy(-PAN_STEP, 0);
+        },
+      },
+      {
+        id: 'pan-up',
+        label: '↑',
+        title: 'Pan up',
+        activate: () => {
+          canvasController.panBy(0, PAN_STEP);
+        },
+      },
+      {
+        id: 'pan-down',
+        label: '↓',
+        title: 'Pan down',
+        activate: () => {
+          canvasController.panBy(0, -PAN_STEP);
+        },
+      },
+    ];
+  }
+
+  /**
+   * Open the sheet for whichever actor this user is playing.
+   *
+   * Three sources, in the order that matches what someone means by "my character". The assigned
+   * character first, since that is what the user explicitly nominated. Then a controlled token,
+   * because on a phone selecting a token then asking for its sheet is the natural flow and double
+   * tapping a token is fiddly. Then the only actor they own, which covers the common case of a
+   * player with exactly one character and no assignment set.
+   *
+   * Deliberately system agnostic. PF2e and SF2e were the worlds this was asked for, but every system
+   * renders sheets through the same Actor#sheet, so naming one would only make it break on the next.
+   */
+  private openCharacterSheet(): void {
+    const game = (globalThis as { game?: Record<string, unknown> }).game;
+    if (game === undefined) {
+      return;
+    }
+
+    const user = game['user'] as
+      | { character?: { sheet?: { render?: (force: boolean) => void } } | null; id?: string }
+      | undefined;
+
+    const assigned = user?.character ?? null;
+    if (assigned?.sheet?.render !== undefined) {
+      assigned.sheet.render(true);
+      return;
+    }
+
+    const controlled = (
+      globalThis as { canvas?: { tokens?: { controlled?: { actor?: unknown }[] } } }
+    ).canvas?.tokens?.controlled?.[0]?.actor as
+      { sheet?: { render?: (force: boolean) => void } } | undefined;
+    if (controlled?.sheet?.render !== undefined) {
+      controlled.sheet.render(true);
+      return;
+    }
+
+    const actors = game['actors'] as
+      { filter?: (fn: (a: unknown) => boolean) => unknown[] } | undefined;
+    const owned =
+      actors?.filter?.((actor) => (actor as { isOwner?: boolean }).isOwner === true) ?? [];
+    const only =
+      owned.length === 1 ? (owned[0] as { sheet?: { render?: (f: boolean) => void } }) : null;
+    if (only?.sheet?.render !== undefined) {
+      only.sheet.render(true);
+      return;
+    }
+
+    logger.warn('No character to open. Assign one in your user configuration, or select a token.');
+  }
+
+  /**
+   * Where the viewport is centred, in scene coordinates, straight from PIXI's root container.
+   *
+   * Read live for the same reason the scale is: anything that moves the view without going through
+   * this module, which includes Foundry's own controls, the arrow keys and a scene change, would
+   * leave a remembered value stale.
+   */
+  private resolveCanvasPivot(): { x: number; y: number } | null {
+    if (typeof canvas === 'undefined') {
+      return null;
+    }
+    const pivot = canvas.stage?.pivot;
+    if (pivot === undefined) {
+      return null;
+    }
+    return { x: pivot.x, y: pivot.y };
   }
 
   /**

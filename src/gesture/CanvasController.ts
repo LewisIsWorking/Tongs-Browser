@@ -26,6 +26,18 @@ export interface CanvasControllerOptions {
    * answer the question.
    */
   readonly getScale: () => number | null;
+  /**
+   * Where the viewport is centred right now, in SCENE coordinates, or null when it cannot be read.
+   *
+   * Required for the same reason getScale is. Foundry's `canvas.pan({x, y})` is ABSOLUTE: it sets
+   * the centre of the view, it does not shift it. This controller was handing it a raw screen delta,
+   * so a 50px drag did not pan by 50px, it teleported the view to scene coordinate -50.
+   *
+   * Measured 2026-08-11 on a live 14.365: a two finger drag of +120,+120 moved the pivot to
+   * (-1940, -980) on a 4000x3000 scene. The guard covering this asserted only that the pivot moved
+   * NEGATIVELY, which the bug satisfies perfectly, so it stayed green throughout.
+   */
+  readonly getPivot: () => { x: number; y: number } | null;
   /** Returns the configured zoom bounds, if the running Foundry exposes them. */
   readonly getZoomLimits?: () => { minimum: number; maximum: number };
   readonly logger?: Logger;
@@ -66,9 +78,21 @@ export class CanvasController {
   /**
    * Pans by a screen space delta.
    *
-   * The sign is inverted: dragging two fingers to the right should move the map with the fingers,
-   * which means moving the viewport centre to the left. Matching the physical metaphor is what
-   * makes panning feel like dragging paper rather than dragging a scrollbar.
+   * Two conversions, and leaving either out breaks it in a way that still looks plausible.
+   *
+   * ⚠️ `canvas.pan({x, y})` is ABSOLUTE. It sets where the viewport is centred, in scene
+   * coordinates, so a delta cannot be passed to it. This used to do exactly that, and a 50px drag
+   * teleported the view to scene coordinate -50 rather than panning by 50. Measured on a live
+   * 14.365: a +120,+120 drag put the pivot at (-1940, -980).
+   *
+   * The delta is also in SCREEN pixels while the pivot is in SCENE units, so it has to be divided by
+   * the current scale. Skipping that makes panning correct at 1x and wrong everywhere else, which is
+   * the hardest kind of wrong to notice: on a scene fitted to a phone at 0.5 every pan goes twice as
+   * far as the finger.
+   *
+   * The sign is inverted on purpose: dragging two fingers to the right should move the map WITH the
+   * fingers, which means moving the viewport centre to the left. That is what makes it feel like
+   * dragging paper rather than dragging a scrollbar.
    */
   public panBy(deltaX: number, deltaY: number): boolean {
     const canvas = this.options.getCanvas();
@@ -77,7 +101,15 @@ export class CanvasController {
       return false;
     }
 
-    canvas.pan({ x: -deltaX, y: -deltaY });
+    const pivot = this.options.getPivot();
+    if (pivot === null || !Number.isFinite(pivot.x) || !Number.isFinite(pivot.y)) {
+      return false;
+    }
+
+    const live = this.options.getScale();
+    const scale = live !== null && Number.isFinite(live) && live > 0 ? live : this.lastAppliedScale;
+
+    canvas.pan({ x: pivot.x - deltaX / scale, y: pivot.y - deltaY / scale });
     return true;
   }
 

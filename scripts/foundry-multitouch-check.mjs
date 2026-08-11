@@ -66,11 +66,30 @@ async function checkTwoFingerPan(page, hand, centre) {
   const movedX = after.pivot.x - before.pivot.x;
   const movedY = after.pivot.y - before.pivot.y;
 
+  /*
+   * ⚠️ This used to assert ONLY the sign, and stayed green through a real bug for a year of nothing.
+   *
+   * panBy passed its screen delta straight into canvas.pan, which is ABSOLUTE, so a +120,+120 drag
+   * set the pivot to roughly (-120, -120) rather than moving it by 120. On a 4000x3000 scene that
+   * measured as the pivot "moving" (-1940, -980): negative on both axes, exactly as demanded, and
+   * completely wrong.
+   *
+   * Now asserts the MAGNITUDE against what the geometry requires. The fingers moved 120 screen
+   * pixels, so the pivot must move 120/scale scene units in the opposite direction. The band is
+   * generous because the gesture has a movement threshold before it engages, but it is nowhere near
+   * wide enough to admit a teleport.
+   */
+  const expected = 120 / before.scale;
+  const withinBand = (moved) => {
+    const ratio = Math.abs(moved) / expected;
+    return ratio > 0.5 && ratio < 1.5;
+  };
+
   record(
     'two finger drag pans the canvas, map following the fingers',
-    movedX < 0 && movedY < 0,
-    `fingers moved +120,+120 and the pivot moved (${movedX.toFixed(0)}, ${movedY.toFixed(0)}), ` +
-      `which should be negative on both axes`
+    movedX < 0 && movedY < 0 && withinBand(movedX) && withinBand(movedY),
+    `fingers moved +120,+120 at scale ${before.scale.toFixed(3)}, so the pivot should move about ` +
+      `-${expected.toFixed(0)} on each axis. It moved (${movedX.toFixed(0)}, ${movedY.toFixed(0)})`
   );
 
   record(
