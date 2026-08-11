@@ -96,7 +96,17 @@ const PAN_DURING_DRAG = process.argv.includes('--pan');
  * more than two squares and cannot be confused with a snap back to the origin square.
  */
 const DRAG_DISTANCE = 240;
-const DRAG_STEPS = 12;
+
+/**
+ * `--steps=N` splits the same distance into N moves, which changes the SIZE of each one.
+ *
+ * That size turns out to matter enormously and nothing here was varying it. Desktop drags 240px in
+ * 12 steps of 20px and clears Foundry's 10px gate on the very first move, while a finger on a phone
+ * produced 55 moves of about 1.6px each for 86.5px of travel. Those are the same gesture to a human
+ * and completely different event streams to Foundry, and only one of them had ever been tested.
+ */
+const stepsArgument = process.argv.find((argument) => argument.startsWith('--steps='));
+const DRAG_STEPS = stepsArgument === undefined ? 12 : Number(stepsArgument.split('=')[1]);
 
 /**
  * Foundry commits a token move by updating the document over the socket, which is a round trip even
@@ -412,6 +422,23 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
        * pair disagrees names the bug: pointer against destination is the event mapping, destination
        * against clone is Foundry declining to follow.
        */
+      /*
+       * Count the moves PIXI delivers to the TOKEN LAYER against those it delivers to the stage.
+       *
+       * Foundry binds its drag move handler on `this.layer`, so a move that reaches the stage but not
+       * the tokens layer cannot advance a drag. A device reported layer=8 against stage=112, and
+       * nothing here had ever measured the same ratio on a surface where dragging works, which makes
+       * that 8 impossible to interpret.
+       */
+      let layerMoves = 0;
+      let stageMoves = 0;
+      canvas.tokens.on('pointermove', () => {
+        layerMoves += 1;
+      });
+      canvas.stage.on('pointermove', () => {
+        stageMoves += 1;
+      });
+
       const trace = [];
       let originAliasesPointer = null;
       /*
@@ -518,6 +545,8 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
         pointerStillDragging: pointer.isDragging(),
         controlled: canvas.tokens.controlled.length,
         controlledAtStart,
+        layerMoves,
+        stageMoves,
         trace,
         originAliasesPointer,
         scale: canvas.stage.scale.x,
@@ -557,6 +586,10 @@ function report(result) {
   console.log(`  active tool    : ${String(result.activeTool)}`);
   console.log(`  token locked   : ${String(result.locked)}`);
   console.log(`  still dragging : ${String(result.pointerStillDragging)}`);
+  console.log(
+    `  PIXI moves     : layer=${String(result.layerMoves)} stage=${String(result.stageMoves)}` +
+      ` (a device reported layer=8 stage=112 on a drag that failed)`
+  );
   console.log(
     `  origin aliases PIXI pointer: ${String(result.originAliasesPointer)}` +
       (result.originAliasesPointer === true
