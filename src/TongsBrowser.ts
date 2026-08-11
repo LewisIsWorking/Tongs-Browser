@@ -1,5 +1,6 @@
 import { logger } from './core/Logger.js';
 import { copyToClipboard } from './debug/Clipboard.js';
+import { installFoundryDragHooks, summariseDragEndings } from './debug/FoundryDragHooks.js';
 import { DebugOverlay } from './debug/DebugOverlay.js';
 import {
   INTERACTION_STATE_NAMES,
@@ -790,133 +791,34 @@ export class TongsBrowser {
    * returned untouched, so this observes without changing behaviour. Done once, on the prototype,
    * because the token object is replaced whenever the scene redraws.
    */
+  /**
+   * Install the Foundry observers, retrying until the canvas exists.
+   *
+   * The logic lives in debug/FoundryDragHooks.ts; this only supplies the prototypes and collects the
+   * observations, which is all a composition root should be doing.
+   */
   private hookDragEndings(): void {
     if (this.dragEndingHooked) {
       return;
     }
-    const tokenClass = (
-      globalThis as {
-        CONFIG?: { Token?: { objectClass?: { prototype?: Record<string, unknown> } } };
-      }
-    ).CONFIG?.Token?.objectClass?.prototype;
-    if (tokenClass === undefined) {
-      return;
-    }
-
-    /*
-     * ⚠️ Hook the MANAGER as well as the object, because the object's callbacks have a blind spot.
-     *
-     * Read out of Foundry's `cancel()`: the `dragLeftCancel` callback only fires when the state has
-     * already reached DRAG.
-     *
-     *     if ( endState <= this.states.HOVER ) return ...SKIPPED
-     *     if ( endState >= this.states.DRAG ) { this.callback(action, event) ... }
-     *
-     * So a cancel arriving at GRABBED resets the interaction and calls nothing, and the previous
-     * probe reported "NEITHER ran" while the drag was being destroyed in front of it. `reset()`
-     * wipes `interactionData`, which is exactly why the origin was readable for 2 samples out of
-     * 164: not because the field is transient, which it is not, but because it was being cleared.
-     */
-    const manager = (
-      globalThis as {
-        canvas?: {
-          tokens?: {
-            controlled?: {
-              mouseInteractionManager?: { constructor?: { prototype?: Record<string, unknown> } };
-            }[];
-          };
+    const global = globalThis as {
+      CONFIG?: { Token?: { objectClass?: { prototype?: Record<string, unknown> } } };
+      canvas?: {
+        tokens?: {
+          controlled?: {
+            mouseInteractionManager?: { constructor?: { prototype?: Record<string, unknown> } };
+          }[];
         };
-      }
-    ).canvas?.tokens?.controlled?.[0]?.mouseInteractionManager?.constructor?.prototype;
+      };
+    };
 
-    if (manager !== undefined) {
-      for (const name of ['cancel', 'reset']) {
-        const original = manager[name];
-        if (typeof original !== 'function') {
-          continue;
-        }
-        const note = (state: unknown, args: unknown[]): void => {
-          const event = args[0] as
-            { type?: string; button?: number; pointerType?: string } | undefined;
-          const from = INTERACTION_STATE_NAMES[state as number] ?? String(state);
-          this.dragEndings.push(
-            `manager.${name} at ${from} [${
-              event?.type === undefined
-                ? 'no event, Foundry did it itself'
-                : `${event.type} button=${String(event.button)} ${event.pointerType ?? 'n/a'}`
-            }]`
-          );
-        };
-        manager[name] = function wrapped(this: { state?: unknown }, ...args: unknown[]): unknown {
-          note(this.state, args);
-          return (original as (...inner: unknown[]) => unknown).apply(this, args);
-        };
-      }
-    }
-
-    /*
-     * ⚠️ `draw` and `destroy` too, because REDRAWING A TOKEN CANCELS ITS INTERACTION.
-     *
-     * From Foundry's PlaceableObject, in both methods:
-     *
-     *     if ( this.mouseInteractionManager?.state > INTERACTION_STATES.HOVER ) {
-     *       this.mouseInteractionManager.interactionData.cancelled = true;
-     *       this.mouseInteractionManager.cancel();
-     *     }
-     *
-     * So anything that redraws the token mid gesture destroys the drag, at GRABBED, silently, and
-     * wipes `interactionData` with it. That is the exact signature a device keeps reporting: the
-     * state never leaves GRABBED, the origin is readable for a handful of samples out of hundreds,
-     * and no ending callback fires because the callback needs DRAG.
-     *
-     * A phone has redraw causes a desktop simply does not: Foundry redraws when the canvas resizes,
-     * and on Android the URL bar sliding in and out during a gesture resizes the viewport. That is a
-     * hypothesis and it is recorded as one; this counts the redraws so the next report can confirm
-     * or kill it rather than have anyone reason about it.
-     */
-    for (const name of ['draw', 'destroy']) {
-      const original = tokenClass[name];
-      if (typeof original !== 'function') {
-        continue;
-      }
-      const noteRedraw = (): void => {
-        if (this.capturingDrag) {
-          this.dragEndings.push(`token.${name} DURING THE DRAG (this cancels the interaction)`);
-        }
-      };
-      tokenClass[name] = function wrapped(this: unknown, ...args: unknown[]): unknown {
-        noteRedraw();
-        return (original as (...inner: unknown[]) => unknown).apply(this, args);
-      };
-    }
-
-    for (const name of ['_onDragLeftDrop', '_onDragLeftCancel', '_onDragLeftStart']) {
-      const original = tokenClass[name];
-      if (typeof original !== 'function') {
-        continue;
-      }
-      /*
-       * Record the TRIGGER, not just the outcome. A device reported three cancels and nothing about
-       * what caused them, and "something aborted the drag" is not a lead. Foundry hands the handler
-       * the event that caused it, so its type and button say whether this was a right click, a
-       * second press, a cancelled pointer, or something with no event at all, which would mean
-       * Foundry cancelled it of its own accord rather than in response to input.
-       */
-      const record = (outcome: string, args: unknown[]): void => {
-        const event = args[0] as
-          { type?: string; button?: number; pointerType?: string; pointerId?: number } | undefined;
-        const detail =
-          event?.type === undefined
-            ? 'no event (Foundry cancelled it itself)'
-            : `${event.type} button=${String(event.button)} ${event.pointerType ?? 'n/a'} id=${String(event.pointerId ?? 'n/a')}`;
-        this.dragEndings.push(`${outcome} [${detail}]`);
-      };
-      tokenClass[name] = function wrapped(this: unknown, ...args: unknown[]): unknown {
-        record(name, args);
-        return (original as (...inner: unknown[]) => unknown).apply(this, args);
-      };
-    }
-    this.dragEndingHooked = true;
+    this.dragEndingHooked = installFoundryDragHooks({
+      getTokenPrototype: () => global.CONFIG?.Token?.objectClass?.prototype,
+      getManagerPrototype: () =>
+        global.canvas?.tokens?.controlled?.[0]?.mouseInteractionManager?.constructor?.prototype,
+      isRecording: () => this.capturingDrag,
+      onObservation: (note) => this.dragEndings.push(note),
+    });
   }
 
   private attachTokenProbe(): void {
@@ -1380,16 +1282,7 @@ export class TongsBrowser {
           ? ' <em>(a resize redraws the canvas, and redrawing a token CANCELS its interaction)</em>'
           : ''
       }</strong>`,
-      `<strong>FOUNDRY'S DRAG ENDING: ${
-        this.dragEndings.length === 0
-          ? 'NEITHER ran. Foundry never started or ended a drag on this token.'
-          : this.dragEndings.join(' then ') +
-            (this.dragEndings.includes('_onDragLeftCancel')
-              ? ' <em>(CANCELLED, which writes nothing. Something aborted the drag.)</em>'
-              : this.dragEndings.includes('_onDragLeftDrop')
-                ? ' <em>(dropped, so Foundry tried to commit and the write itself refused.)</em>'
-                : ' <em>(started but never ended.)</em>')
-      }</strong>`,
+      `<strong>FOUNDRY'S DRAG ENDING: ${summariseDragEndings(this.dragEndings)}</strong>`,
       `<strong>PIXI moves TO THE TOKEN: ${String(this.tokenMoveCount)}${
         this.tokenMoveCount === 0
           ? ' <em>(ZERO. Foundry checks its drag gate on the token itself, so it was never checked.)</em>'
