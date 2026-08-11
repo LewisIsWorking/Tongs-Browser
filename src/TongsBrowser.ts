@@ -390,6 +390,14 @@ export class TongsBrowser {
         isActive: () => this.pointer.isDragging(),
       },
       {
+        id: 'diagnose',
+        label: '🔍',
+        title: 'Whisper a diagnostic report to yourself in chat',
+        activate: () => {
+          this.whisperDiagnostics();
+        },
+      },
+      {
         id: 'zoom-in',
         label: '+',
         title: 'Zoom in',
@@ -444,6 +452,81 @@ export class TongsBrowser {
         },
       },
     ];
+  }
+
+  /**
+   * Whisper a diagnostic report into chat.
+   *
+   * Written 2026-08-11 because a drag failure on a real phone could not be reproduced on any surface
+   * available here: it works on desktop through the full gesture layer, and the emulator's Chromium
+   * 133 cannot hit test canvas objects from synthetic events at all, so it can neither confirm nor
+   * deny anything. Three rounds of plausible hypotheses were each disproven by measurement, which is
+   * the point at which guessing should stop and the device should be asked directly.
+   *
+   * Chat rather than the console, deliberately. It is the one output surface a phone user already
+   * has open and can screenshot, and getting at devtools on Android needs a cable and a laptop.
+   *
+   * Whispered to self so it never lands in front of players mid session.
+   */
+  private whisperDiagnostics(): void {
+    const game = (globalThis as { game?: Record<string, unknown> }).game;
+    if (game === undefined) {
+      return;
+    }
+
+    const user = game['user'] as { id?: string; isGM?: boolean } | undefined;
+    const canvasGlobal = (globalThis as { canvas?: Record<string, unknown> }).canvas;
+    const tokens = canvasGlobal?.['tokens'] as
+      | {
+          controlled?: {
+            name?: string;
+            id?: string;
+            document?: { x?: number; y?: number };
+            w?: number;
+            h?: number;
+            _canDrag?: (u: unknown) => boolean;
+          }[];
+        }
+      | undefined;
+    const selected = tokens?.controlled?.[0];
+
+    const position = this.pointer.getPosition();
+    const under = this.options.document.elementFromPoint(position.clientX, position.clientY);
+    const mouse = canvasGlobal?.['mousePosition'] as { x?: number; y?: number } | undefined;
+
+    const insideToken =
+      selected?.document?.x !== undefined &&
+      mouse?.x !== undefined &&
+      mouse.x >= selected.document.x &&
+      mouse.x <= selected.document.x + (selected.w ?? 0) &&
+      (mouse.y ?? 0) >= (selected.document.y ?? 0) &&
+      (mouse.y ?? 0) <= (selected.document.y ?? 0) + (selected.h ?? 0);
+
+    const lines = [
+      `<strong>Tongs Browser diagnostics</strong>`,
+      `version: ${String((game['modules'] as { get?: (id: string) => { version?: string } } | undefined)?.get?.(MODULE_ID)?.version ?? 'unknown')}`,
+      `enabled: ${String(this.enabled)} | isGM: ${String(user?.isGM)} | paused: ${String(game['paused'])}`,
+      `activeTool: ${String(game['activeTool'])} <em>(dragging a token needs "select")</em>`,
+      `controlled token: ${selected === undefined ? 'NONE, tap a token first' : `${String(selected.name)} at (${String(selected.document?.x)}, ${String(selected.document?.y)})`}`,
+      `token._canDrag: ${selected?._canDrag === undefined ? 'n/a' : String(selected._canDrag(user))}`,
+      `pointer: (${String(Math.round(position.clientX))}, ${String(Math.round(position.clientY))}) dragging: ${String(this.pointer.isDragging())}`,
+      `element under pointer: ${under === null ? 'nothing' : `${under.tagName.toLowerCase()}#${under.id}`}`,
+      `canvas.mousePosition: ${mouse === undefined ? 'n/a' : `(${String(Math.round(mouse.x ?? 0))}, ${String(Math.round(mouse.y ?? 0))})`} insideSelectedToken: ${String(insideToken)}`,
+      `canvas ready: ${String(canvasGlobal?.['ready'])} | keyboard: ${this.synthesizer.getStrategy()}`,
+      `agent: ${navigator.userAgent}`,
+    ];
+
+    const chat = (globalThis as { ChatMessage?: { create?: (data: unknown) => unknown } })
+      .ChatMessage;
+    if (chat?.create === undefined) {
+      logger.warn(lines.join(' | '));
+      return;
+    }
+
+    void chat.create({
+      content: lines.join('<br>'),
+      whisper: user?.id === undefined ? [] : [user.id],
+    });
   }
 
   /**
