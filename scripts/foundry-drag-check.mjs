@@ -48,6 +48,31 @@ import {
 const USE_ANDROID = process.argv.includes('--android');
 
 /**
+ * `--mobile` turns on the phone's INPUT characteristics: touch, a mobile user agent, dpr 3.
+ *
+ * A device fails a gesture this check passes on desktop, and no device is plugged in, so the only
+ * way to see the difference rather than infer it is to make the desktop browser as much like the
+ * phone as Chromium allows, one variable at a time. Emulation is a weaker claim than hardware and is
+ * recorded as such.
+ *
+ * ⚠️ It deliberately does NOT shrink the viewport to the phone's 360x607, though that was the first
+ * thing tried. **Foundry itself refuses to run below 1024x768** and replaces the whole interface with
+ * a paragraph saying so, which the press-point guard caught immediately:
+ *
+ *   element there: p "Foundry Virtual Tabletop requires a usable window dimensions of 1024px by
+ *   768px or greater."
+ *
+ * The phone only gets past that because this module's UI scaler makes Foundry believe the window is
+ * larger than it is. So viewport size cannot be varied on its own here; it is entangled with the
+ * scaler. Touch, the mobile user agent and the device pixel ratio can be, and they are the
+ * candidates that would change how events are produced and mapped.
+ *
+ * dpr 3 comes from the device's own report: `viewRect=0,0 360x607 res=3`.
+ */
+const USE_MOBILE = process.argv.includes('--mobile');
+const MOBILE_DPR = 3;
+
+/**
  * How far to drag, and in how many steps.
  *
  * Foundry's MouseInteractionManager will not start a drag until the pointer has travelled its
@@ -80,7 +105,25 @@ async function main() {
 
   const { browser, page, device } = USE_ANDROID
     ? await connectAndroidBrowser()
-    : await launchBrowser();
+    : await launchBrowser(
+        USE_MOBILE
+          ? {
+              hasTouch: true,
+              isMobile: true,
+              deviceScaleFactor: MOBILE_DPR,
+              // A size Foundry accepts. See MOBILE_DPR's comment for why the phone's own 360x607
+              // cannot be used here.
+              viewport: { width: 1366, height: 768 },
+            }
+          : undefined
+      );
+
+  if (USE_MOBILE) {
+    console.log(
+      `Emulating phone INPUT: touch on, mobile user agent, dpr ${String(MOBILE_DPR)}, ` +
+        `at a Foundry legal viewport. This is emulation, not hardware.`
+    );
+  }
 
   if (device !== undefined) {
     console.log(
@@ -114,7 +157,7 @@ async function main() {
      * unreadable rather than bad: "did not move" would be perfectly true and would send someone
      * looking at the module. This is the guard against this check ever accusing the code it tests.
      */
-    if (result.hitDescription !== 'canvas#board') {
+    if (!result.hitDescription.startsWith('canvas#board')) {
       throw new Error(
         `the press point ${format(result.client)} is over ${result.hitDescription}, not canvas#board. ` +
           `The check cannot say anything about dragging until it can reach the canvas.`
@@ -280,10 +323,17 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
       // What the browser says is at that point. If this is not the board, the mapping is the bug and
       // every downstream number is describing a press on the wrong element.
       const elementAtPoint = document.elementFromPoint(Math.round(client.x), Math.round(client.y));
+      /*
+       * Name the element AND quote it. "p#(no id) is in the way" is true and useless; the text is
+       * what says whether it is a warning to dismiss, a notification to wait out, or the module's
+       * own furniture in the wrong place.
+       */
       const hitDescription =
         elementAtPoint === null
           ? 'nothing'
-          : `${elementAtPoint.tagName.toLowerCase()}#${elementAtPoint.id || '(no id)'}`;
+          : `${elementAtPoint.tagName.toLowerCase()}#${elementAtPoint.id || '(no id)'}` +
+            `${elementAtPoint.className ? `.${String(elementAtPoint.className).split(' ').join('.')}` : ''}` +
+            ` "${(elementAtPoint.textContent ?? '').trim().slice(0, 120)}"`;
 
       const pointer = api.getPointer();
       pointer.moveTo({ clientX: Math.round(client.x), clientY: Math.round(client.y) });
@@ -333,6 +383,10 @@ async function dragControlledToken(page, { distance, steps, timeout }) {
         trace.push({
           step,
           ours: Math.round(pointer.getPosition().clientX),
+          // screenOrigin is now the prime suspect. A device's numbers say it moved 139px with the
+          // pointer, which would keep Foundry's 10px gate shut forever. If it is fixed here and
+          // moving there, the difference between the two environments IS the bug.
+          origin: data?.screenOrigin === undefined ? null : Math.round(data.screenOrigin.x),
           destination: data?.destination === undefined ? null : Math.round(data.destination.x),
           clone: data?.clones?.[0] === undefined ? null : Math.round(data.clones[0].document.x),
           state: token.mouseInteractionManager?.state ?? -1,
@@ -433,11 +487,12 @@ function report(result) {
         ? '  <-- any hypot(pointer - screenOrigin) is structurally 0.0'
         : '')
   );
-  console.log('  per step (ours / foundry destination / clone x / state):');
+  console.log('  per step (ours / screenOrigin / destination / clone x / state):');
   for (const entry of result.trace) {
     console.log(
       `    ${String(entry.step).padStart(2)}: ${String(entry.ours).padStart(5)} / ` +
-        `${String(entry.destination).padStart(5)} / ${String(entry.clone).padStart(5)} / ${String(entry.state)}`
+        `${String(entry.origin).padStart(5)} / ${String(entry.destination).padStart(5)} / ` +
+        `${String(entry.clone).padStart(5)} / ${String(entry.state)}`
     );
   }
 }
