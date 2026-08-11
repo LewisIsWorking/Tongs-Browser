@@ -63,9 +63,9 @@ function describeThinly(sampled: boolean, peak: number, samples: number, moves: 
     return reading;
   }
   return (
-    `${reading} of ${String(moves)} moves. <em>IGNORE THIS NUMBER: Foundry's interactionData is ` +
-    `transient and was readable for almost none of the gesture, so this describes the press rather ` +
-    `than the drag.</em>`
+    `${reading} of ${String(moves)} moves. <em>Foundry's interactionData was readable for almost ` +
+    `none of the gesture. It is NOT transient, it persists until reset(), so this means it was ` +
+    `being WIPED mid drag. See the drag ending line for what did it.</em>`
   );
 }
 
@@ -772,6 +772,57 @@ export class TongsBrowser {
     ).CONFIG?.Token?.objectClass?.prototype;
     if (tokenClass === undefined) {
       return;
+    }
+
+    /*
+     * ⚠️ Hook the MANAGER as well as the object, because the object's callbacks have a blind spot.
+     *
+     * Read out of Foundry's `cancel()`: the `dragLeftCancel` callback only fires when the state has
+     * already reached DRAG.
+     *
+     *     if ( endState <= this.states.HOVER ) return ...SKIPPED
+     *     if ( endState >= this.states.DRAG ) { this.callback(action, event) ... }
+     *
+     * So a cancel arriving at GRABBED resets the interaction and calls nothing, and the previous
+     * probe reported "NEITHER ran" while the drag was being destroyed in front of it. `reset()`
+     * wipes `interactionData`, which is exactly why the origin was readable for 2 samples out of
+     * 164: not because the field is transient, which it is not, but because it was being cleared.
+     */
+    const manager = (
+      globalThis as {
+        canvas?: {
+          tokens?: {
+            controlled?: {
+              mouseInteractionManager?: { constructor?: { prototype?: Record<string, unknown> } };
+            }[];
+          };
+        };
+      }
+    ).canvas?.tokens?.controlled?.[0]?.mouseInteractionManager?.constructor?.prototype;
+
+    if (manager !== undefined) {
+      for (const name of ['cancel', 'reset']) {
+        const original = manager[name];
+        if (typeof original !== 'function') {
+          continue;
+        }
+        const note = (state: unknown, args: unknown[]): void => {
+          const event = args[0] as
+            { type?: string; button?: number; pointerType?: string } | undefined;
+          const from = INTERACTION_STATE_NAMES[state as number] ?? String(state);
+          this.dragEndings.push(
+            `manager.${name} at ${from} [${
+              event?.type === undefined
+                ? 'no event, Foundry did it itself'
+                : `${event.type} button=${String(event.button)} ${event.pointerType ?? 'n/a'}`
+            }]`
+          );
+        };
+        manager[name] = function wrapped(this: { state?: unknown }, ...args: unknown[]): unknown {
+          note(this.state, args);
+          return (original as (...inner: unknown[]) => unknown).apply(this, args);
+        };
+      }
     }
 
     for (const name of ['_onDragLeftDrop', '_onDragLeftCancel', '_onDragLeftStart']) {
