@@ -33,7 +33,7 @@ import {
   launchBrowser,
   removeProbeScene,
   requireActiveWorld,
-} from './foundry-session.mjs';
+} from './foundry-session.ts';
 
 const TRIALS = Number(process.env.PROBE_TRIALS ?? '3');
 

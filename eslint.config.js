@@ -14,6 +14,12 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
+        /*
+         * Both programs, because the tooling scripts became TypeScript on 2026-08-11 and live in
+         * their own tsconfig. `projectService` only knows about files a listed project includes, and
+         * a .ts file in no project is a parsing error rather than an unlinted file, so leaving this
+         * as a bare `true` failed the lint outright rather than quietly skipping them.
+         */
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
@@ -59,9 +65,18 @@ export default tseslint.config(
     },
   },
 
-  // Plain JS tooling files sit outside the typed program and run under node, not the browser.
+  /*
+   * Tooling files run under node, not the browser, and report to a terminal rather than a log.
+   *
+   * The scripts became TypeScript on 2026-08-11 and are checked by their own program,
+   * `npm run typecheck:scripts` against tsconfig.scripts.json. Type AWARE lint rules stay off for
+   * them, which is a staging decision rather than an exemption: turning them on against 3,795 lines
+   * that were untyped JavaScript produces 1,895 findings, a migration of its own. Genuine type
+   * errors are still reported, so the files are checked; they are simply not yet held to the
+   * stylistic rules the app is.
+   */
   {
-    files: ['**/*.js', '**/*.mjs'],
+    files: ['**/*.js', 'scripts/**/*.ts'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: {
       globals: globals.node,
@@ -74,10 +89,10 @@ export default tseslint.config(
   // The Foundry tools are genuinely both, added 2026-08-09. They run under node, but every function
   // body handed to page.evaluate executes in the browser inside a live Foundry, so document,
   // KeyboardEvent and Foundry's own globals are all legitimate references in them. Scoped to
-  // foundry-*.mjs rather than to scripts/**, so no unrelated tool file silently gains browser globals
+  // foundry-*.ts rather than to scripts/**, so no unrelated tool file silently gains browser globals
   // it has no business using.
   {
-    files: ['scripts/foundry-*.mjs'],
+    files: ['scripts/foundry-*.ts'],
     languageOptions: {
       globals: {
         ...globals.node,

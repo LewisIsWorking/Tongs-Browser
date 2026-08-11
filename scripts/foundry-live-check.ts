@@ -29,7 +29,7 @@ import {
   launchBrowser,
   removeProbeScene,
   requireActiveWorld,
-} from './foundry-session.mjs';
+} from './foundry-session.ts';
 
 const results = [];
 

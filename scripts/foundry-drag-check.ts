@@ -20,7 +20,7 @@
  * Nothing else counts as a pass. The diagnostics are printed alongside because when it fails they
  * are what says why, but they are never what decides.
  */
-import { connectCdpPage } from './cdp-page.mjs';
+import { connectCdpPage } from './cdp-page.ts';
 import {
   BASE,
   ensureActiveScene,
@@ -30,7 +30,7 @@ import {
   removeProbeScene,
   requireActiveWorld,
   PROBE_PREFIX,
-} from './foundry-session.mjs';
+} from './foundry-session.ts';
 
 /**
  * `--android` drives Chrome on the actual phone instead of desktop Chromium.

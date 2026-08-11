@@ -20,7 +20,7 @@ const SCANNED_EXTENSIONS = new Set([
   '.ts',
   '.tsx',
   '.js',
-  '.mjs',
+  '.ts',
   '.cjs',
   '.json',
   '.md',
@@ -41,7 +41,15 @@ function candidateFiles() {
   return [...new Set(output.split('\n').filter((line) => line.length > 0))];
 }
 
-function findOccurrences(path) {
+/** One em dash, located precisely enough to fix without searching for it. */
+interface Occurrence {
+  readonly path: string;
+  readonly line: number;
+  readonly column: number;
+  readonly text: string;
+}
+
+function findOccurrences(path: string): Occurrence[] {
   let contents;
   try {
     contents = readFileSync(path, 'utf8');
@@ -50,7 +58,7 @@ function findOccurrences(path) {
     return [];
   }
 
-  const hits = [];
+  const hits: Occurrence[] = [];
   contents.split('\n').forEach((line, lineIndex) => {
     let column = line.indexOf(EM_DASH);
     while (column !== -1) {
@@ -61,7 +69,7 @@ function findOccurrences(path) {
   return hits;
 }
 
-const scanned = candidateFiles().filter((path) => SCANNED_EXTENSIONS.has(extname(path)));
+const scanned = candidateFiles().filter((path: string) => SCANNED_EXTENSIONS.has(extname(path)));
 const violations = scanned.flatMap(findOccurrences);
 
 if (violations.length > 0) {

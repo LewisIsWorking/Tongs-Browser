@@ -10,18 +10,18 @@
  * like, and this notices and starts. It re-establishes the adb forward on every attempt, because the
  * forward survives the socket going away and is then pointed at nothing.
  *
- *   node scripts/await-device-then.mjs -- node scripts/foundry-drag-check.mjs --android
+ *   node scripts/await-device-then.ts -- node scripts/foundry-drag-check.ts --android
  */
 import { spawn, spawnSync } from 'node:child_process';
 
-const ENDPOINT = process.env.CDP_ENDPOINT ?? 'http://127.0.0.1:9222';
+const ENDPOINT = process.env['CDP_ENDPOINT'] ?? 'http://127.0.0.1:9222';
 const POLL_MS = 3000;
-const GIVE_UP_MS = Number(process.env.AWAIT_DEVICE_TIMEOUT_MS ?? 900_000);
+const GIVE_UP_MS = Number(process.env['AWAIT_DEVICE_TIMEOUT_MS'] ?? 900_000);
 
 const separator = process.argv.indexOf('--');
 const command = separator === -1 ? [] : process.argv.slice(separator + 1);
 if (command.length === 0) {
-  console.error('nothing to run. Usage: node await-device-then.mjs -- <command> [args...]');
+  console.error('nothing to run. Usage: node await-device-then.ts -- <command> [args...]');
   process.exit(1);
 }
 
@@ -32,14 +32,14 @@ if (command.length === 0) {
  * the browser was foregrounded stays "up" and refuses connections. Re-establishing costs nothing and
  * removes a failure that presents as an unexplained ECONNREFUSED.
  */
-function refreshForward() {
+function refreshForward(): void {
   spawnSync('adb', ['forward', '--remove-all'], { stdio: 'ignore' });
   spawnSync('adb', ['forward', 'tcp:9222', 'localabstract:chrome_devtools_remote'], {
     stdio: 'ignore',
   });
 }
 
-async function socketIsUp() {
+async function socketIsUp(): Promise<boolean> {
   try {
     const response = await fetch(`${ENDPOINT}/json/version`, {
       signal: AbortSignal.timeout(4000),
@@ -58,8 +58,12 @@ while (Date.now() - startedAt < GIVE_UP_MS) {
   refreshForward();
   if (await socketIsUp()) {
     console.log(`Socket is up after ${String(Math.round((Date.now() - startedAt) / 1000))}s.`);
-    const child = spawn(command[0], command.slice(1), { stdio: 'inherit', shell: false });
-    child.on('exit', (code) => process.exit(code ?? 0));
+    const [executable, ...args] = command;
+    if (executable === undefined) {
+      break;
+    }
+    const child = spawn(executable, args, { stdio: 'inherit', shell: false });
+    child.on('exit', (code: number | null) => process.exit(code ?? 0));
     break;
   }
   await new Promise((resolve) => setTimeout(resolve, POLL_MS));

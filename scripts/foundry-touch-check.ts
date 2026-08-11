@@ -28,8 +28,8 @@ import {
   launchBrowser,
   removeProbeScene,
   requireActiveWorld,
-} from './foundry-session.mjs';
-import { Finger } from './foundry-touch.mjs';
+} from './foundry-session.ts';
+import { Finger } from './foundry-touch.ts';
 
 /** Matches SettingDefinitions. Asserted loosely, but the direction and rough size come from these. */
 const SENSITIVITY = 1.5;
