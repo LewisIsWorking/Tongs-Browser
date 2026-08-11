@@ -22,6 +22,47 @@
  * which it has.
  */
 
+/** One entry from CDP's `/json/list`. Only the fields this needs are described. */
+interface CdpTarget {
+  readonly type: string;
+  readonly url?: string;
+  readonly title?: string;
+  readonly webSocketDebuggerUrl: string;
+}
+
+export interface CdpPageOptions {
+  readonly endpoint?: string;
+  /** Substring of the tab's URL to attach to. See below for why this is not optional in practice. */
+  readonly matchUrl?: string;
+}
+
+/** The slice of Playwright's page API the checks use, so the same check code drives either. */
+export interface CdpPage {
+  url: () => string | undefined;
+  title: () => string | undefined;
+  evaluate: <T>(fn: (arg: never) => T | Promise<T>, arg?: unknown) => Promise<T>;
+  close: () => void;
+}
+
+interface PendingCall {
+  readonly resolve: (value: unknown) => void;
+  readonly reject: (reason: Error) => void;
+}
+
+interface CdpMessage {
+  readonly id?: number;
+  readonly error?: { readonly message?: string };
+  readonly result?: unknown;
+}
+
+interface EvaluateResult {
+  readonly exceptionDetails?: {
+    readonly exception?: { readonly description?: string };
+    readonly text?: string;
+  };
+  readonly result?: { readonly value?: unknown };
+}
+
 /**
  * Attach to one page target by URL substring.
  *
@@ -29,9 +70,12 @@
  * has the user's own tabs in it, and driving whichever happened to be first would navigate someone's
  * browsing away and then report that Foundry was not ready.
  */
-export async function connectCdpPage({ endpoint = 'http://127.0.0.1:9222', matchUrl } = {}) {
+export async function connectCdpPage({
+  endpoint = 'http://127.0.0.1:9222',
+  matchUrl,
+}: CdpPageOptions = {}): Promise<CdpPage> {
   const response = await fetch(`${endpoint}/json/list`, { signal: AbortSignal.timeout(10_000) });
-  const targets = await response.json();
+  const targets = (await response.json()) as CdpTarget[];
 
   const pages = targets.filter((target) => target.type === 'page');
   const target =
@@ -47,14 +91,17 @@ export async function connectCdpPage({ endpoint = 'http://127.0.0.1:9222', match
   }
 
   const socket = new WebSocket(target.webSocketDebuggerUrl);
-  const pending = new Map();
+  const pending = new Map<number, PendingCall>();
   let nextId = 0;
 
   socket.addEventListener('message', (event) => {
-    let message;
+    let message: CdpMessage;
     try {
-      message = JSON.parse(String(event.data));
+      message = JSON.parse(String(event.data)) as CdpMessage;
     } catch {
+      return;
+    }
+    if (message.id === undefined) {
       return;
     }
     const waiter = pending.get(message.id);
@@ -92,8 +139,8 @@ export async function connectCdpPage({ endpoint = 'http://127.0.0.1:9222', match
     });
   });
 
-  const send = (method, params) =>
-    new Promise((resolve, reject) => {
+  const send = (method: string, params: Record<string, unknown>): Promise<unknown> =>
+    new Promise<unknown>((resolve, reject) => {
       const id = (nextId += 1);
       pending.set(id, { resolve, reject });
       socket.send(JSON.stringify({ id, method, params }));
@@ -116,14 +163,14 @@ export async function connectCdpPage({ endpoint = 'http://127.0.0.1:9222', match
      * An exception in the page is rethrown here with the page's own message and stack. Swallowing it
      * would turn a broken check into a mysteriously empty result.
      */
-    evaluate: async (fn, arg) => {
+    evaluate: async <T>(fn: (arg: never) => T | Promise<T>, arg?: unknown): Promise<T> => {
       const expression = `(${fn.toString()})(${JSON.stringify(arg ?? null)})`;
-      const result = await send('Runtime.evaluate', {
+      const result = (await send('Runtime.evaluate', {
         expression,
         awaitPromise: true,
         returnByValue: true,
         userGesture: true,
-      });
+      })) as EvaluateResult;
       if (result.exceptionDetails !== undefined) {
         const detail =
           result.exceptionDetails.exception?.description ??
@@ -131,7 +178,7 @@ export async function connectCdpPage({ endpoint = 'http://127.0.0.1:9222', match
           'evaluate failed';
         throw new Error(`page threw: ${detail}`);
       }
-      return result.result?.value;
+      return result.result?.value as T;
     },
 
     close: () => {

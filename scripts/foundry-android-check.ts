@@ -29,8 +29,8 @@ import {
   joinWorld,
   removeProbeScene,
   requireActiveWorld,
-} from './foundry-session.mjs';
-import { Finger } from './foundry-touch.mjs';
+} from './foundry-session.ts';
+import { Finger } from './foundry-touch.ts';
 
 /** Matches DEFAULT_POSITION in src/modifiers/ModifierBar.ts. */
 const DEFAULT_BAR_POSITION = { x: 88, y: 120 };

@@ -1,0 +1,23 @@
+{
+  // The tooling scripts, type checked but not held to the app's rules.
+  //
+  // They were .mjs and outside the typed program entirely, which meant 3,795 lines of harness code
+  // that drives a live Foundry had no checking at all. Renaming them to .ts without checking them
+  // would be the worst of both: TypeScript syntax with none of the guarantees.
+  //
+  // They are checked under a SEPARATE config because two of the app's rules produce hundreds of
+  // findings here with no value behind them. `noPropertyAccessFromIndexSignature` fires on every
+  // `process.env.FOO`, and `exactOptionalPropertyTypes` fires on optional fields handed to
+  // Playwright. Neither describes a defect in a script. Everything that catches real mistakes,
+  // `strict` above all, still applies.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noPropertyAccessFromIndexSignature": false,
+    "exactOptionalPropertyTypes": false,
+    "noUnusedParameters": false,
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["scripts"]
+}

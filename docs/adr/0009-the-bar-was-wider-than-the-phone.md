@@ -88,6 +88,6 @@ module.
   address, which on an emulator is `10.0.2.2`. `HOST_BASE` and `BASE` are now separate for this
   reason: the address Node can reach and the address the browser can reach are only accidentally the
   same on desktop.
-- The scene creation and touch drivers moved into `foundry-session.mjs` and `foundry-touch.mjs` when
+- The scene creation and touch drivers moved into `foundry-session.ts` and `foundry-touch.ts` when
   this became their third caller.
 - Still untouched by any automation: hover semantics, the real PF2e module stack, and ergonomics.

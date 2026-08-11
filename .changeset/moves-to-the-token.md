@@ -19,7 +19,7 @@ token receives nothing at all.
 `PIXI moves TO THE TOKEN` now leads that section, and calls out a zero explicitly, because a zero
 means the gate was never evaluated after the press and no amount of travel could have opened it.
 
-Also adds `scripts/await-device-then.mjs`. Chrome on Android serves its debugging socket only while
+Also adds `scripts/await-device-then.ts`. Chrome on Android serves its debugging socket only while
 the browser is in the foreground, which turns every device run into a rendezvous the user cannot keep:
 the way they report a result is by switching to another app to paste it. Four runs died to that, each
 looking like a different fault. The check now waits for the socket and starts itself, re-establishing

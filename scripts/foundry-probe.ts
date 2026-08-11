@@ -10,7 +10,7 @@
  * Run: npm run probe:foundry     (a Foundry must be running with a world launched)
  *
  * The answer as of 2026-08-09 on 14.365 is `events`. See ADR 0004. The session handling lives in
- * foundry-session.mjs, which records why each step of the login is shaped the way it is.
+ * foundry-session.ts, which records why each step of the login is shaped the way it is.
  */
 import {
   BASE,
@@ -20,7 +20,7 @@ import {
   joinWorld,
   launchBrowser,
   requireActiveWorld,
-} from './foundry-session.mjs';
+} from './foundry-session.ts';
 
 /**
  * Measure the same thing the module measures, without asking the module.
@@ -30,7 +30,7 @@ import {
  * downKeys directly, so the two can be compared and a disagreement is visible rather than assumed
  * away. It cleans up after itself whatever the answer.
  */
-async function independentProbe(page) {
+async function independentProbe(page: EvaluatablePage) {
   return page.evaluate(() => {
     const downKeys = game.keyboard?.downKeys;
     if (downKeys === undefined) {

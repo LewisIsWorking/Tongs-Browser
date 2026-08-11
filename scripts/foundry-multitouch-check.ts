@@ -25,8 +25,8 @@ import {
   launchBrowser,
   removeProbeScene,
   requireActiveWorld,
-} from './foundry-session.mjs';
-import { Hand } from './foundry-touch.mjs';
+} from './foundry-session.ts';
+import { Hand } from './foundry-touch.ts';
 
 const results = [];
 
