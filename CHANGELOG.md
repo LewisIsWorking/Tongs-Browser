@@ -1,5 +1,90 @@
 # tongs-browser
 
+## 0.5.0
+
+### Minor Changes
+
+- [#27](https://github.com/LewisIsWorking/Tongs-Browser/pull/27) [`6fd42d1`](https://github.com/LewisIsWorking/Tongs-Browser/commit/6fd42d19303a494485cc4a4989ace7460dada383) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Fix panning, which never worked, and add navigation buttons to the bar.
+
+  **Panning was broken from the start.** `CanvasController.panBy` passed its screen space delta
+  straight into `canvas.pan({x, y})`, but Foundry's pan is ABSOLUTE: it sets where the viewport is
+  centred, in scene coordinates. So a 50px drag did not pan by 50px, it teleported the view to scene
+  coordinate -50. Measured on a live 14.365 with a 4000x3000 scene, a two finger drag of +120,+120 put
+  the pivot at (-1940, -980). The delta is also in screen pixels while the pivot is in scene units, so
+  it now divides by the live scale as well: without that, panning is correct at 1x and wrong at every
+  other zoom, and a phone almost never sits at 1x.
+
+  Two guards let it through and both are fixed. The unit test asserted the wrong answer as a
+  requirement, and the fake canvas recorded pan calls without applying x or y so it could not express
+  the bug. The live check asserted only that the pivot moved NEGATIVELY, which the bug satisfies
+  perfectly; it now asserts the magnitude the geometry requires.
+
+  **New buttons on the bar**, all reachable with a thumb at the 44px minimum: pan arrows, zoom in and
+  out, a character sheet button, and the sidebar toggle. The arrows and zoom buttons exist because a
+  two finger gesture that half works is worse than a button, since you cannot tell whether you did it
+  wrong. The pan step is in screen pixels, so the map moves the same visible distance at every zoom.
+
+  The character sheet button tries the assigned character, then a controlled token, then the only
+  actor you own. It is system agnostic rather than PF2e specific, because every system renders through
+  the same `Actor#sheet`.
+
+- [#27](https://github.com/LewisIsWorking/Tongs-Browser/pull/27) [`6fd42d1`](https://github.com/LewisIsWorking/Tongs-Browser/commit/6fd42d19303a494485cc4a4989ace7460dada383) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Make the sidebar button actually produce a sidebar, and add a pause button.
+
+  The sidebar button expanded Foundry's docked sidebar, which is the obvious thing and was not good
+  enough. Measured on real Android hardware at 412x783: the docked sidebar is **27 pixels wide**. It
+  was there the whole time, and it is unusable with a thumb, which is why it read as missing. Toggling
+  `expanded` flipped a real flag and changed nothing anyone could see.
+
+  The button now pops the active sidebar tab out as an ordinary application window. Measured on the
+  same device, the popout lands at 94,108 and is 225x566, fully on screen, and a second tap closes it.
+  A window is kept inside the viewport by WindowClampBinder, so it is visible by construction rather
+  than by luck. It falls back to the docked toggle on any build without the popout API.
+
+  Adds a pause button. It looks for a macro named "Tongs Pause" first, so a GM can write one and grant
+  players ownership, then falls back to Foundry's own toggle, broadcasting for a GM and locally
+  otherwise.
+
+  ⚠️ Worth knowing before relying on it: a macro **cannot** let a player pause the world, whatever its
+  ownership. `Game#togglePause` only emits the socket message `if (options.broadcast && game.user.isGM)`,
+  so the check is on the emit path rather than on macro permissions. A player running any macro toggles
+  their own client alone. Letting players pause for everyone needs a GM side relay, which is separate
+  work.
+
+- [#27](https://github.com/LewisIsWorking/Tongs-Browser/pull/27) [`6fd42d1`](https://github.com/LewisIsWorking/Tongs-Browser/commit/6fd42d19303a494485cc4a4989ace7460dada383) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add a sidebar button to the bar, so the sidebar is reachable on a phone.
+
+  Asked for after testing on a real device, where the sidebar could not be opened at all. Foundry auto
+  collapses it below roughly 1024px into a narrow strip of icons hard against the right edge, and the
+  expander is a few pixels wide, which is not a realistic touch target. The sidebar is the only route
+  to chat, actors, journals and settings, so losing it costs most of the interface.
+
+  The button sits on the bar and uses Foundry's own `ui.sidebar.toggleExpanded()`, so the caret,
+  tooltip, accessible name and the `collapseSidebar` hook all stay correct rather than being faked by
+  writing a CSS class. It is 44px, the touch target minimum, and it deliberately lives outside the
+  collapsible keys area so it survives the bar being collapsed: "show me the sidebar" is most needed
+  exactly when the bar has been shrunk out of the way.
+
+  Tray actions are supplied by the caller rather than built into the bar, so the bar stays a bar of
+  keys and knows nothing about Foundry's interface.
+
+### Patch Changes
+
+- [#27](https://github.com/LewisIsWorking/Tongs-Browser/pull/27) [`6fd42d1`](https://github.com/LewisIsWorking/Tongs-Browser/commit/6fd42d19303a494485cc4a4989ace7460dada383) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Keep the modifier bar clear of Foundry's sidebar.
+
+  Reported from a real phone: the sidebar could not be reached. Measured on a 412px viewport, the bar
+  at its default position covered the sidebar's icon column, which on a phone is the only route to
+  chat, actors and everything else. Foundry auto collapses the sidebar at that width, so all that
+  remains is a narrow strip of icons, and the bar sat on top of it.
+
+  Two halves, and only both together work. The bar now clamps its position against the room the
+  sidebar leaves rather than against the whole window, and it caps its own width: the bar is
+  `position: fixed` with only `left` set, so it is shrink to fit against the remaining space and its
+  right edge stays pinned to the viewport edge wherever it is placed. Clamping x from 88 to 65 made it
+  wider, 324 to 347, and moved the right edge not at all.
+
+  It also now re-clamps after it is attached and on resize. The clamp added in 0.2.3 ran only in the
+  constructor, before the element was in the document, where `offsetWidth` is 0 and every position fits
+  inside a width of zero, so it had never once run against a real size.
+
 ## 0.4.0
 
 ### Minor Changes
