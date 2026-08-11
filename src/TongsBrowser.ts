@@ -191,6 +191,26 @@ export class TongsBrowser {
   private peakPointerDivergence = 0;
   private sampledDivergence = false;
 
+  /**
+   * How far OUR pointer got from where the grab started, measured only against ourselves.
+   *
+   * ⚠️ This is the measurement three device reports needed and none of them had, and its absence is
+   * why they were unreadable. Every distance in the report was computed against something Foundry
+   * owns, so when Foundry's numbers came back as zeros there was no way to tell which of two
+   * completely different bugs was in front of us:
+   *
+   *   1. the pointer travelled 200px and Foundry's drag origin FOLLOWED it, so its gate can never
+   *      open, or
+   *   2. the pointer only ever travelled 8px, Foundry is entirely correct to refuse, and the
+   *      complaint is about how far a finger has to travel to move the pointer.
+   *
+   * Both produce `gate distance 0.0` and both produce a token that does not move. They have nothing
+   * else in common and the fixes share no code. Measuring our own travel against our own grab point
+   * touches no Foundry state at all, so it cannot be confounded by whatever Foundry is doing.
+   */
+  private pointerAtGrab: { clientX: number; clientY: number } | null = null;
+  private peakTravelFromGrab = 0;
+
   /** Drag scoping for the record, so a later tap cannot overwrite the gesture being diagnosed. */
   private wasDragging = false;
   private capturingDrag = false;
@@ -694,6 +714,9 @@ export class TongsBrowser {
       this.sampledDragDistance = false;
       this.peakPointerDivergence = 0;
       this.sampledDivergence = false;
+      this.peakTravelFromGrab = 0;
+      const grabPosition = this.pointer.getPosition();
+      this.pointerAtGrab = { clientX: grabPosition.clientX, clientY: grabPosition.clientY };
       this.capturingDrag = true;
       /*
        * Remember where the token was when the grab started.
@@ -800,6 +823,23 @@ export class TongsBrowser {
      * reading as though it described ours.
      */
     const ourPosition = descriptor.position;
+
+    /*
+     * Our own travel, against our own grab point. No Foundry state involved, on purpose: this is the
+     * one distance in the report that cannot be confounded by whatever Foundry is doing with its
+     * drag origin.
+     */
+    const grabbedAt = this.pointerAtGrab;
+    if (grabbedAt !== null && ourPosition !== undefined) {
+      const travel = Math.hypot(
+        ourPosition.clientX - grabbedAt.clientX,
+        ourPosition.clientY - grabbedAt.clientY
+      );
+      if (Number.isFinite(travel) && travel > this.peakTravelFromGrab) {
+        this.peakTravelFromGrab = travel;
+      }
+    }
+
     if (pixiPointer !== undefined && ourPosition !== undefined) {
       const divergence = Math.hypot(
         pixiPointer.x - ourPosition.clientX,
@@ -925,6 +965,20 @@ export class TongsBrowser {
        * pointer stood still. Foundry clears interactionData when a gesture ends, so the origin can
        * be missing for the whole record and the zero survives untouched.
        */
+      /*
+       * The line that says which of two unrelated bugs this is. Measured only against our own grab
+       * point, so Foundry cannot confound it. Under 10 and Foundry is right to refuse; well over 10
+       * while Foundry's own gate reads 0 means Foundry's drag origin is following the pointer.
+       */
+      `<strong>OUR pointer travelled: ${
+        this.pointerAtGrab === null
+          ? 'no grab recorded'
+          : `${this.peakTravelFromGrab.toFixed(1)}px from the grab point${
+              this.peakTravelFromGrab < 10
+                ? " <em>(under Foundry's 10px threshold, so no drag can start: move the pointer further)</em>"
+                : ' <em>(far enough, so the gate below should have opened)</em>'
+            }`
+      }</strong>`,
       `<strong>DRAG GATE: ${
         this.sampledDragDistance
           ? `peak distance ${this.peakDragDistance.toFixed(1)}px, needs >= 10`
