@@ -122,6 +122,16 @@ export class TongsBrowser {
         ? {}
         : { onPositionChanged: options.onBarPositionChanged }),
       getAvailableWidth: () => this.resolveAvailableWidth(),
+      trayActions: [
+        {
+          id: 'sidebar',
+          label: '☰',
+          title: 'Show or hide the Foundry sidebar',
+          activate: () => {
+            this.toggleFoundrySidebar();
+          },
+        },
+      ],
     });
 
     this.scaler = new UiScaler({
@@ -273,6 +283,47 @@ export class TongsBrowser {
       return null;
     }
     return canvas.stage?.scale?.x ?? null;
+  }
+
+  /**
+   * Show or hide Foundry's sidebar, from a button on the bar.
+   *
+   * Asked for after testing on a real phone, where the sidebar was unreachable: Foundry auto
+   * collapses it below roughly 1024px, leaving a narrow strip of icons hard against the right edge
+   * whose expander is a few pixels wide. On a touch screen that is not a realistic target, and the
+   * sidebar is the only route to chat, actors, journals and settings.
+   *
+   * Uses Foundry's own toggleExpanded so the caret, tooltip, aria label and the collapseSidebar hook
+   * all stay correct. Driving the CSS class directly would leave the interface disagreeing with
+   * itself and would break any module listening for that hook.
+   *
+   * Falls back to the older collapse and expand pair, and does nothing at all if neither exists,
+   * because a button that throws is worse than a button that is merely inert.
+   */
+  private toggleFoundrySidebar(): void {
+    const sidebar = (globalThis as { ui?: { sidebar?: unknown } }).ui?.sidebar as
+      | {
+          expanded?: boolean;
+          toggleExpanded?: (expanded?: boolean) => void;
+          expand?: () => void;
+          collapse?: () => void;
+        }
+      | undefined;
+
+    if (sidebar === undefined) {
+      return;
+    }
+
+    if (typeof sidebar.toggleExpanded === 'function') {
+      sidebar.toggleExpanded();
+      return;
+    }
+
+    if (sidebar.expanded === true) {
+      sidebar.collapse?.();
+    } else {
+      sidebar.expand?.();
+    }
   }
 
   /**

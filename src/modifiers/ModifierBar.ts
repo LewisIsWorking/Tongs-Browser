@@ -34,6 +34,18 @@ export interface ModifierBarOptions {
    * whole window, which is the right answer when nothing is in the way.
    */
   readonly getAvailableWidth?: () => number;
+  /** Utility buttons shown on the bar itself, kept visible even when the keys are collapsed. */
+  readonly trayActions?: readonly TrayAction[];
+}
+
+/** A utility button on the bar, such as showing Foundry's sidebar. */
+export interface TrayAction {
+  readonly id: string;
+  /** Short glyph or text shown on the button. */
+  readonly label: string;
+  /** Used for the tooltip and the accessible name. */
+  readonly title: string;
+  readonly activate: () => void;
 }
 
 const LATCH_CLASS: Readonly<Record<KeyLatchValue, string>> = {
@@ -76,6 +88,7 @@ export class ModifierBar {
   private readonly root: HTMLDivElement;
   private readonly keysContainer: HTMLDivElement;
   private readonly buttons = new Map<string, HTMLButtonElement>();
+  private readonly actionButtons = new Map<string, HTMLButtonElement>();
   private latches: ModifierLatchMap = ALL_OFF;
   private position: BarPosition;
   private collapsed: boolean;
@@ -113,6 +126,29 @@ export class ModifierBar {
       this.setCollapsed(!this.collapsed);
     });
     this.root.append(collapseButton);
+
+    /*
+     * Tray actions sit OUTSIDE the keys container on purpose, so they survive the bar being
+     * collapsed. Collapsing hides the modifier keys, which is the point of collapsing, but an action
+     * like "show the sidebar" is most needed exactly when the bar has been shrunk out of the way.
+     *
+     * Supplied by the caller rather than built here, so this component stays a bar of keys and knows
+     * nothing about Foundry's interface.
+     */
+    for (const action of options.trayActions ?? []) {
+      const button = doc.createElement('button');
+      button.type = 'button';
+      button.className = 'tb-modifier-bar__action';
+      button.textContent = action.label;
+      button.title = action.title;
+      button.setAttribute('aria-label', action.title);
+      button.dataset['action'] = action.id;
+      button.addEventListener('click', () => {
+        action.activate();
+      });
+      this.root.append(button);
+      this.actionButtons.set(action.id, button);
+    }
 
     this.keysContainer = doc.createElement('div');
     this.keysContainer.className = 'tb-modifier-bar__keys';

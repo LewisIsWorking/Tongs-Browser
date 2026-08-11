@@ -403,6 +403,71 @@ describe('ModifierBar', () => {
   });
 });
 
+/**
+ * Tray actions. Added 2026-08-11 after testing on a real phone, where Foundry's sidebar was
+ * unreachable: it auto collapses below about 1024px into a strip of icons hard against the right
+ * edge, and its expander is a few pixels wide, which is not a realistic touch target.
+ */
+describe('ModifierBar tray actions', () => {
+  function barWithAction(activate: () => void): ModifierBar {
+    const bar = new ModifierBar({
+      document,
+      synthesizer: synthesizer(null),
+      onFlagsChanged: () => undefined,
+      trayActions: [
+        { id: 'sidebar', label: '☰', title: 'Show or hide the Foundry sidebar', activate },
+      ],
+    });
+    bar.attach();
+    return bar;
+  }
+
+  it('renders a button for each tray action', () => {
+    const bar = barWithAction(() => undefined);
+    const button = bar.getElement().querySelector('[data-action="sidebar"]');
+
+    expect(button).not.toBeNull();
+    expect(button?.getAttribute('aria-label')).toBe('Show or hide the Foundry sidebar');
+  });
+
+  it('activates the action when tapped', () => {
+    const activate = vi.fn();
+    const bar = barWithAction(activate);
+
+    bar.getElement().querySelector<HTMLButtonElement>('[data-action="sidebar"]')?.click();
+
+    expect(activate).toHaveBeenCalledOnce();
+  });
+
+  /**
+   * The reason it lives outside the keys container. Collapsing hides the modifier keys, which is the
+   * point of collapsing, but "show me the sidebar" is most needed exactly when the bar has been
+   * shrunk out of the way.
+   */
+  it('stays visible when the bar is collapsed', () => {
+    const bar = barWithAction(() => undefined);
+    bar.setCollapsed(true);
+
+    const button = bar.getElement().querySelector<HTMLElement>('[data-action="sidebar"]');
+    const keys = bar.getElement().querySelector<HTMLElement>('.tb-modifier-bar__keys');
+
+    expect(keys?.style.display).toBe('none');
+    expect(button?.closest('.tb-modifier-bar__keys')).toBeNull();
+    expect(button?.style.display).not.toBe('none');
+  });
+
+  it('renders no action buttons when none are supplied', () => {
+    const bar = new ModifierBar({
+      document,
+      synthesizer: synthesizer(null),
+      onFlagsChanged: () => undefined,
+    });
+    bar.attach();
+
+    expect(bar.getElement().querySelectorAll('.tb-modifier-bar__action')).toHaveLength(0);
+  });
+});
+
 describe('ModifierBar drag handle', () => {
   it('moves the bar as the handle is dragged', () => {
     const bar = new ModifierBar({
