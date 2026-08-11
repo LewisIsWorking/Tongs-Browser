@@ -1,5 +1,252 @@
 # tongs-browser
 
+## 0.14.0
+
+### Minor Changes
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add a diagnostics button that whispers a report into chat.
+
+  A drag failure reported from a real phone could not be reproduced on any surface available for
+  testing. It works on desktop through the full gesture layer with real injected touch, and the
+  emulator's Chromium 133 cannot hit test canvas objects from synthetic events at all, so it can
+  neither confirm nor deny anything. Three plausible hypotheses were each disproven by measurement:
+  the active tool being hijacked by this module's own scene control (measured `select` before and
+  after), pause blocking the drag (only applies when not a GM), and moves not carrying the held button
+  (fixed, and desktop drags 800 to 1300).
+
+  That is the point at which guessing should stop and the device should be asked directly. The button
+  reports the active tool, the controlled token and its `_canDrag`, the pointer position and drag
+  state, the element under the pointer, `canvas.mousePosition` and whether it sits inside the selected
+  token, the canvas and keyboard state, and the user agent.
+
+  Chat rather than the console, deliberately: it is the one output surface a phone user already has
+  open and can screenshot, where reaching devtools on Android needs a cable and a laptop. Whispered to
+  self so it never lands in front of players.
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Report the build version and the actual event stream in diagnostics.
+
+  A drag failure on a real device produced a report where **every static check was healthy**: `select`
+  tool, `_canDrag: true`, pointer genuinely inside the selected token, canvas ready. At that point the
+  setup is not the problem and the only thing left to look at is the event stream itself, which on a
+  phone has no console to look at it in. The report now carries the last eighteen dispatched events
+  with their `buttons` value, which is the field that decides whether a drag is a drag: it must stay
+  non zero on every move between the down and the up, or Foundry reads the stream as a hover.
+
+  ⚠️ The same report also claimed version 0.2.3 while running code from 0.9.0, and that is worth
+  fixing rather than explaining away. `game.modules.get(id).version` comes from a manifest Foundry
+  reads **once at server start** and caches, so replacing module files under a running server leaves it
+  frozen at whatever booted. The version is now stamped into the bundle at build time and both are
+  shown, so a mismatch is visible rather than misleading.
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add a grab button so tokens can actually be dragged, and make tray buttons show their state.
+
+  **Dragging a token was near impossible on a phone, and it was the gesture design rather than a bug.**
+  A drag required tap, lift, press again inside the double tap window, hold past the long press timer
+  without moving more than the tap slop, and only then move. Five things in a row, each a chance to get
+  it wrong while looking at the map rather than at your thumb. It passed every test, because it does
+  work; working and usable are different claims.
+
+  The new ✋ button holds the button down at the pointer until tapped again, so dragging becomes grab,
+  move the pointer normally, drop. It is also how a popped out window gets dragged, which was the other
+  half of the same complaint.
+
+  ⭐ Making that work needed a real fix, not just a button. The buttons bitmask has to stay set on every
+  move of a drag or Foundry reads the stream as a hover, and only `dragBy` set it. A drag begun by the
+  new button and then continued by ordinary pointer movement silently degraded into a hover: measured
+  on a device, the button was held, the pointer glided over the token, and the token did not move.
+  `applyMove` now routes on the drag STATE rather than on which method was called, so the two agree.
+  Verified end to end: token x 800 to 1200.
+
+  **Tray buttons now show their state.** Pause and grab are toggles whose "on" was invisible, which
+  invites a second tap that undoes the first. Both now carry the same latched styling the modifier keys
+  use, distinguished by border weight and colour rather than colour alone, plus `aria-pressed`. Pause
+  also refreshes from Foundry's `pauseGame` hook, so it stays honest when a GM pauses from a laptop or
+  another player's request arrives through the relay.
+
+  The pan arrows are grouped into a cluster, since the bar had grown to four wrapped rows on a phone.
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Fix panning, which never worked, and add navigation buttons to the bar.
+
+  **Panning was broken from the start.** `CanvasController.panBy` passed its screen space delta
+  straight into `canvas.pan({x, y})`, but Foundry's pan is ABSOLUTE: it sets where the viewport is
+  centred, in scene coordinates. So a 50px drag did not pan by 50px, it teleported the view to scene
+  coordinate -50. Measured on a live 14.365 with a 4000x3000 scene, a two finger drag of +120,+120 put
+  the pivot at (-1940, -980). The delta is also in screen pixels while the pivot is in scene units, so
+  it now divides by the live scale as well: without that, panning is correct at 1x and wrong at every
+  other zoom, and a phone almost never sits at 1x.
+
+  Two guards let it through and both are fixed. The unit test asserted the wrong answer as a
+  requirement, and the fake canvas recorded pan calls without applying x or y so it could not express
+  the bug. The live check asserted only that the pivot moved NEGATIVELY, which the bug satisfies
+  perfectly; it now asserts the magnitude the geometry requires.
+
+  **New buttons on the bar**, all reachable with a thumb at the 44px minimum: pan arrows, zoom in and
+  out, a character sheet button, and the sidebar toggle. The arrows and zoom buttons exist because a
+  two finger gesture that half works is worse than a button, since you cannot tell whether you did it
+  wrong. The pan step is in screen pixels, so the map moves the same visible distance at every zoom.
+
+  The character sheet button tries the assigned character, then a controlled token, then the only
+  actor you own. It is system agnostic rather than PF2e specific, because every system renders through
+  the same `Actor#sheet`.
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Let players pause the game, and reach every sidebar tab rather than just chat.
+
+  **Players can pause.** Foundry's `Game#togglePause` only broadcasts
+  `if (options.broadcast && game.user.isGM)`, so the permission check sits on the emit path and a
+  player calling it toggles their own client alone. Macro ownership does not help either: `Macro#execute`
+  runs the script client side as whoever pressed it, and core Foundry has **no** execute-as-GM at all,
+  verified against the installed 14.365 where `executeAsGM`, `execute-as` and `asGM` appear nowhere in
+  client or common. That feature comes from modules such as Advanced Macros.
+
+  So a player now emits a request and one GM performs the toggle. The GM is chosen with Foundry's own
+  `game.users.activeGM`, which picks the same single user on every client: without that, every
+  connected GM would answer the same request and the pause state would flip once per GM. The request
+  carries the desired state rather than the word "toggle", so two players tapping at once agree on an
+  outcome instead of cancelling each other.
+
+  **Every sidebar tab, not just the active one.** The sidebar button popped out whichever tab was
+  active, which meant chat and nothing else, because the only way to change tabs is the docked strip
+  that is 27px wide on a phone. It now opens a picker listing all thirteen tabs, built from our own DOM
+  at 44px a row, and drops gmOnly tabs for players so nobody is offered a Scenes tab that would refuse
+  to open.
+
+  Measured on real Android at 412x783: the picker renders fully on screen, the Actors row is reachable
+  by hit test, and picking it renders the Actors popout on screen.
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Make the sidebar button actually produce a sidebar, and add a pause button.
+
+  The sidebar button expanded Foundry's docked sidebar, which is the obvious thing and was not good
+  enough. Measured on real Android hardware at 412x783: the docked sidebar is **27 pixels wide**. It
+  was there the whole time, and it is unusable with a thumb, which is why it read as missing. Toggling
+  `expanded` flipped a real flag and changed nothing anyone could see.
+
+  The button now pops the active sidebar tab out as an ordinary application window. Measured on the
+  same device, the popout lands at 94,108 and is 225x566, fully on screen, and a second tap closes it.
+  A window is kept inside the viewport by WindowClampBinder, so it is visible by construction rather
+  than by luck. It falls back to the docked toggle on any build without the popout API.
+
+  Adds a pause button. It looks for a macro named "Tongs Pause" first, so a GM can write one and grant
+  players ownership, then falls back to Foundry's own toggle, broadcasting for a GM and locally
+  otherwise.
+
+  ⚠️ Worth knowing before relying on it: a macro **cannot** let a player pause the world, whatever its
+  ownership. `Game#togglePause` only emits the socket message `if (options.broadcast && game.user.isGM)`,
+  so the check is on the emit path rather than on macro permissions. A player running any macro toggles
+  their own client alone. Letting players pause for everyone needs a GM side relay, which is separate
+  work.
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add a sidebar button to the bar, so the sidebar is reachable on a phone.
+
+  Asked for after testing on a real device, where the sidebar could not be opened at all. Foundry auto
+  collapses it below roughly 1024px into a narrow strip of icons hard against the right edge, and the
+  expander is a few pixels wide, which is not a realistic touch target. The sidebar is the only route
+  to chat, actors, journals and settings, so losing it costs most of the interface.
+
+  The button sits on the bar and uses Foundry's own `ui.sidebar.toggleExpanded()`, so the caret,
+  tooltip, accessible name and the `collapseSidebar` hook all stay correct rather than being faked by
+  writing a CSS class. It is 44px, the touch target minimum, and it deliberately lives outside the
+  collapsible keys area so it survives the bar being collapsed: "show me the sidebar" is most needed
+  exactly when the bar has been shrunk out of the way.
+
+  Tray actions are supplied by the caller rather than built into the bar, so the bar stays a bar of
+  keys and knows nothing about Foundry's interface.
+
+### Patch Changes
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Keep the modifier bar clear of Foundry's sidebar.
+
+  Reported from a real phone: the sidebar could not be reached. Measured on a 412px viewport, the bar
+  at its default position covered the sidebar's icon column, which on a phone is the only route to
+  chat, actors and everything else. Foundry auto collapses the sidebar at that width, so all that
+  remains is a narrow strip of icons, and the bar sat on top of it.
+
+  Two halves, and only both together work. The bar now clamps its position against the room the
+  sidebar leaves rather than against the whole window, and it caps its own width: the bar is
+  `position: fixed` with only `left` set, so it is shrink to fit against the remaining space and its
+  right edge stays pinned to the viewport edge wherever it is placed. Clamping x from 88 to 65 made it
+  wider, 324 to 347, and moved the right edge not at all.
+
+  It also now re-clamps after it is attached and on resize. The clamp added in 0.2.3 ran only in the
+  constructor, before the element was in the document, where `offsetWidth` is 0 and every position fits
+  inside a width of zero, so it had never once run against a real size.
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Fix dragging failing whenever the pointer crosses any other element.
+
+  Reported from a device and finally named by the diagnostics report: `pointermove buttons=1 -> div#`,
+  where it needed to reach `canvas#board`. Every drag event was hit tested afresh, so the instant the
+  pointer crossed anything at all, a chat window, the modifier bar, a character sheet, the drag was
+  delivered **there** and the canvas simply stopped hearing about it. The token stopped following and
+  nothing reported an error.
+
+  A browser does not work that way: `pointerdown` implicitly **captures** the pointer to the element
+  that received it, and every later move and the release go to that same element however far the
+  pointer travels. The pointer now does the same.
+
+  ⚠️ It never appeared on desktop because a drag across empty canvas never crosses anything, and the
+  existing test asserted the wrong behaviour outright, being named "resolves the target afresh on each
+  drag step rather than caching it". The reasoning behind that was sound and is preserved: Foundry
+  re-renders applications mid interaction, so a captured element can be detached and dispatching at a
+  detached element throws the event away silently. The mistake was treating "it might be detached" as a
+  reason to re-resolve always rather than only when it actually is.
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Report Foundry's own interaction state in diagnostics, and trace a whole gesture.
+
+  The pointer capture fix landed and the events now demonstrably reach `canvas#board` with
+  `buttons=1`, and a token on a real device still does not move. Correct events arriving at the right
+  element and nothing happening is a different problem from the one just fixed, and nothing visible
+  distinguishes its two possible causes.
+
+  So the report now carries Foundry's own `MouseInteractionManager` state for the selected token, which
+  runs NONE, HOVER, CLICKED, GRABBED, DRAG, DROP with a 10px drag resistance, plus whether a drag
+  preview object exists. If the state never leaves CLICKED or GRABBED, the moves are not reaching the
+  manager. If it reaches DRAG and a preview exists, the drag is running and the drop is what fails.
+
+  The event trace now covers a whole gesture rather than a fixed last eighteen. A drag emits a move per
+  step, so the `pointerdown` that began it had already scrolled out of the window by the time the
+  report was read, and whether the press and the release reached the same element is exactly the
+  question being asked. Runs of identical moves are collapsed rather than filling the report.
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Record the peak interaction state during a gesture rather than reading it afterwards.
+
+  The first report carrying Foundry's interaction state said `NONE (0)` with zero drag previews, which
+  looks conclusive and is not: it was read when the report was written, which is after the gesture
+  ended, and Foundry resets the manager to NONE once an interaction finishes. A post hoc NONE says the
+  same thing whether the drag never started or ran perfectly and committed.
+
+  The state and the drag preview count are now sampled on every dispatched event and the peak since the
+  last `pointerdown` is reported. That survives the gesture ending, which is the only reason it can
+  answer the question: a peak below GRABBED means the moves never reached Foundry's manager, while a
+  peak of DRAG with previews means the drag ran and the drop is what failed.
+
+  Same class of mistake as asserting a sign where a magnitude was meant. A measurement has to outlive
+  the thing it measures.
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Count the pointermove events PIXI delivers to the token layer.
+
+  A device peaked at `GRABBED (3)` during a drag and never reached `DRAG (4)`. That is informative
+  rather than merely negative: reaching GRABBED proves `pointerdown` DID arrive at the token through
+  PIXI, so PIXI delivery works for the press.
+
+  Foundry's `MouseInteractionManager` binds the drag's move handler on the LAYER, not on the object and
+  not on the DOM: `this.layer.on("pointermove", ...)`. GRABBED advances to DRAG only when moves reach
+  that layer. So the report now counts how many `pointermove` events PIXI delivered to `canvas.tokens`
+  and to the stage during the gesture.
+
+  Zero at the layer means PIXI is not routing the moves there at all. A non zero count means the layer
+  is receiving them and declining to act. Those need completely different fixes and nothing else
+  visible tells them apart.
+
+- [#45](https://github.com/LewisIsWorking/Tongs-Browser/pull/45) [`05100ab`](https://github.com/LewisIsWorking/Tongs-Browser/commit/05100ab8bdd9b01a0003488bb24bb3d09f11a6d0) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Stop the browser's tap highlight masquerading as a button state.
+
+  Reported from a device: the pause button appeared lit while the game was **not** paused. The orange
+  was Vivaldi's own tap highlight sitting on the last button touched, and it looked exactly like the
+  latched state the grab button shows when it really is on.
+
+  A control that reports a state it does not have is worse than one that reports nothing, because it
+  invites the tap that undoes what you wanted. The native highlight is now suppressed on every button
+  in the bar and the tab picker, and focus gets a blue outline that cannot be mistaken for the gold
+  latched styling, which changes border weight as well as colour.
+
 ## 0.13.0
 
 ### Minor Changes
