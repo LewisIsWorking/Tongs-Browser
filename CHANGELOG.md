@@ -1,5 +1,52 @@
 # tongs-browser
 
+## 0.19.0
+
+### Minor Changes
+
+- [#55](https://github.com/LewisIsWorking/Tongs-Browser/pull/55) [`6f31394`](https://github.com/LewisIsWorking/Tongs-Browser/commit/6f313944d6049be32d57c79b30cbb8ff61071706) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The grab button now says `DROP` while it is holding something, and the diagnostics report says
+  outright whether the token moved.
+
+  Dragging a token was reported broken three times. It is not broken. Measured against a live Foundry
+  14.365 with the new `npm run check:drag`: our pointer, Foundry's recorded drag destination, the drag
+  clone and the committed token document all track a 240px drag exactly, and the move commits.
+
+  What was broken is that the grab button holds the mouse button down until it is tapped again and
+  showed the same open hand either way. Foundry only commits a token move on the **drop**, so a held
+  grab leaves the token precisely where it started, which from the other side of the screen is
+  indistinguishable from a drag that does nothing. The latched gold styling says "on", and "on" does
+  not tell you that the next thing to do is tap it off.
+
+  The report gained two lines above everything else, because every field it had answered a question
+  about events rather than the question anyone was asking:
+
+  - **DID IT MOVE**, comparing the token's position at the grab against its position now.
+  - **released during drag**, which names the trap outright when a report is taken mid gesture.
+
+### Patch Changes
+
+- [#55](https://github.com/LewisIsWorking/Tongs-Browser/pull/55) [`6f31394`](https://github.com/LewisIsWorking/Tongs-Browser/commit/6f313944d6049be32d57c79b30cbb8ff61071706) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add `npm run check:drag`, which asserts that a token **moved**, against a live Foundry.
+
+  Every existing drag test asserts on the event stream: that a move carried `buttons=1`, that the
+  captured target was reused, that the right descriptors were emitted. All of it stayed green through
+  three releases a real phone reported as broken, and none of it is what a drag is. jsdom makes that
+  unavoidable rather than merely tempting, since there is no PIXI, no hit testing and no token there to
+  assert on.
+
+  This drives the module's own pointer through grab, move and drop and passes only if
+  `token.document.x` ends up roughly where the pointer went. Three of its safeguards exist because the
+  check accused the module of a bug that was in the check:
+
+  - It waits for the position to **settle**, not to change. Foundry animates a token along its movement
+    path, so the first changed value reads the token mid flight: a 240px drag measured as 17.64px.
+  - It **pans to the token** before pressing. Without that it pressed at (-375, -325), hit nothing, and
+    reported "the token did not move", which is true and accuses code that never ran.
+  - It **refuses to give a verdict** it cannot support: a press point that is not over `canvas#board` is
+    a hard error rather than a failure.
+
+  It also traces our pointer, Foundry's drag destination and the drag clone at every step, so a failure
+  says which pair disagrees. ADR 0011.
+
 ## 0.18.0
 
 ### Minor Changes
