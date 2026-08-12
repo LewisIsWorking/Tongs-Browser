@@ -1,36 +1,23 @@
 import { logger } from './core/Logger.js';
 import { DragDiagnostics } from './debug/DragDiagnostics.js';
 import { FoundryAccess } from './foundry/FoundryAccess.js';
-import { wireTrayActions } from './TrayWiring.js';
 import { FoundryActions } from './foundry/FoundryActions.js';
 import { DebugOverlay } from './debug/DebugOverlay.js';
-import { CanvasController } from './gesture/CanvasController.js';
-import { ExclusionZones } from './gesture/ExclusionZones.js';
 import { GestureController } from './gesture/GestureController.js';
 import { TouchBinder } from './gesture/TouchBinder.js';
 import type { GestureConfig } from './gesture/GestureTypes.js';
 import { KeyboardSynthesizer } from './modifiers/KeyboardSynthesizer.js';
-import { ModifierBar, type BarPosition } from './modifiers/ModifierBar.js';
-import { MODULE_ID } from './constants.js';
-import { PauseRelay, type SocketLike } from './relay/PauseRelay.js';
+import { ModifierBar } from './modifiers/ModifierBar.js';
+import { PauseRelay } from './relay/PauseRelay.js';
 import { CursorOverlay } from './pointer/CursorOverlay.js';
 import { VirtualPointer } from './pointer/VirtualPointer.js';
 import { UiScaler } from './scaling/UiScaler.js';
 import { WindowClampBinder } from './scaling/WindowClampBinder.js';
-import { createPointerStack } from './PointerStack.js';
+import { buildModuleParts } from './ModuleParts.js';
+import type { TongsBrowserOptions } from './TongsBrowserOptions.js';
 
-export interface TongsBrowserOptions {
-  readonly document: Document;
-  readonly window: Window;
-  readonly gestureConfig?: Partial<GestureConfig>;
-  readonly suppressNativeTouch?: () => boolean;
-  readonly modifierBarEnabled?: boolean;
-  readonly initialBarPosition?: BarPosition;
-  readonly onBarPositionChanged?: (position: BarPosition) => void;
-  readonly uiScale?: number;
-  readonly cursorSize?: number;
-  readonly debugOverlay?: boolean;
-}
+// Re-exported so every existing importer keeps working unchanged.
+export type { TongsBrowserOptions };
 
 /**
  * Composition root.
@@ -62,128 +49,36 @@ export class TongsBrowser {
   private enabled = false;
 
   public constructor(private readonly options: TongsBrowserOptions) {
-    const { document: doc, window: win } = options;
-
-    this.actions = new FoundryActions({
-      document: doc,
-      requestPauseFromGm: () => {
-        this.pauseRelay.request();
-      },
-    });
-
-    this.diagnostics = new DragDiagnostics({
-      document: doc,
-      window: win,
-      isDragging: () => this.pointer.isDragging(),
-      pointerPosition: () => this.pointer.getPosition(),
-      keyboardStrategy: () => this.synthesizer.getStrategy(),
+    /*
+     * ⚠️ Every reference the parts take back to this module is a THUNK, and that is what makes a
+     * single builder possible at all. The parts are built in an order, and several need a sibling
+     * that does not exist yet: the tray needs the pointer while the bar is still being constructed,
+     * the relay needs the actions, the binder needs the gestures. Taken eagerly, each captures
+     * `undefined` and fails at the first tap, long after the code that caused it has finished.
+     */
+    const parts = buildModuleParts(options, {
+      pointer: () => this.pointer,
+      gestures: () => this.gestures,
+      synthesizer: () => this.synthesizer,
+      debug: () => this.debug,
+      diagnostics: () => this.diagnostics,
+      actions: () => this.actions,
+      access: () => this.access,
       isEnabled: () => this.enabled,
     });
 
-    this.debug = new DebugOverlay({ document: doc, logger });
-
-    const stack = createPointerStack({
-      document: doc,
-      window: win,
-      eventView: win,
-      ...(options.cursorSize === undefined ? {} : { cursorSize: options.cursorSize }),
-      onDispatch: (descriptor, target) => {
-        this.debug.onDispatch(descriptor, target);
-        this.diagnostics.recordDispatch(descriptor, target);
-      },
-    });
-    this.pointer = stack.pointer;
-    this.cursor = stack.cursor;
-
-    const canvasController = new CanvasController({
-      getCanvas: () => this.access.resolveCanvas(),
-      getScale: () => this.access.resolveCanvasScale(),
-      getPivot: () => this.access.resolveCanvasPivot(),
-      getZoomLimits: () => this.access.resolveZoomLimits(),
-      logger,
-    });
-
-    this.gestures = new GestureController({
-      pointer: this.pointer,
-      canvas: canvasController,
-      ...(options.gestureConfig === undefined ? {} : { config: options.gestureConfig }),
-      logger,
-      vibrate: (durationMs) => {
-        this.vibrate(durationMs);
-      },
-    });
-
-    this.synthesizer = new KeyboardSynthesizer({
-      document: doc,
-      getKeyboardManager: () => this.access.resolveKeyboardManager(),
-      logger,
-    });
-
-    this.modifierBar = new ModifierBar({
-      document: doc,
-      synthesizer: this.synthesizer,
-      // Held modifiers must reach the pointer too. Foundry reads its own keyboard state for some
-      // decisions and the event flags for others, so both paths have to agree.
-      onFlagsChanged: (flags) => {
-        this.pointer.setModifiers(flags);
-      },
-      ...(options.initialBarPosition === undefined
-        ? {}
-        : { initialPosition: options.initialBarPosition }),
-      ...(options.onBarPositionChanged === undefined
-        ? {}
-        : { onPositionChanged: options.onBarPositionChanged }),
-      getAvailableWidth: () => this.access.resolveAvailableWidth(),
-      trayActions: wireTrayActions(canvasController, {
-        actions: this.actions,
-        // A thunk, because the pointer field is not assigned until after the bar is built.
-        pointer: () => this.pointer,
-        diagnostics: this.diagnostics,
-      }),
-    });
-
-    this.scaler = new UiScaler({
-      document: doc,
-      ...(options.uiScale === undefined ? {} : { initialScale: options.uiScale }),
-    });
-
-    this.clampBinder = new WindowClampBinder({ document: doc, window: win, logger });
-
-    /*
-     * Resolved lazily on every call rather than captured now. The socket, the user list and who
-     * counts as the designated GM all change during a session, and a GM disconnecting mid game is
-     * exactly when the relay has to still pick the right client.
-     */
-    this.pauseRelay = new PauseRelay({
-      get socket(): SocketLike | null {
-        return (globalThis as { game?: { socket?: SocketLike } }).game?.socket ?? null;
-      },
-      channel: `module.${MODULE_ID}`,
-      isDesignatedGm: () => this.actions.isDesignatedGm(),
-      applyPause: (pause) => {
-        this.actions.applyPause(pause);
-      },
-      getPaused: () => (globalThis as { game?: { paused?: boolean } }).game?.paused === true,
-      logger,
-    });
-
-    this.binder = new TouchBinder({
-      target: doc,
-      exclusions: new ExclusionZones(),
-      onInput: (input) => {
-        /*
-         * Count the raw touch input as well as the events we emit from it.
-         *
-         * A trace showing no pointermove has two completely different causes: the finger produced no
-         * gesture input, or it did and the gesture layer chose not to move the pointer. Counting
-         * touchmoves separates them, and nothing else in the report can.
-         */
-        this.diagnostics.countGestureInput(input.type);
-        this.gestures.handleInput(input);
-      },
-      suppressNativeTouch: options.suppressNativeTouch ?? ((): boolean => true),
-      now: () => Date.now(),
-    });
+    this.actions = parts.actions;
+    this.diagnostics = parts.diagnostics;
+    this.debug = parts.debug;
+    this.pointer = parts.pointer;
+    this.cursor = parts.cursor;
+    this.gestures = parts.gestures;
+    this.synthesizer = parts.synthesizer;
+    this.modifierBar = parts.modifierBar;
+    this.scaler = parts.scaler;
+    this.clampBinder = parts.clampBinder;
+    this.pauseRelay = parts.pauseRelay;
+    this.binder = parts.binder;
   }
 
   public enable(): void {
@@ -298,17 +193,5 @@ export class TongsBrowser {
   /** Which strategy the keyboard probe settled on. Surfaced for diagnostics and the settings UI. */
   public getKeyboardStrategy(): string {
     return this.synthesizer.getStrategy();
-  }
-
-  /**
-   * Feature detected at the call site rather than trusted from the type. lib.dom declares vibrate
-   * as always present, but it is absent on iOS entirely and ignored on Android until the page has
-   * been interacted with.
-   */
-  private vibrate(durationMs: number): void {
-    const target = this.options.window.navigator;
-    if (typeof target.vibrate === 'function') {
-      target.vibrate(durationMs);
-    }
   }
 }

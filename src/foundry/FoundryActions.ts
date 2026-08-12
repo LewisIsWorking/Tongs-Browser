@@ -13,6 +13,7 @@ import {
   type FoundryUi,
   type SidebarAccessOptions,
 } from './SidebarAccess.js';
+import { buildSidebarMenu } from './SidebarMenu.js';
 import { logger } from '../core/Logger.js';
 
 /**
@@ -76,36 +77,13 @@ export class FoundryActions {
     return { getGame: () => (globalThis as { game?: FoundryGame }).game };
   }
 
-  /**
-   * A picker listing every sidebar tab, built from our own DOM.
-   *
-   * Foundry's own tab strip is 27px wide on a phone, which is what made the sidebar unreachable in
-   * the first place, so reusing it to choose a tab would inherit exactly the problem being solved.
-   * These are 44px rows in an element this module controls, marked with the ignore attribute so the
-   * gesture layer routes taps straight to them rather than through the virtual pointer.
-   */
+  /** Open the picker. The element and its rows are built in foundry/SidebarMenu.ts. */
   public openSidebarMenu(tabNames: readonly string[]): void {
-    const doc = this.options.document;
-    const menu = doc.createElement('div');
-    menu.className = 'tb-sidebar-menu';
-    menu.setAttribute('data-tongs-browser', 'ignore');
-
-    for (const name of tabNames) {
-      const item = doc.createElement('button');
-      item.type = 'button';
-      item.className = 'tb-sidebar-menu__item';
-      item.dataset['tab'] = name;
-      // Foundry's tab names are already lower case single words, so this is all the label needed.
-      item.textContent = name.charAt(0).toUpperCase() + name.slice(1);
-      item.addEventListener('click', () => {
-        this.closeSidebarMenu();
-        this.popOutSidebarTab(name);
-      });
-      menu.append(item);
-    }
-
-    doc.body.append(menu);
-    this.sidebarMenu = menu;
+    this.sidebarMenu = buildSidebarMenu(this.options.document, tabNames, (name) => {
+      this.closeSidebarMenu();
+      this.popOutSidebarTab(name);
+    });
+    this.options.document.body.append(this.sidebarMenu);
   }
 
   public closeSidebarMenu(): void {
