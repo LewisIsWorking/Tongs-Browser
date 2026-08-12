@@ -4,6 +4,7 @@ import { DragCaptureWindow } from './debug/DragCaptureWindow.js';
 import { DragSampler } from './debug/DragSampler.js';
 import { readFoundryFacts, type FoundryGlobals } from './debug/FoundryFacts.js';
 import { readChatTargets, type ChatGlobals } from './debug/ChatTargets.js';
+import { readInteractionSample, type InteractionGlobals } from './debug/InteractionSample.js';
 import { describeTokenMovement } from './debug/TokenMovement.js';
 import { availableWidthBesideSidebar } from './foundry/AvailableWidth.js';
 import { readCanvasPivot, readCanvasScale, readZoomLimits } from './foundry/CanvasReaders.js';
@@ -685,46 +686,15 @@ export class TongsBrowser {
       this.sampler.countMove();
     }
 
-    const controlled = (
-      globalThis as {
-        canvas?: { tokens?: { controlled?: unknown[]; preview?: { children?: unknown[] } } };
-      }
-    ).canvas?.tokens;
-    const state = (
-      controlled?.controlled?.[0] as { mouseInteractionManager?: { state?: number } } | undefined
-    )?.mouseInteractionManager?.state;
-    const previews = controlled?.preview?.children?.length ?? 0;
-
     /*
-     * Foundry's recorded drag origin, and PIXI's own pointer, which is what Foundry measures its
-     * drag gate against. Reading PIXI's rather than ours because `event.global` is what Foundry
-     * actually uses, and the two disagreeing was itself a candidate for a long time.
+     * Sampled AS IT HAPPENS rather than read when the report is written. Foundry resets the manager
+     * to NONE the moment an interaction ends, so a reading taken afterwards says NONE whether the
+     * drag never started or ran perfectly and committed. See debug/InteractionSample.ts.
      */
-    const manager = (
-      controlled?.controlled?.[0] as
-        | {
-            mouseInteractionManager?: {
-              interactionData?: { screenOrigin?: { x: number; y: number } };
-            };
-          }
-        | undefined
-    )?.mouseInteractionManager;
-    const pixiPointer = (
-      globalThis as {
-        canvas?: {
-          app?: { renderer?: { events?: { pointer?: { global?: { x: number; y: number } } } } };
-        };
-      }
-    ).canvas?.app?.renderer?.events?.pointer?.global;
+    const sample = readInteractionSample(globalThis as InteractionGlobals);
 
     // All the arithmetic lives in DragSampler, which pairs every peak with its sample count.
-    this.sampler.sample({
-      interactionState: state,
-      previewCount: previews,
-      foundryOrigin: manager?.interactionData?.screenOrigin,
-      pixiPointer,
-      ourPointer: descriptor.position,
-    });
+    this.sampler.sample({ ...sample, ourPointer: descriptor.position });
 
     /*
      * Coordinates are in the trace because they are now the question.
