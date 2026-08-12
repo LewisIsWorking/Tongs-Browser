@@ -16,6 +16,7 @@
  * ⚠️ WRITES TO A LIVE WORLD: creates a `[probe]` scene when there is no active one, deletes it in a
  *    finally.
  */
+import type { Page } from 'playwright';
 import {
   BASE,
   captureModuleLog,
@@ -28,9 +29,21 @@ import {
 } from './foundry-session.ts';
 import { Hand } from './foundry-touch.ts';
 
-const results = [];
+/**
+ * One check outcome.
+ *
+ * `passed: null` is a SKIP and is deliberately not a boolean, so a skip can never be mistaken for a
+ * pass by a reader or by a filter. See the skip helper for why that distinction is load bearing.
+ */
+interface CheckResult {
+  readonly name: string;
+  readonly passed: boolean | null;
+  readonly detail: string;
+}
 
-function record(name, passed, detail) {
+const results: CheckResult[] = [];
+
+function record(name: string, passed: boolean, detail: string): void {
   results.push({ name, passed, detail });
 }
 
@@ -47,7 +60,7 @@ const viewport = (page) =>
  * moves left. Asserted as a sign rather than a magnitude, because the pixel to scene conversion
  * depends on the current zoom and pinning it would test the arithmetic rather than the behaviour.
  */
-async function checkTwoFingerPan(page, hand, centre) {
+async function checkTwoFingerPan(page: Page, hand, centre) {
   const before = await viewport(page);
 
   const gap = 80;
@@ -106,7 +119,7 @@ async function checkTwoFingerPan(page, hand, centre) {
  * pinch and landed on 1.6, a jump of 3.2x, because the controller multiplied the ratio onto a
  * remembered 1 and applied the result absolutely.
  */
-async function checkPinchIsRelative(page, hand, centre) {
+async function checkPinchIsRelative(page: Page, hand, centre) {
   const before = await viewport(page);
 
   const startGap = 100;
@@ -138,7 +151,7 @@ async function checkPinchIsRelative(page, hand, centre) {
 }
 
 /** Pinching back in returns roughly where it started, so the two directions agree. */
-async function checkPinchIsReversible(page, hand, centre, beforePinch) {
+async function checkPinchIsReversible(page: Page, hand, centre, beforePinch) {
   await hand.start([
     { x: centre.x - 160, y: centre.y },
     { x: centre.x + 160, y: centre.y },

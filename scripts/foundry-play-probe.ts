@@ -47,7 +47,19 @@ try {
   scene = await ensureActiveScene(page, { width: 3000, height: 3000, label: 'play probe' });
 
   const rows = await page.evaluate(async (trials) => {
-    const results = [];
+    /**
+     * One check outcome.
+     *
+     * `passed: null` is a SKIP and is deliberately not a boolean, so a skip can never be mistaken for a
+     * pass by a reader or by a filter. See the skip helper for why that distinction is load bearing.
+     */
+    interface CheckResult {
+      readonly name: string;
+      readonly passed: boolean | null;
+      readonly detail: string;
+    }
+
+    const results: CheckResult[] = [];
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const pointer = game.modules.get('tongs-browser').api.getPointer();
     const view = canvas.app.view;

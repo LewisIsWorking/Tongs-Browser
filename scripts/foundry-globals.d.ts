@@ -25,21 +25,36 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 /** Foundry's canvas: layers, the scene, PIXI's application and the pointer mapping helpers. */
-declare const canvas: any;
+/*
+ * ⚠️ `var`, not `const`, and the difference is the point. A `var` declaration in a global script
+ * becomes a property of `globalThis`, so both `canvas` and `globalThis.canvas` typecheck. A `const`
+ * only provides the bare name, and harness code reaches these BOTH ways: the bare form inside
+ * `page.evaluate`, and the `globalThis.game?.ready` form in code that has to survive Foundry not
+ * being loaded yet.
+ */
+// eslint-disable-next-line no-var
+declare var canvas: any;
 
 /** The game instance: world, users, actors, scenes, settings, modules, socket. */
-declare const game: any;
+// eslint-disable-next-line no-var
+declare var game: any;
 
 /** Foundry's interface: sidebar, notifications, chat, controls. */
-declare const ui: any;
+// eslint-disable-next-line no-var
+declare var ui: any;
 
 /** Foundry's constants, including TOKEN_DISPLAY_MODES and the document ownership levels. */
-declare const CONST: any;
+// eslint-disable-next-line no-var
+declare var CONST: any;
 
 /** Document classes reachable as globals inside the page. */
-declare const Actor: any;
-declare const Scene: any;
-declare const User: any;
+// eslint-disable-next-line no-var
+declare var Actor: any;
+// eslint-disable-next-line no-var
+declare var Scene: any;
+// eslint-disable-next-line no-var
+declare var User: any;
 
 /** The `foundry` namespace, home of applications, utils and the data models. */
-declare const foundry: any;
+// eslint-disable-next-line no-var
+declare var foundry: any;

@@ -18,6 +18,7 @@
  *    modifier bar to its default position so that the geometry checks judge the shipped default
  *    rather than wherever the bar was last dragged. Both are restored in a finally.
  */
+import type { Page } from 'playwright';
 import {
   BASE,
   HOST_BASE,
@@ -35,9 +36,21 @@ import { Finger } from './foundry-touch.ts';
 /** Matches DEFAULT_POSITION in src/modifiers/ModifierBar.ts. */
 const DEFAULT_BAR_POSITION = { x: 88, y: 120 };
 
-const results = [];
+/**
+ * One check outcome.
+ *
+ * `passed: null` is a SKIP and is deliberately not a boolean, so a skip can never be mistaken for a
+ * pass by a reader or by a filter. See the skip helper for why that distinction is load bearing.
+ */
+interface CheckResult {
+  readonly name: string;
+  readonly passed: boolean | null;
+  readonly detail: string;
+}
 
-function record(name, passed, detail) {
+const results: CheckResult[] = [];
+
+function record(name: string, passed: boolean, detail: string): void {
   results.push({ name, passed, detail });
 }
 
@@ -49,7 +62,7 @@ function record(name, passed, detail) {
  * green would be the worst available answer: it would claim coverage of exactly the gesture work
  * that is hardest to verify and easiest to break.
  */
-function skip(name, reason) {
+function skip(name: string, reason: string): void {
   results.push({ name, passed: null, detail: `SKIPPED: ${reason}` });
 }
 
@@ -61,8 +74,8 @@ function skip(name, reason) {
  * Failing on every page error would blame us for the browser; ignoring every page error would blind
  * the check. Matching the stack against our own bundle name splits them correctly.
  */
-function captureAttributedErrors(page) {
-  const errors = [];
+function captureAttributedErrors(page: Page) {
+  const errors: string[] = [];
   page.on('pageerror', (error) => {
     errors.push({ message: error.message, stack: error.stack ?? '' });
   });
@@ -88,7 +101,7 @@ function captureAttributedErrors(page) {
  * swallows is reported as a check result. An environment fix that hides itself would be worse than
  * the bug, because every later result would rest on it silently.
  */
-async function installFontDecodeShim(page) {
+async function installFontDecodeShim(page: Page) {
   await page.addInitScript(() => {
     globalThis.__tbSwallowedFonts = [];
     const original = FontFace.prototype.load;
@@ -101,8 +114,8 @@ async function installFontDecodeShim(page) {
   });
 }
 
-function captureLog(page) {
-  const log = [];
+function captureLog(page: Page) {
+  const log: string[] = [];
   page.on('console', (message) => {
     const text = message.text();
     if (text.includes('Tongs Browser')) {
@@ -113,7 +126,7 @@ function captureLog(page) {
 }
 
 /** Geometry of the things the user has to be able to hit, measured in the live page. */
-function readGeometry(page) {
+function readGeometry(page: Page) {
   return page.evaluate((id) => {
     const rect = (el) => {
       if (!el) return null;
@@ -159,7 +172,7 @@ const insideViewport = (r, viewport) =>
  * keydown and asks Foundry's own KeyboardManager whether it registered, which is the thing the
  * modifier bar depends on and the only answer that matters.
  */
-async function checkKeyboardStrategy(page, log) {
+async function checkKeyboardStrategy(page: Page, log) {
   const reported =
     log.find((line) => line.includes('Keyboard strategy:'))?.match(/strategy: (\w+)/)?.[1] ?? null;
 
@@ -222,7 +235,7 @@ async function checkKeyboardStrategy(page, log) {
  * nameplate visibility Foundry derives from the hover state, so the nameplate becomes a readable
  * consequence of hovering rather than a decoration that was always on.
  */
-async function createProbeTokens(page) {
+async function createProbeTokens(page: Page) {
   return page.evaluate(async (prefix) => {
     const actorType = game.documentTypes.Actor.find((type) => type !== 'base');
     if (actorType === undefined) {
@@ -273,7 +286,7 @@ async function createProbeTokens(page) {
   }, PROBE_PREFIX);
 }
 
-async function removeProbeTokens(page, probe) {
+async function removeProbeTokens(page: Page, probe) {
   if (!probe) {
     return;
   }
@@ -305,7 +318,7 @@ async function removeProbeTokens(page, probe) {
  * `this.hover || this.layer.highlightObjects`, so with highlighting on every nameplate is visible and
  * this check would pass without the pointer having done anything at all.
  */
-async function checkHoverSemantics(page, probe) {
+async function checkHoverSemantics(page: Page, probe) {
   if (!probe || probe.tokenIds.length < 2) {
     skip('hovering a token makes Foundry hover it', 'the world could not supply two probe tokens');
     return;
@@ -487,7 +500,7 @@ async function checkHoverSemantics(page, probe) {
  * Judged by Foundry's own sidebar state rather than by a CSS class, and deliberately with the finger
  * far away from the pointer, so a pass cannot come from the two happening to coincide.
  */
-async function checkTapClicksAtPointer(page, finger) {
+async function checkTapClicksAtPointer(page: Page, finger) {
   const target = await page.evaluate(() => {
     const tab = document.querySelector('button[data-tab="combat"]');
     if (!tab) return null;

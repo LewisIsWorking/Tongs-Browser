@@ -19,6 +19,7 @@
  *    can legitimately have none. Everything it creates is named with PROBE_PREFIX and deleted in a
  *    finally block, so anything a crash leaves behind is identifiable and safe to remove by hand.
  */
+import type { Page } from 'playwright';
 import {
   BASE,
   MODULE_ID,
@@ -31,14 +32,26 @@ import {
   requireActiveWorld,
 } from './foundry-session.ts';
 
-const results = [];
+/**
+ * One check outcome.
+ *
+ * `passed: null` is a SKIP and is deliberately not a boolean, so a skip can never be mistaken for a
+ * pass by a reader or by a filter. See the skip helper for why that distinction is load bearing.
+ */
+interface CheckResult {
+  readonly name: string;
+  readonly passed: boolean | null;
+  readonly detail: string;
+}
 
-function record(name, passed, detail) {
+const results: CheckResult[] = [];
+
+function record(name: string, passed: boolean, detail: string): void {
   results.push({ name, passed, detail });
 }
 
 /** The overlays exist at all. Everything below is meaningless if they do not. */
-async function checkOverlaysAttached(page) {
+async function checkOverlaysAttached(page: Page) {
   const found = await page.evaluate(() => ({
     cursor: document.querySelectorAll('.tb-cursor').length,
     bar: document.querySelectorAll('.tb-modifier-bar').length,
@@ -58,7 +71,7 @@ async function checkOverlaysAttached(page) {
  * Unit tested already, but against a stub layout. Foundry stacks a lot of positioned elements and
  * this is the one property whose failure would make every click land on the cursor itself.
  */
-async function checkCursorNotHitTestable(page) {
+async function checkCursorNotHitTestable(page: Page) {
   const outcome = await page.evaluate(() => {
     const cursor = document.querySelector('.tb-cursor');
     const box = cursor.getBoundingClientRect();
@@ -80,7 +93,7 @@ async function checkCursorNotHitTestable(page) {
  * Asserted against ui.sidebar.tabGroups rather than against a CSS class, because that is Foundry's
  * own record of which tab is active. A class check would pass on a tab that merely looks selected.
  */
-async function checkChromeRespondsToClick(page) {
+async function checkChromeRespondsToClick(page: Page) {
   const before = await page.evaluate(() => ui.sidebar.tabGroups.primary);
   const target = before === 'combat' ? 'chat' : 'combat';
 
@@ -130,7 +143,7 @@ async function checkChromeRespondsToClick(page) {
  * the scene to screen transform depends on zoom and padding, and hardcoding a number would be a test
  * of the arithmetic in this file rather than of Foundry.
  */
-async function checkCanvasRespondsToMove(page) {
+async function checkCanvasRespondsToMove(page: Page) {
   const outcome = await page.evaluate((id) => {
     const board = document.querySelector('#board');
     const box = board.getBoundingClientRect();
@@ -172,7 +185,7 @@ async function checkCanvasRespondsToMove(page) {
  * Judged by Foundry's own control state AND by the DOM, because either alone can lie: the state can
  * hold a tool that never renders, and a rendered button can be a leftover.
  */
-async function checkSceneControlToggle(page) {
+async function checkSceneControlToggle(page: Page) {
   const present = await page.evaluate((id) => {
     const groups = ui.controls.controls;
     const inGroup = Object.entries(groups).find(([, group]) =>

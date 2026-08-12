@@ -18,6 +18,7 @@
  * ⚠️ WRITES TO A LIVE WORLD, same as the pointer check: creates a `[probe]` scene if the world has no
  *    active one, and deletes it in a finally.
  */
+import type { Page } from 'playwright';
 import {
   BASE,
   MODULE_ID,
@@ -35,9 +36,21 @@ import { Finger } from './foundry-touch.ts';
 const SENSITIVITY = 1.5;
 const LONG_PRESS_MS = 500;
 
-const results = [];
+/**
+ * One check outcome.
+ *
+ * `passed: null` is a SKIP and is deliberately not a boolean, so a skip can never be mistaken for a
+ * pass by a reader or by a filter. See the skip helper for why that distinction is load bearing.
+ */
+interface CheckResult {
+  readonly name: string;
+  readonly passed: boolean | null;
+  readonly detail: string;
+}
 
-function record(name, passed, detail) {
+const results: CheckResult[] = [];
+
+function record(name: string, passed: boolean, detail: string): void {
   results.push({ name, passed, detail });
 }
 
@@ -54,7 +67,7 @@ const pointerPosition = (page) =>
  * viewport edge and the gesture machine has a small movement threshold before it starts, so an exact
  * equality here would be a test of arithmetic that would fail for reasons that are not bugs.
  */
-async function checkDragMovesPointer(page, finger, board) {
+async function checkDragMovesPointer(page: Page, finger, board) {
   const before = await pointerPosition(page);
 
   const deltaX = 200;
@@ -84,7 +97,7 @@ async function checkDragMovesPointer(page, finger, board) {
  * changes, the click went to the pointer. If it does not, the click went to the finger, and the whole
  * trackpad model is broken. Judged by Foundry's own tab state.
  */
-async function checkTapClicksAtPointerNotFinger(page, finger, board) {
+async function checkTapClicksAtPointerNotFinger(page: Page, finger, board) {
   const before = await page.evaluate(() => ui.sidebar.tabGroups.primary);
   const target = before === 'combat' ? 'chat' : 'combat';
 
@@ -134,7 +147,7 @@ async function checkTapClicksAtPointerNotFinger(page, finger, board) {
  * available as evidence here. What this does prove is that the long press timer fires under real
  * event timing, which no unit test with an injected clock can show.
  */
-async function checkLongPressRightClicks(page, finger, board) {
+async function checkLongPressRightClicks(page: Page, finger, board) {
   await page.evaluate(() => {
     globalThis.__probeContextMenus = [];
     document.addEventListener(
@@ -176,7 +189,7 @@ async function checkLongPressRightClicks(page, finger, board) {
  * Counted at the document in the BUBBLE phase, which is where Foundry's own listeners sit. The module
  * stops these in the capture phase, so anything counted here got past it.
  */
-async function checkNativeTouchSuppressed(page, finger, board) {
+async function checkNativeTouchSuppressed(page: Page, finger, board) {
   await page.evaluate((virtualId) => {
     globalThis.__probeLeaked = [];
     document.addEventListener('pointerdown', (event) => {
@@ -211,7 +224,7 @@ async function checkNativeTouchSuppressed(page, finger, board) {
  * and the id belongs to the v12 markup. The behaviour had survived only because `.chat-scroll`
  * happens to wrap the log.
  */
-async function checkChatLogIsExcluded(page, finger) {
+async function checkChatLogIsExcluded(page: Page, finger) {
   // An earlier check parks the sidebar on the combat tab, which hides the chat log entirely. Without
   // this the check reported "no visible chat log found", which reads as a missing element rather
   // than as a test ordering problem.
