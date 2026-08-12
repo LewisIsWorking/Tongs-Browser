@@ -1,9 +1,9 @@
 import { logger } from './core/Logger.js';
-import { copyToClipboard } from './debug/Clipboard.js';
 import { DispatchTrace } from './debug/DispatchTrace.js';
 import { DragSampler } from './debug/DragSampler.js';
 import { PixiMoveProbe } from './debug/PixiMoveProbe.js';
-import { buildDiagnosticsReport, toPlainText } from './debug/DiagnosticsReport.js';
+import { deliverDiagnostics } from './debug/DiagnosticsDelivery.js';
+import { buildDiagnosticsReport } from './debug/DiagnosticsReport.js';
 import { installFoundryDragHooks } from './debug/FoundryDragHooks.js';
 import { DebugOverlay } from './debug/DebugOverlay.js';
 import {
@@ -1049,33 +1049,17 @@ export class TongsBrowser {
       recentDispatches: this.trace.getLines(),
     });
 
-    /*
-     * Copy to the clipboard as well as whispering.
-     *
-     * Reading the report off a phone screenshot is the slowest part of this loop and it TRUNCATES: a
-     * chat window shows about fifteen lines and silently hides the rest, which has already cost a
-     * full round trip on the one field that mattered.
-     */
-    const plain = toPlainText(lines);
-    const copied = copyToClipboard(this.options.document, plain);
-
-    const chat = (globalThis as { ChatMessage?: { create?: (data: unknown) => unknown } })
-      .ChatMessage;
-    if (chat?.create === undefined) {
-      logger.warn(plain);
-      return;
-    }
-
-    void chat.create({
-      content: `<em>${copied ? 'Copied to clipboard.' : 'Clipboard refused, read below.'}</em><br>${lines.join('<br>')}`,
-      whisper: user?.id === undefined ? [] : [user.id],
+    deliverDiagnostics(lines, {
+      document: this.options.document,
+      createChatMessage: (globalThis as { ChatMessage?: { create?: (data: unknown) => unknown } })
+        .ChatMessage?.create,
+      userId: user?.id,
+      notify: (globalThis as { ui?: { notifications?: { info?: (message: string) => void } } }).ui
+        ?.notifications?.info,
+      fallback: (text) => {
+        logger.warn(text);
+      },
     });
-
-    const notify = (globalThis as { ui?: { notifications?: { info?: (message: string) => void } } })
-      .ui?.notifications;
-    notify?.info?.(
-      copied ? 'Tongs diagnostics copied to clipboard.' : 'Tongs diagnostics whispered to you.'
-    );
   }
 
   /**
