@@ -59,16 +59,32 @@ try {
       readonly detail: string;
     }
 
+    /**
+     * A Foundry token, described only as far as this harness reads it.
+     *
+     * Deliberately partial. Foundry ships no types and its Token surface is enormous, so a fuller
+     * interface would be a second description of somebody else's object, drifting with every release.
+     * Naming the handful of fields actually touched says what the harness depends on and nothing more.
+     */
+    interface FoundryToken {
+      id: string;
+      name: string;
+      center: { x: number; y: number };
+      document: { x: number; y: number; update: (data: unknown) => Promise<unknown> };
+      nameplate?: { visible?: boolean };
+      control: (options?: { releaseOthers?: boolean }) => void;
+    }
+
     const results: CheckResult[] = [];
-    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     const pointer = game.modules.get('tongs-browser').api.getPointer();
     const view = canvas.app.view;
     const grid = canvas.scene.grid.size;
     const HOME = { x: grid * 3, y: grid * 3 };
 
     /** A brand new actor and token for one trial, torn down afterwards whatever happens. */
-    async function withFixture(run) {
-      const type = game.documentTypes.Actor.find((t) => t !== 'base');
+    async function withFixture(run: (token: FoundryToken) => Promise<unknown>) {
+      const type = game.documentTypes.Actor.find((t: string) => t !== 'base');
       const actor = await Actor.create({ name: '[probe] play', type });
       const [doc] = await canvas.scene.createEmbeddedDocuments('Token', [
         { name: '[probe] play', actorId: actor.id, x: HOME.x, y: HOME.y, displayName: 30 },
@@ -92,7 +108,7 @@ try {
     }
 
     /** Pan, wait for the transform, convert, move, and REPORT whether the aim actually landed. */
-    async function aim(token) {
+    async function aim(token: FoundryToken) {
       canvas.pan({ x: token.center.x, y: token.center.y });
       await wait(400);
       const global = canvas.stage.toGlobal({ x: token.center.x, y: token.center.y });
@@ -426,7 +442,7 @@ try {
     {
       const outcomes = [];
       for (let trial = 0; trial < trials; trial += 1) {
-        const type = game.documentTypes.Actor.find((t) => t !== 'base');
+        const type = game.documentTypes.Actor.find((t: string) => t !== 'base');
         const actor = await Actor.create({ name: '[probe] ownership', type });
         let player = game.users.find((user) => user.name === '[probe] player');
         if (!player) {
@@ -531,8 +547,8 @@ try {
 
   const verdict = (trialsList) => {
     if (trialsList.every((o) => o === 'yes')) return 'YES';
-    if (trialsList.some((o) => o === 'AIM')) return 'AIM FAILED';
-    if (trialsList.some((o) => o === 'yes')) return 'FLAKY';
+    if (trialsList.some((o: HTMLOptionElement) => o === 'AIM')) return 'AIM FAILED';
+    if (trialsList.some((o: HTMLOptionElement) => o === 'yes')) return 'FLAKY';
     return 'no';
   };
 
@@ -548,7 +564,7 @@ try {
         ? 'not needed'
         : row.controlTrials.every((o) => o === 'yes')
           ? 'reliable -> OUR GAP'
-          : row.controlTrials.some((o) => o === 'yes')
+          : row.controlTrials.some((o: HTMLOptionElement) => o === 'yes')
             ? 'flaky -> inconclusive'
             : 'also fails -> inconclusive';
     console.error(`${row.name.padEnd(43)} | ${verdict(row.pointerTrials).padEnd(11)} | ${control}`);
@@ -556,7 +572,7 @@ try {
 
   const gaps = rows.filter(
     (row) =>
-      !row.pointerTrials.some((o) => o === 'yes') &&
+      !row.pointerTrials.some((o: HTMLOptionElement) => o === 'yes') &&
       row.controlTrials !== null &&
       row.controlTrials.every((o) => o === 'yes')
   );

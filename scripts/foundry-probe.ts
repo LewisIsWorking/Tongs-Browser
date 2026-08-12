@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import type { Page } from 'playwright';
 /**
  * Measures how a real Foundry treats synthesised keyboard events. Added 2026-08-09.
  *
@@ -30,7 +31,7 @@ import {
  * downKeys directly, so the two can be compared and a disagreement is visible rather than assumed
  * away. It cleans up after itself whatever the answer.
  */
-async function independentProbe(page: EvaluatablePage) {
+async function independentProbe(page: Page) {
   return page.evaluate(() => {
     const downKeys = game.keyboard?.downKeys;
     if (downKeys === undefined) {
