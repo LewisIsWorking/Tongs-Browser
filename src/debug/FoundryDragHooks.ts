@@ -50,7 +50,17 @@ function describeCause(event: unknown): string {
  */
 function describeCallSite(): string {
   const frames = (new Error('cancel').stack ?? '').split(String.fromCharCode(10)).slice(1);
-  const foundry = frames.find(
+  /*
+   * ⚠️ OUR OWN wrapper is excluded first, and leaving it in made the whole thing useless.
+   *
+   * The wrapper is assigned onto `MouseInteractionManager.prototype`, so its stack frame reads
+   * `MouseInteractionManager.wrapped` and matched the search before any real frame did. The report
+   * then said `via MouseInteractionManager.wrapped`, which is the observer naming itself.
+   */
+  const theirs = frames.filter(
+    (frame) => !frame.includes('wrapped') && !frame.includes('FoundryDragHooks')
+  );
+  const foundry = theirs.find(
     (frame) => frame.includes('mouse-handler') || frame.includes('MouseInteractionManager')
   );
   if (foundry === undefined) {
@@ -59,10 +69,7 @@ function describeCallSite(): string {
      * says only "the observer observed", which is exactly the kind of true and useless line this
      * report has too many of already.
      */
-    const theirs = frames.find(
-      (frame) => !frame.includes('FoundryDragHooks') && !frame.includes('wrapped')
-    );
-    return theirs?.trim().slice(0, 60) ?? 'unknown caller';
+    return theirs[0]?.trim().slice(0, 60) ?? 'unknown caller';
   }
   const named = /at ([\w#.<>]+)/.exec(foundry.trim());
   return named?.[1] ?? foundry.trim().slice(0, 60);

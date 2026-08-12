@@ -118,3 +118,48 @@ export function describeInteractionState(target: unknown): string {
   }
   return `${INTERACTION_STATE_NAMES[manager.state] ?? 'UNKNOWN'} (${String(manager.state)})`;
 }
+
+/**
+ * What Foundry's own permission checks say about dragging this token.
+ *
+ * ⚠️ `#handleDragStart` is the ONE cancel path that fires on something other than a pointerup:
+ *
+ *     if ( !this.can(action, event) ) {
+ *       this.#debug(action, event, this.handlerOutcomes.DISALLOWED);
+ *       this.cancel(event);
+ *       return;
+ *     }
+ *
+ * So a refused `dragLeftStart` cancels the whole interaction, and nothing else in the report would
+ * say so: the state, the gate and the origin all look exactly as they do for any other cancel. This
+ * asks the manager directly rather than inferring it from a stack frame.
+ *
+ * `dragStart` is asked as well, because it gates a DIFFERENT thing: `#handleClickLeft` only reaches
+ * GRABBED and binds the drag handlers when `can("dragStart")` passes. One false and the other true
+ * are two different failures.
+ */
+export function describeDragPermissions(target: unknown): string {
+  const manager = (
+    target as { mouseInteractionManager?: { can?: (a: string, e: unknown) => boolean } } | undefined
+  )?.mouseInteractionManager;
+  const can = manager?.can;
+  if (can === undefined) {
+    return 'no manager to ask';
+  }
+
+  /*
+   * A bare object rather than a real event. Foundry's permission callbacks take the event but the
+   * ones that matter here read the user and the object, not the event, and constructing a federated
+   * event outside PIXI is not possible from here. If a check ever does read it, this says so by
+   * throwing rather than by quietly answering the wrong question.
+   */
+  const probe = { type: 'pointermove', button: 0 };
+  const answers = ['clickLeft', 'dragStart', 'dragLeftStart'].map((action) => {
+    try {
+      return `${action}=${String(can.call(manager, action, probe))}`;
+    } catch {
+      return `${action}=unaskable`;
+    }
+  });
+  return answers.join(' ');
+}
