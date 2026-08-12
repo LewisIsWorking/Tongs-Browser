@@ -10,22 +10,8 @@ import {
 import { pointerMoveActions } from './PointerTranslation.js';
 import { continuesPreviousTap, type TapRecord } from './TapWindow.js';
 import { SettledStates } from './SettledStates.js';
+import type { SingleFingerPort } from './SingleFingerPort.js';
 import { distance } from './TouchGeometry.js';
-
-/**
- * The four states a single finger can be in: idle, waiting on a long press, tracking, and dragging.
- * Extracted from GestureStateMachine 2026-08-12.
- *
- * Separated because these four share five pieces of state that the two finger states never touch,
- * and a class holding both sets is a class where any handler can reach any field. The machine keeps
- * the dispatch and the two finger states; this keeps the finger.
- */
-export interface SingleFingerPort {
-  readonly getConfig: () => GestureConfig;
-  /** Record the transition and produce the result, so the machine stays the one owner of `state`. */
-  readonly result: (state: GestureStateValue, actions?: GestureAction[]) => GestureResult;
-  readonly beginTwoFinger: (touches: readonly TouchPoint[]) => void;
-}
 
 export class SingleFingerStates {
   private startPosition: TouchPoint | null = null;

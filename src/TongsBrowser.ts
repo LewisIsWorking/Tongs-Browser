@@ -1,28 +1,8 @@
 import { logger } from './core/Logger.js';
-import { DispatchTrace } from './debug/DispatchTrace.js';
-import { DragCaptureWindow } from './debug/DragCaptureWindow.js';
-import { DragSampler } from './debug/DragSampler.js';
-import { readFoundryFacts, type FoundryGlobals } from './debug/FoundryFacts.js';
-import { readChatTargets, type ChatGlobals } from './debug/ChatTargets.js';
-import { readInteractionSample, type InteractionGlobals } from './debug/InteractionSample.js';
-import { describeTokenMovement } from './debug/TokenMovement.js';
+import { DragDiagnostics } from './debug/DragDiagnostics.js';
 import { availableWidthBesideSidebar } from './foundry/AvailableWidth.js';
 import { readCanvasPivot, readCanvasScale, readZoomLimits } from './foundry/CanvasReaders.js';
-import {
-  describeControlledToken,
-  describeScenePoint,
-  isPointerInsideToken,
-} from './debug/TokenHitTest.js';
-import { PixiMoveProbe } from './debug/PixiMoveProbe.js';
-import { deliverDiagnostics } from './debug/DiagnosticsDelivery.js';
-import { buildDiagnosticsReport } from './debug/DiagnosticsReport.js';
-import { installFoundryDragHooks } from './debug/FoundryDragHooks.js';
 import { DebugOverlay } from './debug/DebugOverlay.js';
-import {
-  describeGrabTarget,
-  describeInteractionState,
-  describePointers,
-} from './debug/FoundryProbes.js';
 import { CanvasController, type CanvasLike } from './gesture/CanvasController.js';
 import { ExclusionZones } from './gesture/ExclusionZones.js';
 import { GestureController } from './gesture/GestureController.js';
@@ -62,9 +42,6 @@ import { buildTrayActions } from './ui/TrayActions.js';
  */
 const PAUSE_MACRO_NAME = 'Tongs Pause';
 
-/** Stamped in at build time by Vite. See vite.config.ts for why the manifest version is not enough. */
-declare const __TB_BUILD_VERSION__: string;
-
 export interface TongsBrowserOptions {
   readonly document: Document;
   readonly window: Window;
@@ -98,103 +75,24 @@ export class TongsBrowser {
   private readonly debug: DebugOverlay;
   private readonly pauseRelay: PauseRelay;
   private sidebarMenu: HTMLDivElement | null = null;
+
+  /** Everything measured about a drag, and the report it whispers. See debug/DragDiagnostics.ts. */
+  private readonly diagnostics: DragDiagnostics;
   private enabled = false;
-
-  /**
-   * The last few events actually put on the wire, for the diagnostics report.
-   *
-   * Every STATIC check can be healthy while a drag still does nothing, which is exactly what a real
-   * device reported: select tool, _canDrag true, pointer inside the token, canvas ready, and no
-   * movement. At that point the only thing left to look at is the event stream itself, and on a
-   * phone there is no console to look at it in.
-   *
-   * A ring buffer rather than a growing list, because this records every single dispatch for the
-   * whole session and a leak in a diagnostic is a poor trade for information nobody has asked for
-   * yet.
-   */
-  private readonly trace = new DispatchTrace();
-
-  /** Every peak in the report, each paired with the count of samples behind it. */
-  private readonly sampler = new DragSampler();
-
-  /** When the drag record is open, frozen or retired. See debug/DragCaptureWindow.ts. */
-  private readonly captureWindow = new DragCaptureWindow();
-
-  /**
-   * How many pointermove events PIXI delivered to the token LAYER during this gesture.
-   *
-   * This is the measurement that separates the two remaining possibilities, and it exists because
-   * Foundry's MouseInteractionManager binds the drag's move handler on `this.layer`, not on the
-   * object and not on the DOM:
-   *
-   *     this.layer.on("pointermove", this.#handlers.pointermove)
-   *
-   * A device reported peaking at GRABBED, which proves pointerdown DID reach the token through PIXI,
-   * so PIXI delivery works for the press. GRABBED advances to DRAG only when moves reach the layer.
-   * Counting them says whether PIXI is delivering them at all, which is a completely different fix
-   * from the layer receiving them and declining to act.
-   */
-  private readonly pixiProbe = new PixiMoveProbe(() => (globalThis as { canvas?: never }).canvas);
-
-  /**
-   * Which of Foundry's two drag endings actually ran: the DROP, or the CANCEL.
-   *
-   * ⚠️ The drag now reaches DRAG with a preview clone and the token still does not move, so the
-   * failure has moved from the gate to the ending. Those are two different handlers on Foundry's
-   * Token, and every number in this report is silent about which one fired:
-   *
-   *   _onDragLeftDrop   -> reads interactionData.clones and writes the new position
-   *   _onDragLeftCancel -> destroys the preview and writes nothing
-   *
-   * They are indistinguishable from outside. Both leave the state reset, both leave no preview, and
-   * both leave the token where it was if the drop refuses. Wrapping them is the only way to see it,
-   * and it is done once and left in place because a diagnostic that has to be installed during the
-   * bug is a diagnostic nobody has when the bug happens.
-   */
-  private dragEndings: string[] = [];
-  private hooksInstalled = { token: false, manager: false };
-
-  /**
-   * Viewport resizes during the drag, and the size at the grab.
-   *
-   * The suspected cause of the redraws that cancel the interaction. On Android the URL bar slides in
-   * and out as you gesture, and that resizes the viewport; Foundry redraws the canvas on resize, and
-   * a redraw of a token cancels its interaction outright. A desktop window simply does not change
-   * size mid drag, which would explain why every desktop run passes.
-   *
-   * Counted rather than argued about. If this is zero while the redraws are not, the hypothesis is
-   * dead and the cause is something else entirely.
-   */
-  private resizesDuringDrag = 0;
-  private viewportAtGrab = '';
-
-  /** Raw touch input reaching the gesture layer, counted by type. Never reset, so it is cumulative. */
-  private readonly gestureInputCounts: Record<string, number> = {};
-
-  /** Where the token was when the grab began. Whether it was released lives in the capture window. */
-  private tokenAtGrab: { x: number; y: number } | null = null;
-
-  /**
-   * Was the pointer actually ON the controlled token at the moment of the grab?
-   *
-   * ⚠️ The question every unsuccessful drag turns out to hinge on, and the report has never answered
-   * it. Foundry starts an interaction from a pointerdown that HITS a placeable; a press on empty
-   * canvas starts a selection rectangle instead, records no drag origin, and produces a report full
-   * of measurements that are all individually correct and collectively describe nothing.
-   *
-   * Measured on a device 2026-08-11: token at (2900, 2200), pointer at canvas (3083, 2152), peak
-   * interaction state HOVER, no origin ever recorded. The drag was fine; the grab simply began next
-   * to the token rather than on it. Nothing in the report said so, and the previous line for it,
-   * `insideSelectedToken`, is read at REPORT time, long after the pointer has moved on and been used
-   * to tap the diagnose button.
-   */
-  private grabbedOnToken: string | null = null;
 
   public constructor(private readonly options: TongsBrowserOptions) {
     const { document: doc, window: win } = options;
 
+    this.diagnostics = new DragDiagnostics({
+      document: doc,
+      window: win,
+      isDragging: () => this.pointer.isDragging(),
+      pointerPosition: () => this.pointer.getPosition(),
+      keyboardStrategy: () => this.synthesizer.getStrategy(),
+      isEnabled: () => this.enabled,
+    });
+
     this.debug = new DebugOverlay({ document: doc, logger });
-    this.bindResizeCounter();
 
     const stack = createPointerStack({
       document: doc,
@@ -203,7 +101,7 @@ export class TongsBrowser {
       ...(options.cursorSize === undefined ? {} : { cursorSize: options.cursorSize }),
       onDispatch: (descriptor, target) => {
         this.debug.onDispatch(descriptor, target);
-        this.recordDispatch(descriptor, target);
+        this.diagnostics.recordDispatch(descriptor, target);
       },
     });
     this.pointer = stack.pointer;
@@ -287,25 +185,11 @@ export class TongsBrowser {
          * gesture input, or it did and the gesture layer chose not to move the pointer. Counting
          * touchmoves separates them, and nothing else in the report can.
          */
-        this.gestureInputCounts[input.type] = (this.gestureInputCounts[input.type] ?? 0) + 1;
+        this.diagnostics.countGestureInput(input.type);
         this.gestures.handleInput(input);
       },
       suppressNativeTouch: options.suppressNativeTouch ?? ((): boolean => true),
       now: () => Date.now(),
-    });
-  }
-
-  /**
-   * Count viewport resizes, always, so the count is already running when a drag starts.
-   *
-   * Bound once for the module's lifetime rather than per drag: a listener added at the grab would
-   * miss a resize triggered by the grab itself, which is precisely the case under suspicion.
-   */
-  private bindResizeCounter(): void {
-    this.options.window.addEventListener('resize', () => {
-      if (this.captureWindow.isCapturing()) {
-        this.resizesDuringDrag += 1;
-      }
     });
   }
 
@@ -485,243 +369,13 @@ export class TongsBrowser {
         this.pointer.endDrag();
       },
       whisperDiagnostics: () => {
-        this.whisperDiagnostics();
+        this.diagnostics.whisperDiagnostics();
       },
       zoomBy: (factor) => {
         canvasController.zoomBy(factor);
       },
       panBy: (deltaX, deltaY) => {
         canvasController.panBy(deltaX, deltaY);
-      },
-    });
-  }
-
-  /**
-   * Attach the PIXI move counters, retrying until the canvas and a controlled token exist.
-   *
-   * The counting lives in debug/PixiMoveProbe.ts, which was written and covered days before this
-   * call site existed: the class was extracted and then never wired in, so the composition root
-   * kept its own duplicate of the same logic. Two copies of a counter is two things to get subtly
-   * wrong, and only one of them had tests.
-   */
-  private attachPixiProbe(): void {
-    this.pixiProbe.attach();
-    this.pixiProbe.attachToControlledToken();
-  }
-
-  /**
-   * Install the Foundry observers, retrying until the canvas exists.
-   *
-   * The logic lives in debug/FoundryDragHooks.ts; this only supplies the prototypes and collects the
-   * observations, which is all a composition root should be doing.
-   */
-  private hookDragEndings(): void {
-    if (this.hooksInstalled.token && this.hooksInstalled.manager) {
-      return;
-    }
-    const global = globalThis as {
-      CONFIG?: { Token?: { objectClass?: { prototype?: Record<string, unknown> } } };
-      canvas?: {
-        tokens?: {
-          controlled?: {
-            mouseInteractionManager?: { constructor?: { prototype?: Record<string, unknown> } };
-          }[];
-        };
-      };
-    };
-
-    this.hooksInstalled = installFoundryDragHooks({
-      getTokenPrototype: () => global.CONFIG?.Token?.objectClass?.prototype,
-      getManagerPrototype: () =>
-        global.canvas?.tokens?.controlled?.[0]?.mouseInteractionManager?.constructor?.prototype,
-      isRecording: () => this.captureWindow.isCapturing(),
-      onObservation: (note) => this.dragEndings.push(note),
-    });
-  }
-
-  private recordDispatch(
-    descriptor: { type: string; buttons?: number; position?: { clientX: number; clientY: number } },
-    target: Element
-  ): void {
-    this.attachPixiProbe();
-    this.hookDragEndings();
-
-    /*
-     * When the record opens, freezes and retires now lives in debug/DragCaptureWindow.ts, where the
-     * ordering rules can be fed sequences and asserted on. Every one of them was learned from a
-     * device report that described the wrong moment.
-     */
-    const verdict = this.captureWindow.observe(this.pointer.isDragging(), descriptor.type);
-
-    if (verdict.kind === 'frozen') {
-      return;
-    }
-    if (verdict.kind === 'retired' || verdict.kind === 'restart') {
-      this.trace.clear();
-      if (verdict.kind === 'retired') {
-        return;
-      }
-    }
-    if (verdict.kind === 'opened') {
-      this.beginDragRecord();
-    }
-
-    /*
-     * ⚠️ The move counter sits AFTER the freeze, and that position is a fix rather than a tidy-up.
-     *
-     * This is the denominator for every sample count in the report: moves we sent, against samples
-     * each probe got, and `describeThinly` refuses to state a peak sampled under 10% of them. Below
-     * the freeze it kept counting after the drop, and on a phone the pointer keeps moving for as long
-     * as it takes to read the report, so the count ran away and every probe was declared thin.
-     */
-    if (this.captureWindow.isCapturing() && descriptor.type === 'pointermove') {
-      this.sampler.countMove();
-    }
-
-    /*
-     * Sampled AS IT HAPPENS rather than read when the report is written. Foundry resets the manager
-     * to NONE the moment an interaction ends, so a reading taken afterwards says NONE whether the
-     * drag never started or ran perfectly and committed. See debug/InteractionSample.ts.
-     */
-    const sample = readInteractionSample(globalThis as InteractionGlobals);
-
-    // All the arithmetic lives in DragSampler, which pairs every peak with its sample count.
-    this.sampler.sample({ ...sample, ourPointer: descriptor.position });
-
-    /*
-     * Coordinates are in the trace because they are now the question.
-     *
-     * Foundry measured a movement distance of exactly 0.0px across eleven moves, so from PIXI's point
-     * of view the pointer never moved. Either every event we dispatch carries the same clientX and
-     * clientY, which is our bug, or they change and PIXI is not mapping them, which is not. The trace
-     * recorded type, buttons and target, which is everything except the field that decides it.
-     */
-    this.trace.record(descriptor, `${target.tagName.toLowerCase()}#${target.id}`);
-  }
-
-  /**
-   * Everything a fresh drag record starts from.
-   *
-   * ⚠️ The token position is the point of this. Every other field answers a question about EVENTS;
-   * comparing this against the position now says outright whether the gesture achieved anything,
-   * which is the only thing anyone actually cares about.
-   */
-  private beginDragRecord(): void {
-    this.trace.clear();
-    this.pixiProbe.resetCounts();
-    this.dragEndings = [];
-    this.resizesDuringDrag = 0;
-    this.viewportAtGrab = `${String(window.innerWidth)}x${String(window.innerHeight)}`;
-    const grabPosition = this.pointer.getPosition();
-    this.sampler.beginDrag({ clientX: grabPosition.clientX, clientY: grabPosition.clientY });
-
-    const grabbed = (
-      globalThis as {
-        canvas?: { tokens?: { controlled?: { document?: { x?: number; y?: number } }[] } };
-      }
-    ).canvas?.tokens?.controlled?.[0]?.document;
-    this.tokenAtGrab =
-      grabbed?.x === undefined || grabbed.y === undefined ? null : { x: grabbed.x, y: grabbed.y };
-    this.grabbedOnToken = describeGrabTarget();
-  }
-
-  /** Where the token was at the grab, against where it is now. See debug/TokenMovement.ts. */
-  private describeTokenMovement(): string {
-    const now = (
-      globalThis as {
-        canvas?: { tokens?: { controlled?: { document?: { x?: number; y?: number } }[] } };
-      }
-    ).canvas?.tokens?.controlled?.[0]?.document;
-    return describeTokenMovement(this.tokenAtGrab, now);
-  }
-
-  /**
-   * Whisper a diagnostic report into chat.
-   *
-   * Written 2026-08-11 because a drag failure on a real phone could not be reproduced on any surface
-   * available here: it works on desktop through the full gesture layer, and the emulator's Chromium
-   * 133 cannot hit test canvas objects from synthetic events at all, so it can neither confirm nor
-   * deny anything. Three rounds of plausible hypotheses were each disproven by measurement, which is
-   * the point at which guessing should stop and the device should be asked directly.
-   *
-   * Chat rather than the console, deliberately. It is the one output surface a phone user already
-   * has open and can screenshot, and getting at devtools on Android needs a cable and a laptop.
-   *
-   * Whispered to self so it never lands in front of players mid session.
-   */
-  private whisperDiagnostics(): void {
-    const facts = readFoundryFacts(globalThis as FoundryGlobals, MODULE_ID);
-    if (facts === null) {
-      return;
-    }
-
-    const position = this.pointer.getPosition();
-    const under = this.options.document.elementFromPoint(position.clientX, position.clientY);
-
-    const sampled = this.sampler.snapshot();
-    /*
-     * ⚠️ Read ONCE. `getCounts` returns a fresh object every call, and the PIXI listeners behind
-     * these numbers fire continuously while the pointer moves, which it may well still be doing as
-     * the report is assembled. Four separate calls put four fields at four different moments, so the
-     * report could disagree with itself about a single gesture. Same rule as `readFoundryFacts`.
-     */
-    const counts = this.pixiProbe.getCounts();
-
-    const lines = buildDiagnosticsReport({
-      build: __TB_BUILD_VERSION__,
-      tokenMovement: this.describeTokenMovement(),
-      releasedDuringDrag: this.captureWindow.hasSeenDrop(),
-      grabbedOnToken: this.grabbedOnToken,
-      pointerTravel: sampled.travel,
-      movesDispatched: sampled.movesDispatched,
-      originDrift: sampled.originDrift,
-      dragGate: sampled.dragGate,
-      divergence: sampled.divergence,
-      peakInteractionState: sampled.peakInteractionState,
-      peakPreviewCount: sampled.peakPreviewCount,
-      viewport: {
-        atGrab: this.viewportAtGrab,
-        now: `${String(window.innerWidth)}x${String(window.innerHeight)}`,
-        resizes: this.resizesDuringDrag,
-      },
-      dragEndings: this.dragEndings,
-      hooksInstalled: this.hooksInstalled,
-      moves: { token: counts.token, layer: counts.layer, stage: counts.stage },
-      lastGateDistance: sampled.lastGateDistance,
-      pointerComparison: describePointers(),
-      touchCounts: this.gestureInputCounts,
-      manifestVersion: facts.manifestVersion,
-      enabled: this.enabled,
-      isGm: facts.isGm,
-      paused: facts.paused,
-      activeTool: facts.activeTool,
-      controlledToken: describeControlledToken(facts.selected),
-      canDrag: facts.canDrag,
-      pointer: {
-        x: position.clientX,
-        y: position.clientY,
-        dragging: this.pointer.isDragging(),
-      },
-      elementUnderPointer:
-        under === null ? 'nothing' : `${under.tagName.toLowerCase()}#${under.id}`,
-      pixiMousePosition: describeScenePoint(facts.mouse),
-      insideSelectedToken: isPointerInsideToken(facts.mouse, facts.selected),
-      canvasReady: facts.canvasReady,
-      keyboardStrategy: this.synthesizer.getStrategy(),
-      interactionStateNow: describeInteractionState(facts.selected),
-      probeAttached: counts.attached,
-      userAgent: navigator.userAgent,
-      recentDispatches: this.trace.getLines(),
-    });
-
-    const targets = readChatTargets(globalThis as ChatGlobals);
-    deliverDiagnostics(lines, {
-      document: this.options.document,
-      createChatMessage: targets.createChatMessage,
-      userId: facts.userId,
-      notify: targets.notify,
-      fallback: (text) => {
-        logger.warn(text);
       },
     });
   }

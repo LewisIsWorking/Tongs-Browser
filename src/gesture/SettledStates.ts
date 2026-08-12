@@ -5,7 +5,7 @@ import {
   type TouchPoint,
 } from './GestureTypes.js';
 import { pointerMoveActions } from './PointerTranslation.js';
-import type { SingleFingerPort } from './SingleFingerStates.js';
+import type { SingleFingerPort } from './SingleFingerPort.js';
 
 /**
  * The two states where the gesture's identity is already settled. Extracted from SingleFingerStates
