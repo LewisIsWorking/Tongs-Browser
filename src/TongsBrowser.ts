@@ -3,6 +3,7 @@ import { DispatchTrace } from './debug/DispatchTrace.js';
 import { DragCaptureWindow } from './debug/DragCaptureWindow.js';
 import { DragSampler } from './debug/DragSampler.js';
 import { readFoundryFacts, type FoundryGlobals } from './debug/FoundryFacts.js';
+import { describeTokenMovement } from './debug/TokenMovement.js';
 import { availableWidthBesideSidebar } from './foundry/AvailableWidth.js';
 import { readCanvasPivot, readCanvasScale, readZoomLimits } from './foundry/CanvasReaders.js';
 import {
@@ -762,20 +763,14 @@ export class TongsBrowser {
   }
 
   /** Where the token was when the grab began, against where it is now. */
+  /** Where the token was at the grab, against where it is now. See debug/TokenMovement.ts. */
   private describeTokenMovement(): string {
-    if (this.tokenAtGrab === null) {
-      return 'no grab recorded yet';
-    }
     const now = (
       globalThis as {
         canvas?: { tokens?: { controlled?: { document?: { x?: number; y?: number } }[] } };
       }
     ).canvas?.tokens?.controlled?.[0]?.document;
-    if (now?.x === undefined || now.y === undefined) {
-      return 'no token selected now';
-    }
-    const moved = now.x !== this.tokenAtGrab.x || now.y !== this.tokenAtGrab.y;
-    return `${moved ? 'YES' : 'NO'} (${String(this.tokenAtGrab.x)},${String(this.tokenAtGrab.y)} -> ${String(now.x)},${String(now.y)})`;
+    return describeTokenMovement(this.tokenAtGrab, now);
   }
 
   /**
