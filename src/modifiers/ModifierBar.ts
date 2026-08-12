@@ -14,6 +14,7 @@ import type { ModifierFlags } from '../pointer/ModifierFlags.js';
 import { ActionButtons } from './ActionButtons.js';
 import { clampBarPosition } from './BarClamp.js';
 import type { BarPosition } from './BarPosition.js';
+import { BarDragHandle } from './BarDragHandle.js';
 import type { TrayAction } from './TrayAction.js';
 
 // Re-exported so every existing importer of ModifierBar keeps working unchanged.
@@ -89,8 +90,13 @@ export class ModifierBar {
   private collapsed: boolean;
   private attached = false;
 
-  private dragPointerId: number | null = null;
-  private dragOffset: BarPosition = { x: 0, y: 0 };
+  /** Dragging the bar around. See modifiers/BarDragHandle.ts. */
+  private readonly dragHandle = new BarDragHandle({
+    getPosition: () => this.position,
+    setPosition: (position) => {
+      this.setPosition(position);
+    },
+  });
 
   public constructor(private readonly options: ModifierBarOptions) {
     this.position = options.initialPosition ?? DEFAULT_POSITION;
@@ -106,10 +112,10 @@ export class ModifierBar {
     const handle = doc.createElement('div');
     handle.className = 'tb-modifier-bar__handle';
     handle.title = 'Drag to move';
-    handle.addEventListener('pointerdown', this.onHandlePointerDown);
-    handle.addEventListener('pointermove', this.onHandlePointerMove);
-    handle.addEventListener('pointerup', this.onHandlePointerUp);
-    handle.addEventListener('pointercancel', this.onHandlePointerUp);
+    handle.addEventListener('pointerdown', this.dragHandle.onPointerDown);
+    handle.addEventListener('pointermove', this.dragHandle.onPointerMove);
+    handle.addEventListener('pointerup', this.dragHandle.onPointerUp);
+    handle.addEventListener('pointercancel', this.dragHandle.onPointerUp);
     this.root.append(handle);
 
     const collapseButton = doc.createElement('button');
@@ -382,46 +388,4 @@ export class ModifierBar {
     this.root.classList.toggle('tb-modifier-bar--collapsed', this.collapsed);
     this.keysContainer.style.display = this.collapsed ? 'none' : '';
   }
-
-  private readonly onHandlePointerDown = (event: PointerEvent): void => {
-    this.dragPointerId = event.pointerId;
-    this.dragOffset = {
-      x: event.clientX - this.position.x,
-      y: event.clientY - this.position.y,
-    };
-    /*
-     * Capture, so the drag survives the finger leaving the small handle. Without it, moving faster
-     * than the bar follows drops the drag immediately.
-     *
-     * Feature detected rather than trusted from the type: lib.dom declares pointer capture as always
-     * present on Element, but jsdom does not implement it, and calling it blind would throw in tests.
-     */
-    const handle = event.currentTarget as Element;
-    if (typeof handle.setPointerCapture === 'function') {
-      handle.setPointerCapture(event.pointerId);
-    }
-    event.preventDefault();
-  };
-
-  private readonly onHandlePointerMove = (event: PointerEvent): void => {
-    if (this.dragPointerId !== event.pointerId) {
-      return;
-    }
-    this.setPosition({
-      x: event.clientX - this.dragOffset.x,
-      y: event.clientY - this.dragOffset.y,
-    });
-    event.preventDefault();
-  };
-
-  private readonly onHandlePointerUp = (event: PointerEvent): void => {
-    if (this.dragPointerId !== event.pointerId) {
-      return;
-    }
-    const handle = event.currentTarget as Element;
-    if (typeof handle.releasePointerCapture === 'function') {
-      handle.releasePointerCapture(event.pointerId);
-    }
-    this.dragPointerId = null;
-  };
 }
