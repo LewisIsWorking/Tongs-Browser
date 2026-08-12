@@ -10,11 +10,8 @@ import {
   describeScenePoint,
   isPointerInsideToken,
 } from './TokenHitTest.js';
-import {
-  describeDragPermissions,
-  describeInteractionState,
-  describePointers,
-} from './FoundryProbes.js';
+import { describeDragPermissions } from './DragPermissions.js';
+import { describeInteractionState, describePointers } from './FoundryProbes.js';
 import { logger } from '../core/Logger.js';
 import { MODULE_ID } from '../constants.js';
 

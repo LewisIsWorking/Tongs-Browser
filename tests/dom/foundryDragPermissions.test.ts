@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { describeDragPermissions } from '../../src/debug/FoundryProbes.js';
+import { describeDragPermissions } from '../../src/debug/DragPermissions.js';
 
 /**
  * Asking Foundry's interaction manager whether it would ALLOW a drag.
@@ -10,76 +10,111 @@ import { describeDragPermissions } from '../../src/debug/FoundryProbes.js';
  * diagnostic whose failure mode is a single opaque token is not a diagnostic; it is a second round
  * trip to a phone.
  */
-const managerThatAnswers = (answers: Record<string, boolean>) => ({
+type DragLeftStart = (user: unknown, event: unknown, options: { notify: boolean }) => boolean;
+
+const target = (answers: Record<string, boolean>, dragLeftStart?: DragLeftStart) => ({
   mouseInteractionManager: {
     can: (action: string) => {
       const answer = answers[action];
       if (answer === undefined) {
-        throw new Error(`Cannot read properties of undefined (reading 'interactionData')`);
+        throw new Error("Cannot read properties of undefined (reading 'interactionData')");
       }
       return answer;
     },
   },
+  ...(dragLeftStart === undefined ? {} : { _canDragLeftStart: dragLeftStart }),
 });
 
 describe('asking about drag permissions', () => {
   it('reports every action it asked about', () => {
-    const target = managerThatAnswers({ clickLeft: true, dragStart: true, dragLeftStart: true });
-
-    expect(describeDragPermissions(target)).toBe(
-      'clickLeft=true dragStart=true dragLeftStart=true'
+    const described = describeDragPermissions(
+      target({ clickLeft: true, dragStart: true }, () => true)
     );
+
+    expect(described).toBe('clickLeft=true dragStart=true dragLeftStart=true');
   });
 
   it('reports a refusal as plainly as a permission', () => {
-    const target = managerThatAnswers({ clickLeft: true, dragStart: true, dragLeftStart: false });
+    const described = describeDragPermissions(
+      target({ clickLeft: true, dragStart: true }, () => false)
+    );
 
-    expect(describeDragPermissions(target)).toContain('dragLeftStart=false');
+    expect(described).toContain('dragLeftStart=false');
+  });
+});
+
+describe('asking without disturbing the session', () => {
+  /**
+   * ⚠️ SILENT, and this is the whole reason `dragLeftStart` is asked through the object rather than
+   * through `can`. Foundry's signature is `_canDragLeftStart(user, event, {notify=true}={})`, and
+   * every refusal path inside it calls `ui.notifications.warn` when notify is left alone. `can` has
+   * no way to pass it through, so asking the obvious way pops a toast on the player's screen every
+   * time they press the diagnose button. A diagnostic that changes what the user sees is not
+   * reporting on the session any more, it is part of it.
+   */
+  it('passes notify false, so a refusal never warns the player', () => {
+    const ask = vi.fn(() => false);
+
+    describeDragPermissions(target({ clickLeft: true, dragStart: true }, ask));
+
+    expect(ask).toHaveBeenCalledWith(undefined, expect.anything(), { notify: false });
   });
 
   /**
-   * ⚠️ The exact failure a device reported. The first two answer and the third throws, so the line
-   * has to carry both kinds of result at once rather than degrading to a single verdict.
+   * ⚠️ The probe carries an EMPTY interactionData, which is the field the check was measured to read:
+   * `event.interactionData.object?.mouseInteractionManager`. Empty is the honest value, because
+   * nothing is being previewed while a report is assembled. A populated one would answer a question
+   * about a drag that is not happening.
    */
-  it('names WHY a check could not be asked, not merely that it could not', () => {
-    const target = managerThatAnswers({ clickLeft: true, dragStart: true });
+  it('supplies the one field the check reads, and no more', () => {
+    let seen: unknown = null;
+    const ask: DragLeftStart = (_user, event) => {
+      seen = event;
+      return true;
+    };
 
-    const described = describeDragPermissions(target);
+    describeDragPermissions(target({ clickLeft: true, dragStart: true }, ask));
+
+    expect(seen).toEqual({ type: 'pointermove', button: 0, interactionData: {} });
+  });
+});
+
+describe('when a check cannot be asked', () => {
+  /** The exact failure a device reported: two answer and the third cannot. */
+  it('names WHY, not merely that it could not', () => {
+    const described = describeDragPermissions(target({ clickLeft: true, dragStart: true }));
 
     expect(described).toContain('clickLeft=true');
-    expect(described).toContain('dragLeftStart=unaskable(Cannot read properties of undefined');
+    expect(described).toContain('dragLeftStart=unaskable(no _canDragLeftStart on the placeable)');
   });
 
-  /** A thrown non-Error still has to produce a line, because a report that throws reports nothing. */
-  it('survives a throw that is not an Error', () => {
-    const target = {
+  it('reports a thrown non-Error, because a report that throws reports nothing', () => {
+    const described = describeDragPermissions({
       mouseInteractionManager: {
         can: () => {
           // eslint-disable-next-line @typescript-eslint/only-throw-error -- the POINT is a non-Error
           throw 'no';
         },
       },
-    };
+    });
 
-    expect(describeDragPermissions(target)).toBe(
-      'clickLeft=unaskable(no) dragStart=unaskable(no) dragLeftStart=unaskable(no)'
-    );
+    expect(described).toContain('clickLeft=unaskable(no)');
   });
 
   /**
-   * ⚠️ Truncated, because these lines are read on a phone. An unbounded message from somebody
-   * else's code can be a paragraph, and a report nobody can read is the same as no report.
+   * ⚠️ Truncated, because these lines are read on a phone. An unbounded message from somebody else's
+   * code can be a paragraph, and a report nobody can read is the same as no report.
    */
   it('truncates a message too long to read on a phone', () => {
-    const target = {
+    const described = describeDragPermissions({
       mouseInteractionManager: {
         can: () => {
           throw new Error('x'.repeat(500));
         },
       },
-    };
+    });
 
-    expect(describeDragPermissions(target)).toContain(`clickLeft=unaskable(${'x'.repeat(60)})`);
+    expect(described).toContain(`clickLeft=unaskable(${'x'.repeat(60)})`);
   });
 
   it('says plainly when there is no manager to ask', () => {
