@@ -3,6 +3,8 @@ import { DispatchTrace } from './debug/DispatchTrace.js';
 import { DragCaptureWindow } from './debug/DragCaptureWindow.js';
 import { DragSampler } from './debug/DragSampler.js';
 import { readFoundryFacts, type FoundryGlobals } from './debug/FoundryFacts.js';
+import { availableWidthBesideSidebar } from './foundry/AvailableWidth.js';
+import { readCanvasPivot, readCanvasScale, readZoomLimits } from './foundry/CanvasReaders.js';
 import {
   describeControlledToken,
   describeScenePoint,
@@ -560,10 +562,7 @@ export class TongsBrowser {
    * controller fall back rather than build a pinch on NaN.
    */
   private resolveCanvasScale(): number | null {
-    if (typeof canvas === 'undefined') {
-      return null;
-    }
-    return canvas.stage?.scale?.x ?? null;
+    return readCanvasScale(typeof canvas === 'undefined' ? undefined : canvas);
   }
 
   /**
@@ -1027,31 +1026,9 @@ export class TongsBrowser {
    * leave a remembered value stale.
    */
   private resolveCanvasPivot(): { x: number; y: number } | null {
-    if (typeof canvas === 'undefined') {
-      return null;
-    }
-    const pivot = canvas.stage?.pivot;
-    if (pivot === undefined) {
-      return null;
-    }
-    return { x: pivot.x, y: pivot.y };
+    return readCanvasPivot(typeof canvas === 'undefined' ? undefined : canvas);
   }
 
-  /**
-   * Show or hide Foundry's sidebar, from a button on the bar.
-   *
-   * Asked for after testing on a real phone, where the sidebar was unreachable: Foundry auto
-   * collapses it below roughly 1024px, leaving a narrow strip of icons hard against the right edge
-   * whose expander is a few pixels wide. On a touch screen that is not a realistic target, and the
-   * sidebar is the only route to chat, actors, journals and settings.
-   *
-   * Uses Foundry's own toggleExpanded so the caret, tooltip, aria label and the collapseSidebar hook
-   * all stay correct. Driving the CSS class directly would leave the interface disagreeing with
-   * itself and would break any module listening for that hook.
-   *
-   * Falls back to the older collapse and expand pair, and does nothing at all if neither exists,
-   * because a button that throws is worse than a button that is merely inert.
-   */
   /**
    * Act on what the sidebar button should do.
    *
@@ -1093,19 +1070,13 @@ export class TongsBrowser {
    * the bar narrower than it needs to be.
    */
   private resolveAvailableWidth(): number {
-    const width = window.innerWidth;
+    // The arithmetic, and the three ways a sidebar can be present and not in the way, live in
+    // foundry/AvailableWidth.ts where they can be tested without a layout engine.
     const sidebar = document.querySelector('#sidebar');
-    if (sidebar === null) {
-      return width;
-    }
-
-    const box = sidebar.getBoundingClientRect();
-    if (box.width === 0 || box.left >= width || box.right <= 0) {
-      return width;
-    }
-
-    // A small gap so the bar does not sit flush against the sidebar edge.
-    return Math.max(0, box.left - 4);
+    return availableWidthBesideSidebar(
+      window.innerWidth,
+      sidebar === null ? null : sidebar.getBoundingClientRect()
+    );
   }
 
   /**
@@ -1113,11 +1084,7 @@ export class TongsBrowser {
    * because these have moved between versions and a missing value here would produce NaN scales.
    */
   private resolveZoomLimits(): { minimum: number; maximum: number } {
-    const configured = typeof CONFIG === 'undefined' ? undefined : CONFIG.Canvas;
-    return {
-      minimum: configured?.minZoom ?? 0.1,
-      maximum: configured?.maxZoom ?? 10,
-    };
+    return readZoomLimits(typeof CONFIG === 'undefined' ? undefined : CONFIG.Canvas);
   }
 
   /**
