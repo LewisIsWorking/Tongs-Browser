@@ -32,6 +32,7 @@ import {
   requireActiveWorld,
 } from './foundry-session.ts';
 import { Finger } from './foundry-touch.ts';
+import type { FoundryToken, TokenProbe } from './foundry-types.ts';
 
 /** Matches DEFAULT_POSITION in src/modifiers/ModifierBar.ts. */
 const DEFAULT_BAR_POSITION = { x: 88, y: 120 };
@@ -46,22 +47,6 @@ interface CheckResult {
   readonly name: string;
   readonly passed: boolean | null;
   readonly detail: string;
-}
-
-/**
- * A Foundry token, described only as far as this harness reads it.
- *
- * Deliberately partial. Foundry ships no types and its Token surface is enormous, so a fuller
- * interface would be a second description of somebody else's object, drifting with every release.
- * Naming the handful of fields actually touched says what the harness depends on and nothing more.
- */
-interface FoundryToken {
-  id: string;
-  name: string;
-  center: { x: number; y: number };
-  document: { x: number; y: number; update: (data: unknown) => Promise<unknown> };
-  nameplate?: { visible?: boolean };
-  control: (options?: { releaseOthers?: boolean }) => void;
 }
 
 const results: CheckResult[] = [];
@@ -83,6 +68,18 @@ function skip(name: string, reason: string): void {
 }
 
 /**
+ * A page error, kept whole.
+ *
+ * ⚠️ The stack is a separate field rather than folded into the message, because attribution reads it
+ * and the message alone does not carry it. Foundry's own `RegExp.escape` failure has a message that
+ * names neither Foundry nor this module.
+ */
+interface PageErrorRecord {
+  readonly message: string;
+  readonly stack: string;
+}
+
+/**
  * Page errors, kept with their stacks so they can be attributed.
  *
  * Attribution is the point. Foundry 14.365 calls RegExp.escape, which Chromium only shipped in 136,
@@ -90,8 +87,8 @@ function skip(name: string, reason: string): void {
  * Failing on every page error would blame us for the browser; ignoring every page error would blind
  * the check. Matching the stack against our own bundle name splits them correctly.
  */
-function captureAttributedErrors(page: Page) {
-  const errors: string[] = [];
+function captureAttributedErrors(page: Page): PageErrorRecord[] {
+  const errors: PageErrorRecord[] = [];
   page.on('pageerror', (error) => {
     errors.push({ message: error.message, stack: error.stack ?? '' });
   });
@@ -130,6 +127,21 @@ async function installFontDecodeShim(page: Page) {
   });
 }
 
+/**
+ * Say what went wrong, whatever was thrown.
+ *
+ * ⚠️ `error.message` alone is not safe here. A rejected page evaluate can throw a string, and Foundry
+ * itself throws plain objects in places, so reading `.message` off the value gives `undefined` for a
+ * string and throws outright for null. The reason then reads "SKIPPED: undefined", which is the exact
+ * shape of a skip that tells nobody anything.
+ */
+function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return typeof error === 'string' ? error : JSON.stringify(error);
+}
+
 function captureLog(page: Page) {
   const log: string[] = [];
   page.on('console', (message) => {
@@ -141,14 +153,34 @@ function captureLog(page: Page) {
   return log;
 }
 
+/**
+ * A measured box. `right` and `bottom` are carried rather than derived, because every assertion here
+ * is an overlap or a containment test and recomputing them at each call site is where sign errors get
+ * in: `a.x + a.width > b.x` reads correctly and is wrong for a box with a negative x.
+ */
+interface Rect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
 /** Geometry of the things the user has to be able to hit, measured in the live page. */
 function readGeometry(page: Page) {
-  return page.evaluate((id) => {
-    const rect = (el) => {
-      if (!el) return null;
+  return page.evaluate((id: string) => {
+    const measure = (el: Element): Rect => {
       const r = el.getBoundingClientRect();
       return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom };
     };
+    /*
+     * Null only where the element genuinely might be missing. The bar's own buttons come from
+     * querySelectorAll and so always exist, and measuring them through the nullable form used to
+     * spread `null` into the result: a control with no coordinates at all, which then printed
+     * `at x NaN-NaN` in the very failure message meant to say where it had gone.
+     */
+    const rect = (el: Element | null): Rect | null => (el === null ? null : measure(el));
     const toggle = document.querySelector(`[data-tool="${id}"]`);
     const bar = document.querySelector('.tb-modifier-bar');
 
@@ -169,16 +201,19 @@ function readGeometry(page: Page) {
       bar: rect(bar),
       barControls: [...document.querySelectorAll('.tb-modifier-bar button')].map((b) => ({
         label: (b.textContent ?? '').trim() || b.className,
-        ...rect(b),
+        ...measure(b),
       })),
     };
   }, MODULE_ID);
 }
 
-const overlaps = (a, b) =>
+const overlaps = (a: Rect | null, b: Rect | null): boolean =>
   a !== null && b !== null && a.x < b.right && a.right > b.x && a.y < b.bottom && a.bottom > b.y;
 
-const insideViewport = (r, viewport) =>
+const insideViewport = (
+  r: Rect | null,
+  viewport: { readonly width: number; readonly height: number }
+): boolean =>
   r !== null && r.x >= 0 && r.y >= 0 && r.right <= viewport.width && r.bottom <= viewport.height;
 
 /**
@@ -188,14 +223,35 @@ const insideViewport = (r, viewport) =>
  * keydown and asks Foundry's own KeyboardManager whether it registered, which is the thing the
  * modifier bar depends on and the only answer that matters.
  */
-async function checkKeyboardStrategy(page: Page, log) {
+async function checkKeyboardStrategy(page: Page, log: readonly string[]): Promise<void> {
   const reported =
     log.find((line) => line.includes('Keyboard strategy:'))?.match(/strategy: (\w+)/)?.[1] ?? null;
 
-  const measured = await page.evaluate(() => {
+  /*
+   * ⚠️ A single shape rather than a union of two, so `reason` is always a string.
+   *
+   * Left as a union, `measured.reason` typed as `string | undefined` and the unusable branch reported
+   * its failure with a detail of literally `undefined`. That is the one case where the detail is the
+   * entire finding: "Foundry honours synthesised keyboard events: false" says nothing on its own,
+   * because "Foundry ignored the event" and "there is no downKeys to look at" are different problems
+   * with different fixes and this check is the only thing that can tell them apart.
+   */
+  const measured: {
+    usable: boolean;
+    reason: string;
+    isTrusted: boolean;
+    downKeysType: string;
+    honoured: boolean;
+  } = await page.evaluate(() => {
+    const unusable = {
+      usable: false,
+      isTrusted: false,
+      downKeysType: 'unknown',
+      honoured: false,
+    };
     const manager = globalThis.game?.keyboard;
     if (!manager?.downKeys) {
-      return { usable: false, reason: 'game.keyboard.downKeys is not there at all' };
+      return { ...unusable, reason: 'game.keyboard.downKeys is not there at all' };
     }
     const before = manager.downKeys.has('ShiftLeft');
     const event = new KeyboardEvent('keydown', {
@@ -211,6 +267,7 @@ async function checkKeyboardStrategy(page: Page, log) {
     );
     return {
       usable: true,
+      reason: '',
       isTrusted: event.isTrusted,
       downKeysType: manager.downKeys.constructor?.name ?? 'unknown',
       honoured: after && !before,
@@ -251,9 +308,9 @@ async function checkKeyboardStrategy(page: Page, log) {
  * nameplate visibility Foundry derives from the hover state, so the nameplate becomes a readable
  * consequence of hovering rather than a decoration that was always on.
  */
-async function createProbeTokens(page: Page) {
-  return page.evaluate(async (prefix) => {
-    const actorType = game.documentTypes.Actor.find((type) => type !== 'base');
+async function createProbeTokens(page: Page): Promise<TokenProbe | null> {
+  return page.evaluate(async (prefix: string) => {
+    const actorType = game.documentTypes.Actor.find((type: string) => type !== 'base');
     if (actorType === undefined) {
       return null;
     }
@@ -302,14 +359,12 @@ async function createProbeTokens(page: Page) {
 
     return {
       actorId: actor.id,
-      tokenIds: tokens.map(
-        (token: { name: string; id: string; document: { x: number; y: number } }) => token.id
-      ),
+      tokenIds: tokens.map((token: FoundryToken) => token.id),
     };
   }, PROBE_PREFIX);
 }
 
-async function removeProbeTokens(page: Page, probe) {
+async function removeProbeTokens(page: Page, probe: TokenProbe | null): Promise<void> {
   if (!probe) {
     return;
   }
@@ -341,7 +396,7 @@ async function removeProbeTokens(page: Page, probe) {
  * `this.hover || this.layer.highlightObjects`, so with highlighting on every nameplate is visible and
  * this check would pass without the pointer having done anything at all.
  */
-async function checkHoverSemantics(page: Page, probe) {
+async function checkHoverSemantics(page: Page, probe: TokenProbe | null): Promise<void> {
   if (!probe || probe.tokenIds.length < 2) {
     skip('hovering a token makes Foundry hover it', 'the world could not supply two probe tokens');
     return;
@@ -349,17 +404,11 @@ async function checkHoverSemantics(page: Page, probe) {
 
   const baseline = await page.evaluate(
     ({ ids }) => {
-      const tokens = ids.map((id) => canvas.tokens.get(id));
+      const tokens: (FoundryToken | undefined)[] = ids.map((id) => canvas.tokens.get(id));
       return {
         highlightObjects: canvas.tokens.highlightObjects === true,
-        hovered: tokens.map(
-          (token: { name: string; id: string; document: { x: number; y: number } }) =>
-            token?.hover ?? null
-        ),
-        nameplates: tokens.map(
-          (token: { name: string; id: string; document: { x: number; y: number } }) =>
-            token?.nameplate?.visible ?? null
-        ),
+        hovered: tokens.map((token) => token?.hover ?? null),
+        nameplates: tokens.map((token) => token?.nameplate?.visible ?? null),
       };
     },
     { ids: probe.tokenIds }
@@ -380,7 +429,7 @@ async function checkHoverSemantics(page: Page, probe) {
   );
 
   /** Drive the pointer to a token's centre, in client pixels, and report what Foundry saw. */
-  const hoverToken = async (index) =>
+  const hoverToken = async (index: number) =>
     page.evaluate(
       async ({ id, ids, moduleId }) => {
         const token = canvas.tokens.get(id);
@@ -407,7 +456,7 @@ async function checkHoverSemantics(page: Page, probe) {
           setTimeout(resolve, 250);
         });
 
-        const tokens = ids.map((other: { x: number; y: number }) => canvas.tokens.get(other));
+        const tokens: (FoundryToken | undefined)[] = ids.map((other) => canvas.tokens.get(other));
         return {
           client,
           // Cross check the coordinate maths against Foundry's own reading of where the mouse is,
@@ -418,10 +467,8 @@ async function checkHoverSemantics(page: Page, probe) {
             canvas.mousePosition.x <= token.document.x + token.w &&
             canvas.mousePosition.y >= token.document.y &&
             canvas.mousePosition.y <= token.document.y + token.h,
-          hovered: tokens.map((other: { x: number; y: number }) => other?.hover ?? null),
-          nameplates: tokens.map(
-            (other: { x: number; y: number }) => other?.nameplate?.visible ?? null
-          ),
+          hovered: tokens.map((other) => other?.hover ?? null),
+          nameplates: tokens.map((other) => other?.nameplate?.visible ?? null),
           layerHoverIsThis: canvas.tokens.hover === token,
         };
       },
@@ -531,7 +578,7 @@ async function checkHoverSemantics(page: Page, probe) {
  * Judged by Foundry's own sidebar state rather than by a CSS class, and deliberately with the finger
  * far away from the pointer, so a pass cannot come from the two happening to coincide.
  */
-async function checkTapClicksAtPointer(page: Page, finger) {
+async function checkTapClicksAtPointer(page: Page, finger: Finger): Promise<void> {
   const target = await page.evaluate(() => {
     const tab = document.querySelector('button[data-tab="combat"]');
     if (!tab) return null;
@@ -634,20 +681,43 @@ async function checkTapClicksAtPointer(page: Page, finger) {
    */
   const control = await page.evaluate(async () => {
     const tab = document.querySelector('button[data-tab="combat"]');
-    const seen = [];
-    const spy = (event) => seen.push(event.type);
+    /*
+     * ⚠️ The control has to survive a missing tab, and this guard is why. Reading `addEventListener`
+     * off null throws INSIDE the page, which rejects the evaluate and takes down the entire run, so
+     * the one thing written to establish whose fault a failure is would itself become the failure.
+     * A control that cannot report is worse than no control.
+     */
+    if (tab === null) {
+      return { before: null, after: null, seen: [] as string[], missing: true };
+    }
+
+    const seen: string[] = [];
+    const spy = (event: Event): number => seen.push(event.type);
     for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
       tab.addEventListener(type, spy, { once: true });
     }
-    const before = ui.sidebar.tabGroups.primary;
+    const before: string = ui.sidebar.tabGroups.primary;
     tab.dispatchEvent(
       new MouseEvent('click', { bubbles: true, cancelable: true, view: window, detail: 1 })
     );
     await new Promise((resolve) => {
       setTimeout(resolve, 600);
     });
-    return { before, after: ui.sidebar.tabGroups.primary, seen };
+    return {
+      before,
+      after: ui.sidebar.tabGroups.primary as string,
+      seen,
+      missing: false,
+    };
   });
+
+  if (control.missing) {
+    skip(
+      'tap clicks at the pointer rather than under the finger',
+      'the combat tab is not in the page, so there was nothing to click and nothing to conclude'
+    );
+    return;
+  }
 
   if (control.after !== 'combat') {
     skip(
@@ -772,7 +842,7 @@ async function main() {
       });
       canvasReady = await page.evaluate(() => globalThis.canvas?.ready === true);
     } catch (error) {
-      skip('the canvas becomes ready on Android', String(error.message ?? error));
+      skip('the canvas becomes ready on Android', describeError(error));
     }
 
     if (canvasReady) {

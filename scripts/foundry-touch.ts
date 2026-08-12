@@ -13,21 +13,41 @@
  * produces them would be testing a world where the hardest problem does not exist.
  */
 
-/**
- * A CDP session, narrowed to the one method this needs.
- *
- * Structural rather than imported from Playwright, because the same driver is used against a session
- * obtained from `context.newCDPSession` and against a raw socket, and naming the single method used
- * says exactly what is required of either.
- */
 /** A touch point in client coordinates. Ids are assigned by the Hand, one per finger. */
 export interface TouchPoint {
   readonly x: number;
   readonly y: number;
 }
 
+/**
+ * The one CDP payload this file ever sends.
+ *
+ * ⚠️ If a future caller ever hands a `Hand` or `Finger` the raw socket sender from `cdp-page.ts`,
+ * whose params are `Record<string, unknown>`, this must become a `type` alias rather than an
+ * interface. Only type aliases get an implicit index signature, so an interface is not assignable to
+ * a `Record`. It is an interface today because nothing does that yet, and the swap is one keyword.
+ */
+export interface TouchDispatch {
+  type: 'touchStart' | 'touchMove' | 'touchEnd' | 'touchCancel';
+  touchPoints: { x: number; y: number; id: number }[];
+}
+
+/**
+ * A CDP session, narrowed to the one method this needs.
+ *
+ * Structural rather than imported from Playwright, because the same driver is used against a session
+ * obtained from `context.newCDPSession` and against a raw socket, and naming the single method used
+ * says exactly what is required of either.
+ *
+ * ⚠️ Narrowed to the literal method NAME, not `string`, and that is what makes Playwright's own
+ * `CDPSession` fit. Its `send` is generic over `keyof Protocol.CommandParameters`, and a property
+ * typed function is checked contravariantly, so a `string` parameter here demands a sender that
+ * accepts EVERY string and Playwright's rightly does not. Naming the single method asks for exactly
+ * what is used, which both senders can honestly promise. It also means a typo in the method name is
+ * a compile error rather than a silent no op against a live browser.
+ */
 export interface CdpSender {
-  send: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
+  send: (method: 'Input.dispatchTouchEvent', params: TouchDispatch) => Promise<unknown>;
 }
 
 /** A single finger. */
@@ -78,7 +98,7 @@ export class Finger {
 export class Hand {
   public constructor(private readonly client: CdpSender) {}
 
-  send(type: string, points: readonly TouchPoint[]): Promise<unknown> {
+  send(type: TouchDispatch['type'], points: readonly TouchPoint[]): Promise<unknown> {
     return this.client.send('Input.dispatchTouchEvent', {
       type,
       touchPoints: points.map((point, index) => ({ x: point.x, y: point.y, id: index + 1 })),

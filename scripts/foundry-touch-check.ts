@@ -22,6 +22,7 @@ import type { Page } from 'playwright';
 import {
   BASE,
   MODULE_ID,
+  boardBox,
   captureModuleLog,
   ensureActiveScene,
   ensureModuleEnabled,
@@ -29,6 +30,8 @@ import {
   launchBrowser,
   removeProbeScene,
   requireActiveWorld,
+  type BoardBox,
+  type ClientPoint,
 } from './foundry-session.ts';
 import { Finger } from './foundry-touch.ts';
 
@@ -54,8 +57,8 @@ function record(name: string, passed: boolean, detail: string): void {
   results.push({ name, passed, detail });
 }
 
-const pointerPosition = (page) =>
-  page.evaluate((id) => {
+const pointerPosition = (page: Page): Promise<ClientPoint> =>
+  page.evaluate((id: string) => {
     const position = game.modules.get(id).api.getPointer().getPosition();
     return { x: position.clientX, y: position.clientY };
   }, MODULE_ID);
@@ -67,7 +70,7 @@ const pointerPosition = (page) =>
  * viewport edge and the gesture machine has a small movement threshold before it starts, so an exact
  * equality here would be a test of arithmetic that would fail for reasons that are not bugs.
  */
-async function checkDragMovesPointer(page: Page, finger, board) {
+async function checkDragMovesPointer(page: Page, finger: Finger, board: BoardBox): Promise<void> {
   const before = await pointerPosition(page);
 
   const deltaX = 200;
@@ -97,7 +100,11 @@ async function checkDragMovesPointer(page: Page, finger, board) {
  * changes, the click went to the pointer. If it does not, the click went to the finger, and the whole
  * trackpad model is broken. Judged by Foundry's own tab state.
  */
-async function checkTapClicksAtPointerNotFinger(page: Page, finger, board) {
+async function checkTapClicksAtPointerNotFinger(
+  page: Page,
+  finger: Finger,
+  board: BoardBox
+): Promise<void> {
   const before = await page.evaluate(() => ui.sidebar.tabGroups.primary);
   const target = before === 'combat' ? 'chat' : 'combat';
 
@@ -147,7 +154,11 @@ async function checkTapClicksAtPointerNotFinger(page: Page, finger, board) {
  * available as evidence here. What this does prove is that the long press timer fires under real
  * event timing, which no unit test with an injected clock can show.
  */
-async function checkLongPressRightClicks(page: Page, finger, board) {
+async function checkLongPressRightClicks(
+  page: Page,
+  finger: Finger,
+  board: BoardBox
+): Promise<void> {
   await page.evaluate(() => {
     globalThis.__probeContextMenus = [];
     document.addEventListener(
@@ -189,7 +200,11 @@ async function checkLongPressRightClicks(page: Page, finger, board) {
  * Counted at the document in the BUBBLE phase, which is where Foundry's own listeners sit. The module
  * stops these in the capture phase, so anything counted here got past it.
  */
-async function checkNativeTouchSuppressed(page: Page, finger, board) {
+async function checkNativeTouchSuppressed(
+  page: Page,
+  finger: Finger,
+  board: BoardBox
+): Promise<void> {
   await page.evaluate((virtualId) => {
     globalThis.__probeLeaked = [];
     document.addEventListener('pointerdown', (event) => {
@@ -224,7 +239,7 @@ async function checkNativeTouchSuppressed(page: Page, finger, board) {
  * and the id belongs to the v12 markup. The behaviour had survived only because `.chat-scroll`
  * happens to wrap the log.
  */
-async function checkChatLogIsExcluded(page: Page, finger) {
+async function checkChatLogIsExcluded(page: Page, finger: Finger): Promise<void> {
   // An earlier check parks the sidebar on the combat tab, which hides the chat log entirely. Without
   // this the check reported "no visible chat log found", which reads as a missing element rather
   // than as a test ordering problem.
@@ -307,10 +322,7 @@ async function main() {
     const client = await page.context().newCDPSession(page);
     const finger = new Finger(client);
 
-    const board = await page.evaluate(() => {
-      const box = document.querySelector('#board').getBoundingClientRect();
-      return { x: box.x, y: box.y, width: box.width, height: box.height };
-    });
+    const board = await boardBox(page);
 
     await checkDragMovesPointer(page, finger, board);
     await checkTapClicksAtPointerNotFinger(page, finger, board);

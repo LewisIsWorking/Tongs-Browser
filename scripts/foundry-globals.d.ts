@@ -58,3 +58,34 @@ declare var User: any;
 /** The `foundry` namespace, home of applications, utils and the data models. */
 // eslint-disable-next-line no-var
 declare var foundry: any;
+
+/*
+ * The probe globals, planted in the page by a check and read back out of it. Added 2026-08-12.
+ *
+ * Unlike Foundry's own API these are OURS, so they get REAL types rather than `any`: every one of
+ * them is a list the harness appends to inside a listener and then asserts on, and the assertion is
+ * the entire point of the check. `__probeLeaked.length === 0` is the claim that native touch never
+ * reaches Foundry, so a typo in the field name there would not fail, it would quietly pass by reading
+ * `undefined` off an `any` and comparing it to nothing.
+ *
+ * ⚠️ They are also the reason these arrays are initialised inside `page.evaluate` rather than
+ * declared optional: a check that reads a probe it never planted should throw, not report zero.
+ */
+
+/** Every contextmenu event seen at the document, with where it landed. */
+// eslint-disable-next-line no-var
+declare var __probeContextMenus: { x: number; y: number }[];
+
+/** Native touch derived pointer events that got past the module's capture phase suppression. */
+// eslint-disable-next-line no-var
+declare var __probeLeaked: { id: number; type: string }[];
+
+/**
+ * Font decode failures swallowed by the Android harness's shim, one line each.
+ *
+ * ⚠️ Every entry here is reported as a check result rather than kept quiet. The shim works around a
+ * Chromium 133 bug that stops Foundry booting, and an environment fix that hides itself would be
+ * worse than the bug, because every later result would silently rest on it.
+ */
+// eslint-disable-next-line no-var
+declare var __tbSwallowedFonts: string[];
