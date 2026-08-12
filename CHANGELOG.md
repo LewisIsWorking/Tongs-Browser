@@ -1,5 +1,40 @@
 # tongs-browser
 
+## 0.25.51
+
+### Patch Changes
+
+- [#214](https://github.com/LewisIsWorking/Tongs-Browser/pull/214) [`9101a53`](https://github.com/LewisIsWorking/Tongs-Browser/commit/9101a5385b7791f1be58dcdfe78a1319ea1f738f) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Stop Foundry cancelling a held drag as if it were a long press.
+
+  Foundry arms a 500ms timer on every pointerdown and clears it only when a drag actually starts,
+  which needs the pointer 10px from where it went down. Past that, `ControlsLayer._onLongPress` pings
+  the canvas and cancels the drag workflow.
+
+  That is a sound inference for a finger and the wrong one for this module. Dragging with the touch
+  gesture beats the timer because the finger is already moving. Dragging with the grab button does
+  not: you tap the button, lift, reposition, and only then move, which is comfortably longer than half
+  a second. Foundry then cancels a drag the user is in the middle of, and `_onDragLeftCancel` writes
+  nothing, so the token snaps back while every other measurement looks healthy.
+
+  The pointer now disarms that timer immediately after the opening pointerdown. The ping is untouched
+  for a genuine long press, because the timer is re-armed by the next pointerdown.
+
+- [#213](https://github.com/LewisIsWorking/Tongs-Browser/pull/213) [`9564901`](https://github.com/LewisIsWorking/Tongs-Browser/commit/956490154552d0a41ef97cf56d6723ca05e21324) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Stop the module's own bar leaking pointer events onto Foundry's canvas.
+
+  Tapping the grab button with a finger put four events on the window that PIXI listens for, all at
+  the button's own coordinates: a touch `pointerdown` and `pointerup`, and the browser's touch
+  compatibility `mousedown` and `mouseup`. PIXI maps events onto the canvas BY COORDINATE rather than
+  by DOM target, and the bar sits over the canvas, so Foundry received a pointerup it was never meant
+  to see. `MouseInteractionManager#handlePointerUp` ends with `#handleDragCancel`.
+
+  The bar was an excluded region, which is correct for the gesture layer and wrong here. Those are two
+  different questions about the same element: the gesture layer must keep away from our bar, and our
+  bar must never reach the canvas. The suppressor now decides this itself rather than by composing
+  predicates at the call site.
+
+  Measured before and after against a live Foundry with a real finger: four leaked events, then none,
+  with the button still working because `click` is deliberately untouched.
+
 ## 0.25.50
 
 ### Patch Changes
