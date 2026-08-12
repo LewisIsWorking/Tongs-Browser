@@ -4,8 +4,5 @@
   "scripts/foundry-multitouch-check.ts": 258,
   "scripts/foundry-play-probe.ts": 572,
   "scripts/foundry-touch-check.ts": 360,
-  "tests/browser/pointer.spec.ts": 311,
-  "tests/dom/canvasController.test.ts": 237,
-  "tests/dom/diagnosticsReport.test.ts": 252,
-  "tests/dom/modifierBarClamping.test.ts": 213
+  "tests/browser/pointer.spec.ts": 311
 }
