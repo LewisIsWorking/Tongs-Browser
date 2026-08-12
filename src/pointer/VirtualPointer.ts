@@ -1,5 +1,5 @@
 import type { CursorOverlay } from './CursorOverlay.js';
-import { DragCapture } from './DragCapture.js';
+import { DragController } from './DragController.js';
 import { EventDispatcher, type DispatchTargets } from './EventDispatcher.js';
 import type { EventDescriptor, PointerPosition } from './EventDescriptor.js';
 import type { HitTester } from './HitTester.js';
@@ -46,10 +46,8 @@ export interface VirtualPointerOptions {
 export class VirtualPointer {
   private state: PointerState;
   private previousTarget: Element | null = null;
-  private dragging = false;
-  private dragButton: MouseButtonValue = MouseButton.LEFT;
-  /** The element captured at drag start. See resolveDragTarget for why a drag must not re-hit-test. */
-  private readonly dragCapture = new DragCapture();
+  /** Holding a button across a gesture, with the captured element. See pointer/DragController.ts. */
+  private readonly drag: DragController;
 
   private readonly hitTester: HitTester;
   private readonly dispatcher: EventDispatcher;
@@ -61,6 +59,20 @@ export class VirtualPointer {
     this.cursor = options.cursor;
     this.state = createPointerState(options.initialPosition ?? { clientX: 0, clientY: 0 });
     this.cursor?.moveTo(this.state.position);
+
+    this.drag = new DragController({
+      dispatchAt: (sequence, target) => {
+        this.dispatcher.dispatchAll(sequence, { current: target, previous: null });
+      },
+      dispatchHere: (sequence) => {
+        this.dispatchAtCurrent(sequence);
+      },
+      lastTarget: () => this.previousTarget,
+      hitTestHere: () => this.hitTester.resolve(this.state.position).element,
+      setButtonHeld: (held) => {
+        this.cursor?.setButtonHeld(held);
+      },
+    });
   }
 
   public getState(): PointerState {
@@ -72,7 +84,7 @@ export class VirtualPointer {
   }
 
   public isDragging(): boolean {
-    return this.dragging;
+    return this.drag.isDragging();
   }
 
   /** Exposed for the debug overlay. Do not dispatch at this directly. */
@@ -111,21 +123,7 @@ export class VirtualPointer {
   }
 
   public beginDrag(button: MouseButtonValue = MouseButton.LEFT): void {
-    if (this.dragging) {
-      return;
-    }
-    this.dragging = true;
-    this.dragButton = button;
-    this.cursor?.setButtonHeld(true);
-    this.dispatchAtCurrent(buildDragStartSequence(this.state, button));
-    // dispatchAtCurrent resolved and recorded the element the press landed on. That element owns the
-    // rest of this gesture, exactly as a browser's implicit pointer capture would.
-    this.dragCapture.claim(this.previousTarget);
-  }
-
-  /** The element every event of an in progress drag goes to. See pointer/DragCapture.ts. */
-  private resolveDragTarget(): Element | null {
-    return this.dragCapture.resolve(() => this.hitTester.resolve(this.state.position).element);
+    this.drag.begin(button, (held) => buildDragStartSequence(this.state, held));
   }
 
   /**
@@ -140,7 +138,7 @@ export class VirtualPointer {
    * ordinary hover, and silently turning it into one would hide that.
    */
   public dragBy(deltaX: number, deltaY: number): void {
-    if (!this.dragging) {
+    if (!this.drag.isDragging()) {
       return;
     }
     this.applyMove(translated(this.state, deltaX, deltaY));
@@ -149,7 +147,7 @@ export class VirtualPointer {
   public endDrag(): void {
     // The release has to reach the element that received the press, or Foundry is left believing a
     // button is still held and the token stays stuck to the pointer.
-    this.finishDrag(buildDragEndSequence(this.state, this.dragButton));
+    this.drag.finish(buildDragEndSequence(this.state, this.drag.heldButton()));
   }
 
   /**
@@ -157,26 +155,7 @@ export class VirtualPointer {
    * Without this, Foundry keeps its drag state and a token stays stuck to the pointer.
    */
   public cancelDrag(): void {
-    this.finishDrag(buildDragCancelSequence(this.state));
-  }
-
-  /**
-   * Ending and cancelling differ in exactly one thing: the sequence sent. Everything else has to be
-   * identical, and keeping them as two copies is how they drift.
-   *
-   * ⚠️ The target is resolved BEFORE the flag is cleared. Resolving after would take the fallback
-   * path on a detached capture and hit test at the pointer, which by then is wherever the drag ended
-   * rather than on whatever received the press.
-   */
-  private finishDrag(sequence: readonly EventDescriptor[]): void {
-    if (!this.dragging) {
-      return;
-    }
-    const target = this.resolveDragTarget();
-    this.dragging = false;
-    this.cursor?.setButtonHeld(false);
-    this.dispatcher.dispatchAll(sequence, { current: target, previous: null });
-    this.dragCapture.release();
+    this.drag.finish(buildDragCancelSequence(this.state));
   }
 
   private applyMove(nextState: PointerState): void {
@@ -188,25 +167,8 @@ export class VirtualPointer {
     this.state = withPosition(nextState, result.position);
     this.cursor?.moveTo(this.state.position);
 
-    /*
-     * While a button is held, ANY movement is a drag, however it arrived.
-     *
-     * The buttons bitmask has to stay set on every move of a drag, or Foundry reads the stream as a
-     * hover and nothing follows the pointer. dragBy set it; moveTo and moveBy did not, so a drag
-     * begun through beginDrag and then continued by ordinary pointer movement silently degraded into
-     * a hover. Measured 2026-08-11 on a device: grab held the button, the token stayed exactly where
-     * it was, and the pointer glided over it.
-     *
-     * That mattered the moment a grab could be started from a button rather than only by the tap
-     * then hold gesture, because the natural next thing to do is move the pointer the ordinary way.
-     * Routing on the drag STATE rather than on which method was called is what makes the two agree.
-     */
-    if (this.dragging) {
-      // Same capture as dragBy: the element that received the press owns the whole gesture.
-      this.dispatcher.dispatchAll(buildDragMoveSequence(this.state, this.dragButton), {
-        current: this.resolveDragTarget(),
-        previous: null,
-      });
+    // While a button is held, ANY movement is a drag, however it arrived. See DragController.
+    if (this.drag.moveStep(buildDragMoveSequence(this.state, this.drag.heldButton()))) {
       this.previousTarget = result.element;
       return;
     }
