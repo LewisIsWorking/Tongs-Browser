@@ -1,9 +1,9 @@
 import { logger } from './core/Logger.js';
 import { copyToClipboard } from './debug/Clipboard.js';
-import { installFoundryDragHooks, summariseDragEndings } from './debug/FoundryDragHooks.js';
+import { buildDiagnosticsReport, toPlainText } from './debug/DiagnosticsReport.js';
+import { installFoundryDragHooks } from './debug/FoundryDragHooks.js';
 import { DebugOverlay } from './debug/DebugOverlay.js';
 import {
-  INTERACTION_STATE_NAMES,
   describeGrabTarget,
   describeInteractionState,
   describePointers,
@@ -37,38 +37,6 @@ const DISPATCH_TRACE_LENGTH = 18;
 
 /** Stamped in at build time by Vite. See vite.config.ts for why the manifest version is not enough. */
 declare const __TB_BUILD_VERSION__: string;
-
-/**
- * How thin is too thin for a peak to describe a gesture.
- *
- * A peak sampled a handful of times across hundreds of moves is not a small measurement, it is a
- * measurement of a different thing: whatever was true during those few samples. A tenth of the moves
- * is a generous floor and still catches the case that actually happened, 2 samples against 235.
- */
-const THIN_SAMPLE_RATIO = 0.1;
-
-/**
- * Render a peak, or refuse to, saying which and why.
- *
- * The refusal matters more than the number. A confidently printed `0.0px` was read as "the pointer
- * never moved" on three separate occasions, each time sending the investigation off after something
- * that was not happening, when the honest answer was that nothing had been measured.
- */
-function describeThinly(sampled: boolean, peak: number, samples: number, moves: number): string {
-  if (!sampled) {
-    return 'NOT MEASURABLE, Foundry never exposed a drag origin (this is not a distance of zero)';
-  }
-  const thin = moves > 0 && samples < moves * THIN_SAMPLE_RATIO;
-  const reading = `${peak.toFixed(1)}px over ${String(samples)} samples`;
-  if (!thin) {
-    return reading;
-  }
-  return (
-    `${reading} of ${String(moves)} moves. <em>Foundry's interactionData was readable for almost ` +
-    `none of the gesture. It is NOT transient, it persists until reset(), so this means it was ` +
-    `being WIPED mid drag. See the drag ending line for what did it.</em>`
-  );
-}
 
 export interface TongsBrowserOptions {
   readonly document: Document;
@@ -1183,150 +1151,76 @@ export class TongsBrowser {
       (mouse.y ?? 0) >= (selected.document.y ?? 0) &&
       (mouse.y ?? 0) <= (selected.document.y ?? 0) + (selected.h ?? 0);
 
-    /*
-     * The decisive numbers go FIRST.
-     *
-     * A phone chat window shows about fifteen lines, and the previous report was cut off exactly at
-     * the field the whole round existed to read. Ordering a diagnostic by narrative rather than by
-     * how much each line discriminates costs a whole round trip per mistake.
-     */
-    const lines = [
-      // The version, first, because it is the sanity check every report needs before its numbers
-      // mean anything. Stamped by Vite at build time, so unlike the manifest it cannot go stale.
-      `<strong>Tongs Browser BUILD ${__TB_BUILD_VERSION__}</strong>`,
-      // The only line that answers the actual question. Everything else explains it.
-      `<strong>DID IT MOVE: ${this.describeTokenMovement()}</strong>`,
-      `<strong>released during drag: ${String(this.sawDropDuringDrag)}${this.sawDropDuringDrag ? '' : ' <em>(tap the hand OFF before tapping this)</em>'}</strong>`,
-      /*
-       * ⚠️ Never print a distance the code did not measure. This read "peak distance 0.0px, needs
-       * >= 10", which is the field's initial value and reads exactly like a measurement saying the
-       * pointer stood still. Foundry clears interactionData when a gesture ends, so the origin can
-       * be missing for the whole record and the zero survives untouched.
-       */
-      /*
-       * The line that says which of two unrelated bugs this is. Measured only against our own grab
-       * point, so Foundry cannot confound it. Under 10 and Foundry is right to refuse; well over 10
-       * while Foundry's own gate reads 0 means Foundry's drag origin is following the pointer.
-       */
-      // Asked and answered at the grab, because by report time the pointer has been used to tap the
-      // button that produced the report.
-      `<strong>GRABBED ON THE TOKEN: ${this.grabbedOnToken ?? 'no grab recorded yet'}</strong>`,
-      `<strong>OUR pointer travelled: ${
-        this.pointerAtGrab === null
-          ? 'no grab recorded'
-          : `${this.peakTravelFromGrab.toFixed(1)}px from the grab point${
-              this.peakTravelFromGrab < 10
-                ? " <em>(under Foundry's 10px threshold, so no drag can start: move the pointer further)</em>"
-                : ' <em>(far enough, so the gate below should have opened)</em>'
-            }`
-      }</strong>`,
-      /*
-       * Foundry's drag origin is supposed to be a fixed point recorded at the press. Measured as
-       * pinned on desktop and under emulated touch. If it drifts here, that is the bug outright.
-       */
-      // The denominator. Every "over N samples" below is only meaningful against this.
-      `<strong>drag moves dispatched: ${String(this.dragMovesDispatched)}</strong>`,
-      /*
-       * ⚠️ Both of the next two lines read Foundry's `interactionData`, which is TRANSIENT.
-       *
-       * It exists while Foundry is handling an event and is gone again afterwards, and this reads it
-       * after `dispatchEvent` has returned, so almost every read finds nothing. Measured on a device
-       * three times running: 2 samples against 55, 235 and 305 dispatched moves. Two is exactly the
-       * number of dispatches in a grab, `pointerdown` and `mousedown`, which is the one moment the
-       * field reliably exists.
-       *
-       * That makes both numbers worthless as descriptions of a gesture, and worse than worthless
-       * while they look authoritative: "0.0px, needs >= 10" was read three times as "the pointer
-       * never moved" and sent the investigation somewhere else each time. They now say outright when
-       * the sampling is too thin to mean anything, using the move count as the denominator.
-       */
-      `<strong>Foundry's drag ORIGIN drifted: ${describeThinly(
-        this.sampledOriginDrift,
-        this.peakOriginDrift,
-        this.originDriftSamples,
-        this.dragMovesDispatched
-      )}</strong>`,
-      `<strong>DRAG GATE: ${describeThinly(
-        this.sampledDragDistance,
-        this.peakDragDistance,
-        this.dragDistanceSamples,
-        this.dragMovesDispatched
-      )}${this.dragDistanceSamples > 0 ? ', needs >= 10' : ''}</strong>`,
-      /*
-       * The line that says whether any other position in this report means anything. Foundry gates
-       * the drag on PIXI's pointer, so if ours and PIXI's disagree, ours is the only one describing
-       * the virtual pointer and every Foundry derived position describes the finger instead.
-       */
-      `<strong>ours vs PIXI during the drag: ${
-        this.sampledDivergence
-          ? `${this.peakPointerDivergence.toFixed(1)}px apart at worst over ${String(this.divergenceSamples)} samples${
-              this.peakPointerDivergence > 20
-                ? ' <em>(PIXI IS NOT TRACKING OUR POINTER, so canvas.mousePosition below describes your finger)</em>'
-                : ''
-            }`
-          : 'not measurable'
-      }</strong>`,
-      `<strong>PEAK state: ${INTERACTION_STATE_NAMES[this.peakInteractionState] ?? 'UNKNOWN'} (${String(this.peakInteractionState)}), previews ${String(this.peakPreviewCount)}</strong>`,
-      /*
-       * TOKEN first, because it is the only one of the three that decides anything. Foundry checks
-       * its drag gate in a handler on the object, so a zero here means the gate was never evaluated
-       * after the press and no amount of travel could have opened it.
-       */
-      /*
-       * The two endings, which is now the whole question. Foundry commits a move in _onDragLeftDrop
-       * and writes nothing in _onDragLeftCancel, and from outside they are indistinguishable: both
-       * reset the state, both clear the preview, both leave the token where it was.
-       */
-      `<strong>viewport: ${this.viewportAtGrab} at the grab, ${String(window.innerWidth)}x${String(window.innerHeight)} now, ${String(this.resizesDuringDrag)} resizes during the drag${
-        this.resizesDuringDrag > 0
-          ? ' <em>(a resize redraws the canvas, and redrawing a token CANCELS its interaction)</em>'
-          : ''
-      }</strong>`,
-      `<strong>FOUNDRY'S DRAG ENDING: ${summariseDragEndings(this.dragEndings)}</strong>`,
-      `<strong>PIXI moves TO THE TOKEN: ${String(this.tokenMoveCount)}${
-        this.tokenMoveCount === 0
-          ? ' <em>(ZERO. Foundry checks its drag gate on the token itself, so it was never checked.)</em>'
-          : ''
-      }</strong>`,
-      `PIXI moves elsewhere: layer=${String(this.layerMoveCount)} stage=${String(this.stageMoveCount)} <em>(neither distinguishes a working drag from a broken one)</em>`,
-      `last gate distance: ${Number.isNaN(this.lastDragDistance) ? 'NaN (origin or pointer missing)' : this.lastDragDistance.toFixed(1)}`,
-      // Our pointer beside PIXI's. If ours moves and PIXI's does not, the mapping is the bug.
-      `<strong>ours vs PIXI: ${describePointers()}</strong>`,
-      // Raw touch reaching the gesture layer. No touchmove here means the finger never produced any.
-      `<strong>touch input (cumulative): ${
-        Object.entries(this.gestureInputCounts)
-          .map(([type, count]) => `${type}=${String(count)}`)
-          .join(' ') || 'none'
-      }</strong>`,
-      // The BUILD stamp first, because the manifest one is read once at server start and goes stale
-      // the moment module files are replaced under a running server.
-      `build: ${__TB_BUILD_VERSION__} (manifest says ${(game['modules'] as { get: (id: string) => { version?: string } | undefined }).get(MODULE_ID)?.version ?? 'unknown'}, stale if they differ)`,
-      `enabled: ${String(this.enabled)} | isGM: ${String(user?.isGM)} | paused: ${String(game['paused'])}`,
-      `activeTool: ${String(game['activeTool'])} <em>(dragging a token needs "select")</em>`,
-      `controlled token: ${selected === undefined ? 'NONE, tap a token first' : `${String(selected.name)} at (${String(selected.document?.x)}, ${String(selected.document?.y)})`}`,
-      `token._canDrag: ${selected?._canDrag === undefined ? 'n/a' : String(selected._canDrag(user))}`,
-      `pointer: (${String(Math.round(position.clientX))}, ${String(Math.round(position.clientY))}) dragging: ${String(this.pointer.isDragging())}`,
-      `element under pointer: ${under === null ? 'nothing' : `${under.tagName.toLowerCase()}#${under.id}`}`,
-      // Labelled as PIXI's, because it is. Foundry derives mousePosition from PIXI's pointer, so on a
-      // device where PIXI is not tracking us this describes the finger and not the virtual pointer,
-      // and unlabelled it reads as a statement about the virtual pointer.
-      `canvas.mousePosition (PIXI's pointer, NOT ours): ${mouse === undefined ? 'n/a' : `(${String(Math.round(mouse.x ?? 0))}, ${String(Math.round(mouse.y ?? 0))})`} insideSelectedToken: ${String(insideToken)}`,
-      `canvas ready: ${String(canvasGlobal?.['ready'])} | keyboard: ${this.synthesizer.getStrategy()}`,
-      /*
-       * Foundry's own view of the interaction, which splits the remaining problem in half.
-       *
-       * MouseInteractionManager runs NONE, HOVER, CLICKED, GRABBED, DRAG, DROP with a 10px drag
-       * resistance. If it never leaves CLICKED or GRABBED, the moves are not reaching the manager at
-       * all. If it reaches DRAG and a preview exists, the drag is running and the DROP is what fails.
-       * Those are completely different bugs and nothing else visible distinguishes them.
-       */
-      `interaction state now: ${describeInteractionState(selected)} (probe attached: ${String(this.pixiProbeAttached)})`,
-      `agent: ${navigator.userAgent}`,
-      `<strong>last ${String(this.recentDispatches.length)} events dispatched</strong> <em>(grab, drag, drop, THEN tap this)</em>`,
-      this.recentDispatches.length === 0
-        ? 'none yet'
-        : this.recentDispatches.map((line) => `<code>${line}</code>`).join('<br>'),
-    ];
+    const lines = buildDiagnosticsReport({
+      build: __TB_BUILD_VERSION__,
+      tokenMovement: this.describeTokenMovement(),
+      releasedDuringDrag: this.sawDropDuringDrag,
+      grabbedOnToken: this.grabbedOnToken,
+      pointerTravel: { recorded: this.pointerAtGrab !== null, peak: this.peakTravelFromGrab },
+      movesDispatched: this.dragMovesDispatched,
+      originDrift: {
+        sampled: this.sampledOriginDrift,
+        peak: this.peakOriginDrift,
+        samples: this.originDriftSamples,
+      },
+      dragGate: {
+        sampled: this.sampledDragDistance,
+        peak: this.peakDragDistance,
+        samples: this.dragDistanceSamples,
+      },
+      divergence: {
+        sampled: this.sampledDivergence,
+        peak: this.peakPointerDivergence,
+        samples: this.divergenceSamples,
+      },
+      peakInteractionState: this.peakInteractionState,
+      peakPreviewCount: this.peakPreviewCount,
+      viewport: {
+        atGrab: this.viewportAtGrab,
+        now: `${String(window.innerWidth)}x${String(window.innerHeight)}`,
+        resizes: this.resizesDuringDrag,
+      },
+      dragEndings: this.dragEndings,
+      moves: {
+        token: this.tokenMoveCount,
+        layer: this.layerMoveCount,
+        stage: this.stageMoveCount,
+      },
+      lastGateDistance: this.lastDragDistance,
+      pointerComparison: describePointers(),
+      touchCounts: this.gestureInputCounts,
+      manifestVersion:
+        (game['modules'] as { get: (id: string) => { version?: string } | undefined }).get(
+          MODULE_ID
+        )?.version ?? 'unknown',
+      enabled: this.enabled,
+      isGm: user?.isGM === true,
+      paused: game['paused'] === true,
+      activeTool: String(game['activeTool']),
+      controlledToken:
+        selected === undefined
+          ? 'NONE, tap a token first'
+          : `${String(selected.name)} at (${String(selected.document?.x)}, ${String(selected.document?.y)})`,
+      canDrag: selected?._canDrag === undefined ? 'n/a' : String(selected._canDrag(user)),
+      pointer: {
+        x: position.clientX,
+        y: position.clientY,
+        dragging: this.pointer.isDragging(),
+      },
+      elementUnderPointer:
+        under === null ? 'nothing' : `${under.tagName.toLowerCase()}#${under.id}`,
+      pixiMousePosition:
+        mouse === undefined
+          ? 'n/a'
+          : `(${String(Math.round(mouse.x ?? 0))}, ${String(Math.round(mouse.y ?? 0))})`,
+      insideSelectedToken: insideToken,
+      canvasReady: String(canvasGlobal?.['ready']),
+      keyboardStrategy: this.synthesizer.getStrategy(),
+      interactionStateNow: describeInteractionState(selected),
+      probeAttached: this.pixiProbeAttached,
+      userAgent: navigator.userAgent,
+      recentDispatches: this.recentDispatches,
+    });
 
     /*
      * Copy to the clipboard as well as whispering.
@@ -1335,10 +1229,7 @@ export class TongsBrowser {
      * chat window shows about fifteen lines and silently hides the rest, which has already cost a
      * full round trip on the one field that mattered.
      */
-    const plain = lines
-      .join('\n')
-      .replace(/<br>/g, '\n')
-      .replace(/<[^>]+>/g, '');
+    const plain = toPlainText(lines);
     const copied = copyToClipboard(this.options.document, plain);
 
     const chat = (globalThis as { ChatMessage?: { create?: (data: unknown) => unknown } })
