@@ -1,5 +1,22 @@
 # tongs-browser
 
+## 0.24.5
+
+### Patch Changes
+
+- [#100](https://github.com/LewisIsWorking/Tongs-Browser/pull/100) [`e41221f`](https://github.com/LewisIsWorking/Tongs-Browser/commit/e41221f43cce2250f95e066cb38657dfff4878ab) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Extract the dispatch trace ring buffer, at 100% coverage.
+
+  `debug/DispatchTrace.ts`, 80 lines. Its one piece of real behaviour, collapsing repeated lines into a
+  count, exists because of a measured failure rather than tidiness: a held pointer that is not moving
+  emits the same line hundreds of times, the buffer is eighteen entries long, and a moment of stillness
+  at the end of a gesture therefore erased the whole gesture before it. A device produced a trace
+  describing only the pause, which read as "the pointer never moved".
+
+  That collapse now has a test which fires two hundred identical moves after one real one and asserts
+  the real one survives.
+
+  `TongsBrowser.ts` is down from 1,853 to 1,615 across today's three extractions, with 461 tests.
+
 ## 0.24.4
 
 ### Patch Changes
