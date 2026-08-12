@@ -2,6 +2,7 @@ import { logger } from './core/Logger.js';
 import { DispatchTrace } from './debug/DispatchTrace.js';
 import { DragCaptureWindow } from './debug/DragCaptureWindow.js';
 import { DragSampler } from './debug/DragSampler.js';
+import { readFoundryFacts, type FoundryGlobals } from './debug/FoundryFacts.js';
 import {
   describeControlledToken,
   describeScenePoint,
@@ -814,30 +815,13 @@ export class TongsBrowser {
    * Whispered to self so it never lands in front of players mid session.
    */
   private whisperDiagnostics(): void {
-    const game = (globalThis as { game?: Record<string, unknown> }).game;
-    if (game === undefined) {
+    const facts = readFoundryFacts(globalThis as FoundryGlobals, MODULE_ID);
+    if (facts === null) {
       return;
     }
 
-    const user = game['user'] as { id?: string; isGM?: boolean } | undefined;
-    const canvasGlobal = (globalThis as { canvas?: Record<string, unknown> }).canvas;
-    const tokens = canvasGlobal?.['tokens'] as
-      | {
-          controlled?: {
-            name?: string;
-            id?: string;
-            document?: { x?: number; y?: number };
-            w?: number;
-            h?: number;
-            _canDrag?: (u: unknown) => boolean;
-          }[];
-        }
-      | undefined;
-    const selected = tokens?.controlled?.[0];
-
     const position = this.pointer.getPosition();
     const under = this.options.document.elementFromPoint(position.clientX, position.clientY);
-    const mouse = canvasGlobal?.['mousePosition'] as { x?: number; y?: number } | undefined;
 
     const sampled = this.sampler.snapshot();
 
@@ -868,16 +852,13 @@ export class TongsBrowser {
       lastGateDistance: sampled.lastGateDistance,
       pointerComparison: describePointers(),
       touchCounts: this.gestureInputCounts,
-      manifestVersion:
-        (game['modules'] as { get: (id: string) => { version?: string } | undefined }).get(
-          MODULE_ID
-        )?.version ?? 'unknown',
+      manifestVersion: facts.manifestVersion,
       enabled: this.enabled,
-      isGm: user?.isGM === true,
-      paused: game['paused'] === true,
-      activeTool: String(game['activeTool']),
-      controlledToken: describeControlledToken(selected),
-      canDrag: selected?._canDrag === undefined ? 'n/a' : String(selected._canDrag(user)),
+      isGm: facts.isGm,
+      paused: facts.paused,
+      activeTool: facts.activeTool,
+      controlledToken: describeControlledToken(facts.selected),
+      canDrag: facts.canDrag,
       pointer: {
         x: position.clientX,
         y: position.clientY,
@@ -885,11 +866,11 @@ export class TongsBrowser {
       },
       elementUnderPointer:
         under === null ? 'nothing' : `${under.tagName.toLowerCase()}#${under.id}`,
-      pixiMousePosition: describeScenePoint(mouse),
-      insideSelectedToken: isPointerInsideToken(mouse, selected),
-      canvasReady: String(canvasGlobal?.['ready']),
+      pixiMousePosition: describeScenePoint(facts.mouse),
+      insideSelectedToken: isPointerInsideToken(facts.mouse, facts.selected),
+      canvasReady: facts.canvasReady,
       keyboardStrategy: this.synthesizer.getStrategy(),
-      interactionStateNow: describeInteractionState(selected),
+      interactionStateNow: describeInteractionState(facts.selected),
       probeAttached: this.pixiProbe.getCounts().attached,
       userAgent: navigator.userAgent,
       recentDispatches: this.trace.getLines(),
@@ -899,7 +880,7 @@ export class TongsBrowser {
       document: this.options.document,
       createChatMessage: (globalThis as { ChatMessage?: { create?: (data: unknown) => unknown } })
         .ChatMessage?.create,
-      userId: user?.id,
+      userId: facts.userId,
       notify: (globalThis as { ui?: { notifications?: { info?: (message: string) => void } } }).ui
         ?.notifications?.info,
       fallback: (text) => {
