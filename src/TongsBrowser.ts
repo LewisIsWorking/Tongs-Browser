@@ -26,6 +26,7 @@ import {
   type FoundryUi,
   type SidebarAccessOptions,
 } from './foundry/SidebarAccess.js';
+import { openCharacterSheet, type SheetOwner } from './foundry/CharacterSheet.js';
 import {
   applyPause,
   decidePauseAction,
@@ -1180,42 +1181,23 @@ export class TongsBrowser {
    * renders sheets through the same Actor#sheet, so naming one would only make it break on the next.
    */
   private openCharacterSheet(): void {
-    const game = (globalThis as { game?: Record<string, unknown> }).game;
-    if (game === undefined) {
-      return;
+    const opened = openCharacterSheet({
+      assigned: () =>
+        (globalThis as { game?: { user?: { character?: SheetOwner | null } } }).game?.user
+          ?.character,
+      controlled: () =>
+        (globalThis as { canvas?: { tokens?: { controlled?: { actor?: SheetOwner }[] } } }).canvas
+          ?.tokens?.controlled?.[0]?.actor,
+      allActors: () => [
+        ...((globalThis as { game?: { actors?: Iterable<SheetOwner> } }).game?.actors ?? []),
+      ],
+    });
+
+    if (!opened) {
+      logger.warn(
+        'No character to open. Assign one in your user configuration, or select a token.'
+      );
     }
-
-    const user = game['user'] as
-      | { character?: { sheet?: { render?: (force: boolean) => void } } | null; id?: string }
-      | undefined;
-
-    const assigned = user?.character ?? null;
-    if (assigned?.sheet?.render !== undefined) {
-      assigned.sheet.render(true);
-      return;
-    }
-
-    const controlled = (
-      globalThis as { canvas?: { tokens?: { controlled?: { actor?: unknown }[] } } }
-    ).canvas?.tokens?.controlled?.[0]?.actor as
-      { sheet?: { render?: (force: boolean) => void } } | undefined;
-    if (controlled?.sheet?.render !== undefined) {
-      controlled.sheet.render(true);
-      return;
-    }
-
-    const actors = game['actors'] as
-      { filter?: (fn: (a: unknown) => boolean) => unknown[] } | undefined;
-    const owned =
-      actors?.filter?.((actor) => (actor as { isOwner?: boolean }).isOwner === true) ?? [];
-    const only =
-      owned.length === 1 ? (owned[0] as { sheet?: { render?: (f: boolean) => void } }) : null;
-    if (only?.sheet?.render !== undefined) {
-      only.sheet.render(true);
-      return;
-    }
-
-    logger.warn('No character to open. Assign one in your user configuration, or select a token.');
   }
 
   /**
