@@ -55,7 +55,16 @@ describe('installFoundryDragHooks', () => {
 
     call(manager.prototype, 'cancel', { state: 3 }, { type: 'contextmenu', button: 2 });
 
-    expect(observations).toEqual(['manager.cancel at GRABBED [contextmenu button=2 n/a]']);
+    /*
+     * ⚠️ The call site is matched loosely on purpose. WHICH frame appears depends on the runtime,
+     * and pinning the exact string would make this a test of Node's stack format. What matters, and
+     * what is asserted, is that the state and the causing event are still named and that a caller is
+     * reported at all: three of Foundry's cancel paths are indistinguishable without one.
+     */
+    expect(observations).toHaveLength(1);
+    expect(observations[0]).toMatch(
+      /^manager\.cancel at GRABBED via .+ \[contextmenu button=2 n\/a\]$/
+    );
   });
 
   /**

@@ -35,6 +35,39 @@ function describeCause(event: unknown): string {
   return `${detail.type} button=${String(detail.button)} ${detail.pointerType ?? 'n/a'}`;
 }
 
+/**
+ * WHICH of Foundry's cancel sites fired, named from the call stack.
+ *
+ * ⚠️ The event alone cannot answer this, and three rounds of diagnosis assumed it could. Foundry has
+ * several paths into `cancel`, and one of them is a long press TIMEOUT whose closure still holds the
+ * original `pointerdown`. So a cancel stamped `pointerdown` may have happened half a second after
+ * that pointerdown, from a timer, and reading the event as "the pointerdown caused it" is wrong in a
+ * way nothing in the report contradicts.
+ *
+ * The frames are Foundry's own, which is the point: `#handleDragStart` refusing at
+ * `can("dragLeftStart")`, `#handleDragCancel` from a pointerup, and the long press are three
+ * different bugs with three different fixes, and they are indistinguishable without this.
+ */
+function describeCallSite(): string {
+  const frames = (new Error('cancel').stack ?? '').split(String.fromCharCode(10)).slice(1);
+  const foundry = frames.find(
+    (frame) => frame.includes('mouse-handler') || frame.includes('MouseInteractionManager')
+  );
+  if (foundry === undefined) {
+    /*
+     * ⚠️ Skip OUR OWN frames. The wrapper that records this is itself on the stack, and naming it
+     * says only "the observer observed", which is exactly the kind of true and useless line this
+     * report has too many of already.
+     */
+    const theirs = frames.find(
+      (frame) => !frame.includes('FoundryDragHooks') && !frame.includes('wrapped')
+    );
+    return theirs?.trim().slice(0, 60) ?? 'unknown caller';
+  }
+  const named = /at ([\w#.<>]+)/.exec(foundry.trim());
+  return named?.[1] ?? foundry.trim().slice(0, 60);
+}
+
 /** What actually got hooked, so silence can be told apart from not watching. */
 export interface InstalledHooks {
   readonly token: boolean;
@@ -91,7 +124,8 @@ function hookManager(options: FoundryDragHookOptions): boolean {
     }
     managerPrototype[name] = function wrapped(this: { state?: unknown }, ...args: unknown[]) {
       const state = STATE_NAMES[this.state as number] ?? String(this.state);
-      options.onObservation(`manager.${name} at ${state} [${describeCause(args[0])}]`);
+      const via = name === 'cancel' ? ` via ${describeCallSite()}` : '';
+      options.onObservation(`manager.${name} at ${state}${via} [${describeCause(args[0])}]`);
       return (original as (...inner: unknown[]) => unknown).apply(this, args);
     };
   }
