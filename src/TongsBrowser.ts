@@ -26,6 +26,13 @@ import {
   type FoundryUi,
   type SidebarAccessOptions,
 } from './foundry/SidebarAccess.js';
+import {
+  applyPause,
+  decidePauseAction,
+  isDesignatedGm,
+  type FoundryGame,
+  type GameAccess,
+} from './foundry/PauseControl.js';
 import { PauseRelay, type SocketLike } from './relay/PauseRelay.js';
 import { CursorOverlay } from './pointer/CursorOverlay.js';
 import { EventDispatcher } from './pointer/EventDispatcher.js';
@@ -1080,31 +1087,19 @@ export class TongsBrowser {
    * local for everyone else.
    */
   private togglePause(): void {
-    const game = (globalThis as { game?: Record<string, unknown> }).game;
-    if (game === undefined) {
+    const action = decidePauseAction(this.gameAccess(), PAUSE_MACRO_NAME);
+    if (action.kind === 'runMacro') {
+      void action.execute();
       return;
     }
-
-    const macros = game['macros'] as
-      | { getName?: (name: string) => { canExecute?: boolean; execute?: () => unknown } | null }
-      | undefined;
-    const macro = macros?.getName?.(PAUSE_MACRO_NAME) ?? null;
-
-    /*
-     * An explicitly authored macro wins, because a GM who wrote one meant it to be used.
-     *
-     * ⚠️ It only helps a PLAYER if the macro itself reaches a GM somehow. Core Foundry has no
-     * execute-as-GM: verified against the installed 14.365, where executeAsGM, execute-as and asGM
-     * appear nowhere in client or common. That feature comes from modules such as Advanced Macros.
-     * An ordinary script macro run by a player touches that player's client alone. The relay is what
-     * actually makes this work for everyone.
-     */
-    if (macro?.execute !== undefined && macro.canExecute !== false) {
-      void macro.execute();
-      return;
+    if (action.kind === 'relay') {
+      this.pauseRelay.request();
     }
+  }
 
-    this.pauseRelay.request();
+  /** Foundry's game object, injected rather than reached for, so the decisions stay testable. */
+  private gameAccess(): GameAccess {
+    return { getGame: () => (globalThis as { game?: FoundryGame }).game };
   }
 
   /**
@@ -1165,34 +1160,11 @@ export class TongsBrowser {
    * same request, flipping the pause state once per GM and landing wherever the race ended.
    */
   private isDesignatedGm(): boolean {
-    const game = (
-      globalThis as {
-        game?: {
-          users?: { activeGM?: { id?: string } | null };
-          user?: { id?: string; isGM?: boolean };
-        };
-      }
-    ).game;
-    if (game === undefined) {
-      return false;
-    }
-
-    const designated = game.users?.activeGM ?? null;
-    if (designated?.id !== undefined && game.user?.id !== undefined) {
-      return designated.id === game.user.id;
-    }
-
-    // Older builds without activeGM: fall back to plain GM, which is still correct for a solo GM.
-    return game.user?.isGM === true;
+    return isDesignatedGm(this.gameAccess());
   }
 
-  /** The authoritative toggle. Only ever reached on the designated GM's client. */
   private applyPause(pause: boolean): void {
-    const game = (globalThis as { game?: Record<string, unknown> }).game;
-    const toggle = game?.['togglePause'] as
-      ((pause?: boolean, options?: { broadcast?: boolean }) => boolean) | undefined;
-    // broadcast is what tells every other client, and Foundry only honours it from a GM.
-    toggle?.call(game, pause, { broadcast: true });
+    applyPause(this.gameAccess(), pause);
   }
 
   /**
