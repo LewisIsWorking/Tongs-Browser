@@ -1,20 +1,11 @@
 import type { KeyboardSynthesizer } from './KeyboardSynthesizer.js';
-import {
-  ALL_OFF,
-  KeyLatch,
-  diff,
-  toModifierFlags,
-  toggle,
-  type KeyLatchValue,
-  type ModifierCode,
-  type ModifierLatchMap,
-} from './ModifierState.js';
-import { MODIFIER_KEYS, MOMENTARY_KEYS, type KeyDefinition } from './keyDefinitions.js';
+import { toModifierFlags, type ModifierLatchMap } from './ModifierState.js';
 import type { ModifierFlags } from '../pointer/ModifierFlags.js';
 import { ActionButtons } from './ActionButtons.js';
 import { clampBarPosition } from './BarClamp.js';
 import type { BarPosition } from './BarPosition.js';
 import { BarDragHandle } from './BarDragHandle.js';
+import { KeyButtons } from './KeyButtons.js';
 import type { TrayAction } from './TrayAction.js';
 
 // Re-exported so every existing importer of ModifierBar keeps working unchanged.
@@ -43,12 +34,6 @@ export interface ModifierBarOptions {
 
 // Re-exported so every existing importer of ModifierBar keeps working unchanged.
 export type { TrayAction };
-
-const LATCH_CLASS: Readonly<Record<KeyLatchValue, string>> = {
-  [KeyLatch.OFF]: 'tb-key--off',
-  [KeyLatch.LATCHED]: 'tb-key--latched',
-  [KeyLatch.LOCKED]: 'tb-key--locked',
-};
 
 /**
  * Where the bar sits before anyone drags it. Changed 2026-08-09.
@@ -83,9 +68,16 @@ const DEFAULT_POSITION: BarPosition = { x: 88, y: 120 };
 export class ModifierBar {
   private readonly root: HTMLDivElement;
   private readonly keysContainer: HTMLDivElement;
-  private readonly buttons = new Map<string, HTMLButtonElement>();
   private readonly actions = new ActionButtons();
-  private latches: ModifierLatchMap = ALL_OFF;
+  /**
+   * The modifier keys, their latch state and their rendering. See modifiers/KeyButtons.ts.
+   *
+   * ⚠️ Assigned in the CONSTRUCTOR BODY, not as a field initialiser. Field initialisers run before
+   * the constructor's parameter properties are assigned, so reading `this.options` from one gets
+   * undefined. TypeScript catches this exact case; the equivalent in the drag handle happens to be
+   * safe only because it reads `this.options` lazily from inside a closure.
+   */
+  private readonly keys: KeyButtons;
   private position: BarPosition;
   private collapsed: boolean;
   private attached = false;
@@ -99,6 +91,13 @@ export class ModifierBar {
   });
 
   public constructor(private readonly options: ModifierBarOptions) {
+    this.keys = new KeyButtons({
+      document: options.document,
+      synthesizer: options.synthesizer,
+      onLatchesChanged: () => {
+        options.onFlagsChanged(this.getFlags());
+      },
+    });
     this.position = options.initialPosition ?? DEFAULT_POSITION;
     this.collapsed = options.initialCollapsed ?? false;
 
@@ -136,16 +135,10 @@ export class ModifierBar {
     this.keysContainer.className = 'tb-modifier-bar__keys';
     this.root.append(this.keysContainer);
 
-    for (const definition of MODIFIER_KEYS) {
-      this.keysContainer.append(this.createStickyButton(definition));
-    }
-    for (const definition of MOMENTARY_KEYS) {
-      this.keysContainer.append(this.createMomentaryButton(definition));
-    }
+    this.keys.build(this.keysContainer);
 
     this.applyPosition();
     this.applyCollapsed();
-    this.render();
     this.refreshActions();
   }
 
@@ -218,7 +211,7 @@ export class ModifierBar {
   }
 
   public getLatches(): ModifierLatchMap {
-    return this.latches;
+    return this.keys.getLatches();
   }
 
   public getPosition(): BarPosition {
@@ -230,7 +223,7 @@ export class ModifierBar {
   }
 
   public getFlags(): ModifierFlags {
-    return toModifierFlags(this.latches);
+    return toModifierFlags(this.keys.getLatches());
   }
 
   public setPosition(position: BarPosition): void {
@@ -247,123 +240,9 @@ export class ModifierBar {
 
   /** Releases every held modifier and returns the bar to a clean state. */
   public clearAll(): void {
-    const next = ALL_OFF;
-    this.applyLatches(next);
+    this.keys.clearAll();
   }
 
-  private createStickyButton(definition: KeyDefinition): HTMLButtonElement {
-    const button = this.options.document.createElement('button');
-    button.type = 'button';
-    button.className = 'tb-key tb-key--sticky';
-    button.dataset['code'] = definition.code;
-    button.textContent = definition.label;
-    button.addEventListener('click', () => {
-      this.applyLatches(toggle(this.latches, definition.code as ModifierCode));
-    });
-    this.buttons.set(definition.code, button);
-    return button;
-  }
-
-  private createMomentaryButton(definition: KeyDefinition): HTMLButtonElement {
-    const button = this.options.document.createElement('button');
-    button.type = 'button';
-    button.className = 'tb-key tb-key--momentary';
-    button.dataset['code'] = definition.code;
-    button.textContent = definition.label;
-    button.addEventListener('click', () => {
-      /*
-       * A full press and release on tap. These keys carry whatever modifiers are currently latched,
-       * which is what makes combinations reachable: latch Ctrl, then tap Delete.
-       */
-      this.options.synthesizer.tap(definition);
-      this.consumeLatchedAfterAction();
-    });
-    this.buttons.set(definition.code, button);
-    return button;
-  }
-
-  /**
-   * Applies a new latch map, dispatching only the keys that actually changed.
-   *
-   * Diffing rather than replaying everything matters: re-pressing an already held key would send a
-   * duplicate keydown, and Foundry treats a repeated keydown as auto repeat.
-   */
-  private applyLatches(next: ModifierLatchMap): void {
-    const changes = diff(this.latches, next);
-    this.latches = next;
-
-    for (const change of changes) {
-      const definition = MODIFIER_KEYS.find((candidate) => candidate.code === change.code);
-      if (definition === undefined) {
-        continue;
-      }
-      if (change.held) {
-        this.options.synthesizer.press(definition);
-      } else {
-        this.options.synthesizer.release(definition);
-      }
-    }
-
-    this.render();
-    this.options.onFlagsChanged(this.getFlags());
-  }
-
-  /**
-   * Clears latched keys after a momentary key has used them, leaving locked ones held. This is what
-   * makes LATCHED mean "for the next action only".
-   */
-  private consumeLatchedAfterAction(): void {
-    const next: Record<ModifierCode, KeyLatchValue> = { ...this.latches };
-    let changed = false;
-    for (const definition of MODIFIER_KEYS) {
-      const code = definition.code as ModifierCode;
-      if (this.latches[code] === KeyLatch.LATCHED) {
-        next[code] = KeyLatch.OFF;
-        changed = true;
-      }
-    }
-    if (changed) {
-      this.applyLatches(Object.freeze(next));
-    }
-  }
-
-  private render(): void {
-    for (const definition of MODIFIER_KEYS) {
-      const button = this.buttons.get(definition.code);
-      if (button === undefined) {
-        continue;
-      }
-      const latch = this.latches[definition.code as ModifierCode];
-      button.classList.remove(...Object.values(LATCH_CLASS));
-      button.classList.add(LATCH_CLASS[latch]);
-      button.setAttribute('aria-pressed', latch === KeyLatch.OFF ? 'false' : 'true');
-      // The three states must be distinguishable without relying on colour alone.
-      button.dataset['latch'] = latch;
-    }
-  }
-
-  /**
-   * Place the bar, keeping it fully on screen.
-   *
-   * There was no clamping here at all, and on a phone that is not a cosmetic problem. Measured
-   * 2026-08-10 on a 412px wide Android viewport: the bar rendered from x 88 to x 532, leaving Esc,
-   * Enter and Tab off the right edge with no way to reach them. The CSS wrap keeps the bar narrow
-   * enough to fit; this keeps it positioned somewhere it can be seen, including after a drag toward
-   * an edge and after a rotation that makes the viewport smaller than it was when the position was
-   * saved.
-   *
-   * Measured, not assumed: the size is read back from the laid out element rather than computed from
-   * the key count, because the bar wraps and its height therefore depends on the viewport width.
-   * Clamping to a remembered width would reintroduce the same class of bug the wrap just fixed.
-   *
-   * The lower bound is 0 rather than a margin, so that a viewport genuinely narrower than the bar
-   * shows its left edge rather than centring the overflow and cutting off both sides.
-   *
-   * The clamp is written back to this.position rather than applied only to the style. Clamping just
-   * the rendered position would leave the two disagreeing, and onHandlePointerDown builds its drag
-   * offset from this.position, so the next grab would jump the bar by exactly the difference. A
-   * remembered position that no longer fits is worth less than a drag that behaves.
-   */
   private applyPosition(): void {
     /*
      * The arithmetic lives in BarClamp, where it can be tested. jsdom reports offsetWidth as 0 for

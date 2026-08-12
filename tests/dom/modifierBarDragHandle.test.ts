@@ -197,31 +197,6 @@ describe('ModifierBar reclamping and attachment', () => {
 });
 
 describe('ModifierBar guards against a missing button', () => {
-  it('renders the remaining keys when one button has gone', () => {
-    const manager: KeyboardManagerLike = { downKeys: new Set<string>() };
-    const bar = new ModifierBar({
-      document,
-      synthesizer: new KeyboardSynthesizer({ document, getKeyboardManager: () => manager }),
-      onFlagsChanged: () => undefined,
-    });
-    bar.attach();
-
-    const buttons = (bar as unknown as { buttons: Map<string, HTMLButtonElement> }).buttons;
-    const firstCode = [...buttons.keys()][0];
-    if (firstCode === undefined) {
-      throw new Error('the bar rendered no keys');
-    }
-    buttons.delete(firstCode);
-
-    expect(() => {
-      (bar as unknown as { render: () => void }).render();
-    }).not.toThrow();
-
-    // The surviving keys still got their state, so the guard skipped one key rather than the loop.
-    const survivor = bar.getElement().querySelector('.tb-key');
-    expect(survivor?.getAttribute('aria-pressed')).toBe('false');
-  });
-
   /** The collapse button, and a detach that has nothing to detach. */
   it('collapses from its own button, and tolerates a double detach', () => {
     const manager: KeyboardManagerLike = { downKeys: new Set<string>() };

@@ -7,8 +7,8 @@ import { MODIFIER_CODES } from '../../src/modifiers/ModifierState.js';
  *
  * `MODIFIER_CODES` in `ModifierState.ts` is what `diff` walks; `MODIFIER_KEYS` in
  * `keyDefinitions.ts` is what carries the key, keyCode and label used to synthesise the event.
- * Neither is derived from the other, so they can drift, and `applyLatches` has a guard that skips a
- * changed code it has no definition for.
+ * Neither is derived from the other, so they can drift, and `KeyButtons.apply` has a guard that skips
+ * a changed code it has no definition for.
  *
  * That guard is worth having and was worth executing. If the lists drift, the silent outcome is a
  * modifier that latches in the UI and is never actually pressed: the bar shows Alt held, Foundry
@@ -26,25 +26,25 @@ vi.mock('../../src/modifiers/keyDefinitions.js', async (importOriginal) => {
   };
 });
 
-describe('ModifierBar when the two key lists have drifted', () => {
+describe('KeyButtons when the two key lists have drifted', () => {
   it('skips the orphaned modifier instead of pressing an undefined key', async () => {
-    const { ModifierBar } = await import('../../src/modifiers/ModifierBar.js');
+    const { KeyButtons } = await import('../../src/modifiers/KeyButtons.js');
     const { KeyLatch } = await import('../../src/modifiers/ModifierState.js');
 
     const pressed: string[] = [];
-    const bar = new ModifierBar({
+    const keys = new KeyButtons({
       document,
       synthesizer: {
         press: (definition: { code: string }) => pressed.push(definition.code),
         release: () => undefined,
         tap: () => undefined,
       } as never,
-      onFlagsChanged: () => undefined,
+      onLatchesChanged: () => undefined,
     });
-    bar.attach();
+    keys.build(document.createElement('div'));
 
     // Latch all three, including the one with no definition behind it any more.
-    (bar as unknown as { applyLatches: (next: Record<string, string>) => void }).applyLatches({
+    (keys as unknown as { apply: (next: Record<string, string>) => void }).apply({
       ControlLeft: KeyLatch.LATCHED,
       ShiftLeft: KeyLatch.LATCHED,
       AltLeft: KeyLatch.LATCHED,
