@@ -141,18 +141,6 @@ export class TongsBrowser {
   private readonly pixiProbe = new PixiMoveProbe(() => (globalThis as { canvas?: never }).canvas);
 
   /**
-   * Moves delivered to the controlled TOKEN itself, which is the count that decides the drag.
-   *
-   * ⚠️ Foundry evaluates its 10px drag gate inside a handler bound on the OBJECT, and PIXI delivers
-   * to an object only while the pointer is over it. So the gate is checked only while the pointer is
-   * still standing on the token: if it has not opened by the time the pointer leaves, it never will.
-   *
-   * Every PIXI count in this report so far has been of the LAYER, which is a different object, and
-   * it was read three times as though it answered this. A layer count stays perfectly healthy while
-   * the token receives nothing at all.
-   */
-
-  /**
    * Which of Foundry's two drag endings actually ran: the DROP, or the CANCEL.
    *
    * ⚠️ The drag now reaches DRAG with a preview clone and the token still does not move, so the
@@ -512,20 +500,6 @@ export class TongsBrowser {
     });
   }
 
-  /**
-   * Keep the last few dispatched events, with the one field that decides whether a drag is a drag.
-   *
-   * `buttons` is the whole story for dragging: it has to stay non zero on every move between the
-   * down and the up, or Foundry reads the stream as a hover and nothing follows the pointer. Seeing
-   * `pointermove buttons=0` in this list while a grab is held would name the bug outright.
-   */
-  /**
-   * Attach counters to PIXI's own layer and stage, once, lazily.
-   *
-   * Lazily because the canvas does not exist when the module is constructed, and once because these
-   * are diagnostic listeners on objects Foundry owns: adding a set per gesture would leak them into
-   * a scene change.
-   */
   /**
    * Attach the PIXI move counters, retrying until the canvas and a controlled token exist.
    *
