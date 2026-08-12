@@ -37,13 +37,13 @@ function options(overrides: Partial<Parameters<typeof deliverDiagnostics>[1]> = 
 describe('deliverDiagnostics', () => {
   it('copies the plain text and whispers the markup', () => {
     withClipboard(true);
-    const opts = options();
+    const createChatMessage = vi.fn();
 
-    const outcome = deliverDiagnostics(['<strong>a</strong>', 'b'], opts);
+    const outcome = deliverDiagnostics(['<strong>a</strong>', 'b'], options({ createChatMessage }));
 
     expect(outcome).toEqual({ copied: true, whispered: true });
-    expect(opts.createChatMessage).toHaveBeenCalledOnce();
-    const message = opts.createChatMessage.mock.calls[0]?.[0] as {
+    expect(createChatMessage).toHaveBeenCalledOnce();
+    const message = createChatMessage.mock.calls[0]?.[0] as {
       content: string;
       whisper: string[];
     };
@@ -53,12 +53,12 @@ describe('deliverDiagnostics', () => {
 
   it('says so in the message when the clipboard refused', () => {
     withClipboard(false);
-    const opts = options();
+    const createChatMessage = vi.fn();
 
-    const outcome = deliverDiagnostics(['a'], opts);
+    const outcome = deliverDiagnostics(['a'], options({ createChatMessage }));
 
     expect(outcome.copied).toBe(false);
-    const message = opts.createChatMessage.mock.calls[0]?.[0] as { content: string };
+    const message = createChatMessage.mock.calls[0]?.[0] as { content: string };
     expect(message.content).toContain('Clipboard refused, read below.');
   });
 
@@ -70,17 +70,15 @@ describe('deliverDiagnostics', () => {
   it('whispers to the user, and to nobody when there is no user', () => {
     withClipboard(true);
 
-    const named = options();
-    deliverDiagnostics(['a'], named);
-    expect((named.createChatMessage.mock.calls[0]?.[0] as { whisper: string[] }).whisper).toEqual([
-      'user-1',
-    ]);
+    // Captured directly rather than through the options object, whose type is the union the
+    // production code takes and so does not carry vitest's mock surface.
+    const named = vi.fn();
+    deliverDiagnostics(['a'], options({ createChatMessage: named }));
+    expect((named.mock.calls[0]?.[0] as { whisper: string[] }).whisper).toEqual(['user-1']);
 
-    const anonymous = options({ userId: undefined });
-    deliverDiagnostics(['a'], anonymous);
-    expect(
-      (anonymous.createChatMessage.mock.calls[0]?.[0] as { whisper: string[] }).whisper
-    ).toEqual([]);
+    const anonymous = vi.fn();
+    deliverDiagnostics(['a'], options({ createChatMessage: anonymous, userId: undefined }));
+    expect((anonymous.mock.calls[0]?.[0] as { whisper: string[] }).whisper).toEqual([]);
   });
 
   /** No chat means the console is all there is, and silence would be the worst outcome. */
