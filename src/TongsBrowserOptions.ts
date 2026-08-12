@@ -8,6 +8,15 @@ import type { GestureConfig } from './gesture/GestureTypes.js';
 export interface TongsBrowserOptions {
   readonly document: Document;
   readonly window: Window;
+  /**
+   * The window events are attributed to, as `UIEvent.view`. Defaults to `window`.
+   *
+   * ⚠️ Separate from `window` for the same reason `PointerStack` separates them: vitest's jsdom
+   * window is not a BRANDED Window, so `new PointerEvent({ view })` rejects it with "member view is
+   * not of type Window". A suite that constructs the whole module has to be able to omit it. The
+   * viewport still has to be read from somewhere, hence two fields.
+   */
+  readonly eventView?: Window;
   readonly gestureConfig?: Partial<GestureConfig>;
   readonly suppressNativeTouch?: () => boolean;
   readonly modifierBarEnabled?: boolean;
