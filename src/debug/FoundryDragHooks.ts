@@ -35,22 +35,34 @@ function describeCause(event: unknown): string {
   return `${detail.type} button=${String(detail.button)} ${detail.pointerType ?? 'n/a'}`;
 }
 
+/** What actually got hooked, so silence can be told apart from not watching. */
+export interface InstalledHooks {
+  readonly token: boolean;
+  readonly manager: boolean;
+}
+
 /**
  * Install the observers, once.
  *
- * Returns whether anything was installed, so a caller can keep trying until the canvas exists rather
- * than assuming it did.
+ * ⚠️ Returns WHICH prototypes were hooked, not merely whether to stop retrying. A device reported
+ * "NOTHING observed" while the drag origin was demonstrably being wiped, and those two facts cannot
+ * both be true of a watched drag. They are trivially both true of an UNWATCHED one, and nothing in
+ * the report said which it was. A probe whose silence is unfalsifiable is not a probe.
+ *
+ * The manager prototype is reached through a live controlled token, so it can genuinely be missing
+ * while the token class is present. That is a normal state, not an error, and it has to be visible
+ * rather than inferred.
  */
-export function installFoundryDragHooks(options: FoundryDragHookOptions): boolean {
+export function installFoundryDragHooks(options: FoundryDragHookOptions): InstalledHooks {
   const tokenPrototype = options.getTokenPrototype();
   if (tokenPrototype === undefined) {
-    return false;
+    return { token: false, manager: false };
   }
 
-  hookManager(options);
+  const manager = hookManager(options);
   hookRedraws(tokenPrototype, options);
   hookEndings(tokenPrototype, options);
-  return true;
+  return { token: true, manager };
 }
 
 /**
@@ -66,10 +78,10 @@ export function installFoundryDragHooks(options: FoundryDragHookOptions): boolea
  * "neither ending ran" while the drag is being destroyed in front of it. `reset()` sets
  * `interactionData = {}`, which is why the drag origin kept vanishing between samples.
  */
-function hookManager(options: FoundryDragHookOptions): void {
+function hookManager(options: FoundryDragHookOptions): boolean {
   const managerPrototype = options.getManagerPrototype();
   if (managerPrototype === undefined) {
-    return;
+    return false;
   }
 
   for (const name of ['cancel', 'reset']) {
@@ -83,6 +95,7 @@ function hookManager(options: FoundryDragHookOptions): void {
       return (original as (...inner: unknown[]) => unknown).apply(this, args);
     };
   }
+  return true;
 }
 
 /**
@@ -133,9 +146,17 @@ function hookEndings(prototype: Prototype, options: FoundryDragHookOptions): voi
 }
 
 /** Turn the observations into the one line the report prints, verdict included. */
-export function summariseDragEndings(observations: readonly string[]): string {
+export function summariseDragEndings(
+  observations: readonly string[],
+  installed: InstalledHooks = { token: true, manager: true }
+): string {
+  if (!installed.token) {
+    return 'NOT WATCHING. The observers never installed, so this line says nothing about the drag.';
+  }
   if (observations.length === 0) {
-    return 'NOTHING observed. Foundry never started, cancelled or ended a drag on this token.';
+    return installed.manager
+      ? 'NOTHING observed, and the observers ARE installed, so Foundry genuinely did none of these.'
+      : 'nothing observed, but the MANAGER hook never installed, so a cancel at GRABBED would be invisible.';
   }
   const joined = observations.join(' then ');
   if (observations.some((note) => note.includes('DURING THE DRAG'))) {
