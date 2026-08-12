@@ -15,6 +15,7 @@ import {
  */
 let suppressor: NativePointerSuppressor | null = null;
 let excluded: EventTarget | null = null;
+let ownUi: EventTarget | null = null;
 
 const make = (enabled = true) => {
   suppressor?.unbind();
@@ -22,6 +23,7 @@ const make = (enabled = true) => {
     window,
     enabled: () => enabled,
     isExcluded: (target) => target === excluded,
+    isOwnInterface: (target) => target === ownUi,
   });
   suppressor.bind();
   return suppressor;
@@ -40,6 +42,7 @@ const finger = (type: string, overrides: PointerEventInit = {}) =>
 beforeEach(() => {
   document.body.innerHTML = '';
   excluded = null;
+  ownUi = null;
   suppressor?.unbind();
   suppressor = null;
 });
@@ -72,7 +75,6 @@ describe('which events are suppressed', () => {
     expect(pixi).not.toHaveBeenCalled();
   });
 });
-
 describe('what gets through', () => {
   /**
    * ⚠️ Ours must pass. The virtual pointer dispatches with `pointerType: 'mouse'`, which is the
@@ -117,7 +119,6 @@ describe('what gets through', () => {
     expect(pixi).toHaveBeenCalled();
   });
 });
-
 describe('binding', () => {
   /**
    * ⚠️ IMMEDIATE propagation, not plain. PIXI's listener is on the SAME node, and `stopPropagation`
@@ -160,6 +161,7 @@ describe('binding', () => {
         window,
         enabled: () => true,
         isExcluded: () => false,
+        isOwnInterface: () => false,
       }).unbind();
     }).not.toThrow();
   });
