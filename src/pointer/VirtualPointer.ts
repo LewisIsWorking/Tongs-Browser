@@ -1,4 +1,5 @@
 import type { CursorOverlay } from './CursorOverlay.js';
+import { DragCapture } from './DragCapture.js';
 import { EventDispatcher, type DispatchTargets } from './EventDispatcher.js';
 import type { EventDescriptor, PointerPosition } from './EventDescriptor.js';
 import type { HitTester } from './HitTester.js';
@@ -48,7 +49,7 @@ export class VirtualPointer {
   private dragging = false;
   private dragButton: MouseButtonValue = MouseButton.LEFT;
   /** The element captured at drag start. See resolveDragTarget for why a drag must not re-hit-test. */
-  private dragTarget: Element | null = null;
+  private readonly dragCapture = new DragCapture();
 
   private readonly hitTester: HitTester;
   private readonly dispatcher: EventDispatcher;
@@ -119,68 +120,36 @@ export class VirtualPointer {
     this.dispatchAtCurrent(buildDragStartSequence(this.state, button));
     // dispatchAtCurrent resolved and recorded the element the press landed on. That element owns the
     // rest of this gesture, exactly as a browser's implicit pointer capture would.
-    this.dragTarget = this.previousTarget;
+    this.dragCapture.claim(this.previousTarget);
+  }
+
+  /** The element every event of an in progress drag goes to. See pointer/DragCapture.ts. */
+  private resolveDragTarget(): Element | null {
+    return this.dragCapture.resolve(() => this.hitTester.resolve(this.state.position).element);
   }
 
   /**
-   * The element every event of an in progress drag goes to.
+   * One step of an in progress drag.
    *
-   * ⚠️ This used to hit test afresh on every step, and that was the bug behind "dragging a token
-   * does nothing" on a real phone. A browser does NOT do that: pointerdown implicitly CAPTURES the
-   * pointer to the element that received it, and every later move and the up go to that same element
-   * however far the pointer travels. Re-resolving means the moment the pointer crosses anything else,
-   * a chat window, the modifier bar, a sheet, the drag events are delivered to that instead and the
-   * canvas simply stops hearing about the drag.
+   * ⚠️ Routed through `applyMove` rather than duplicating it, which is what the comment there argues
+   * for: the two used to be separate copies of the same operation, and the copy in `moveTo`/`moveBy`
+   * was the one that forgot to keep the buttons bitmask set. Routing on the drag STATE rather than on
+   * which method was called is exactly what stops them drifting apart again.
    *
-   * Measured on a device: `pointermove buttons=1 -> div#`, when it needed to reach `canvas#board`.
-   * It never showed up on desktop, because a drag across empty canvas never crosses anything.
-   *
-   * The original reason for re-resolving was real and is preserved: Foundry re-renders applications
-   * mid interaction, so a captured element can be detached, and dispatching at a detached element
-   * throws the event away silently. So the capture is used only while it is still in the document.
+   * The guard stays, because a drag step with no drag in progress is a caller error rather than an
+   * ordinary hover, and silently turning it into one would hide that.
    */
-  private resolveDragTarget(): Element | null {
-    if (this.dragTarget?.isConnected === true) {
-      return this.dragTarget;
-    }
-    const fallback = this.hitTester.resolve(this.state.position).element;
-    this.dragTarget = fallback;
-    return fallback;
-  }
-
-  /** One step of an in progress drag. */
   public dragBy(deltaX: number, deltaY: number): void {
     if (!this.dragging) {
       return;
     }
-    this.state = translated(this.state, deltaX, deltaY);
-    this.cursor?.moveTo(this.state.position);
-
-    // Clamping still comes from the hit test, so the pointer cannot leave the viewport.
-    const result = this.hitTester.resolve(this.state.position);
-    this.state = withPosition(this.state, result.position);
-    this.previousTarget = result.element;
-
-    this.dispatcher.dispatchAll(buildDragMoveSequence(this.state, this.dragButton), {
-      current: this.resolveDragTarget(),
-      previous: null,
-    });
+    this.applyMove(translated(this.state, deltaX, deltaY));
   }
 
   public endDrag(): void {
-    if (!this.dragging) {
-      return;
-    }
     // The release has to reach the element that received the press, or Foundry is left believing a
     // button is still held and the token stays stuck to the pointer.
-    const target = this.resolveDragTarget();
-    this.dragging = false;
-    this.cursor?.setButtonHeld(false);
-    this.dispatcher.dispatchAll(buildDragEndSequence(this.state, this.dragButton), {
-      current: target,
-      previous: null,
-    });
-    this.dragTarget = null;
+    this.finishDrag(buildDragEndSequence(this.state, this.dragButton));
   }
 
   /**
@@ -188,17 +157,26 @@ export class VirtualPointer {
    * Without this, Foundry keeps its drag state and a token stays stuck to the pointer.
    */
   public cancelDrag(): void {
+    this.finishDrag(buildDragCancelSequence(this.state));
+  }
+
+  /**
+   * Ending and cancelling differ in exactly one thing: the sequence sent. Everything else has to be
+   * identical, and keeping them as two copies is how they drift.
+   *
+   * ⚠️ The target is resolved BEFORE the flag is cleared. Resolving after would take the fallback
+   * path on a detached capture and hit test at the pointer, which by then is wherever the drag ended
+   * rather than on whatever received the press.
+   */
+  private finishDrag(sequence: readonly EventDescriptor[]): void {
     if (!this.dragging) {
       return;
     }
     const target = this.resolveDragTarget();
     this.dragging = false;
     this.cursor?.setButtonHeld(false);
-    this.dispatcher.dispatchAll(buildDragCancelSequence(this.state), {
-      current: target,
-      previous: null,
-    });
-    this.dragTarget = null;
+    this.dispatcher.dispatchAll(sequence, { current: target, previous: null });
+    this.dragCapture.release();
   }
 
   private applyMove(nextState: PointerState): void {
