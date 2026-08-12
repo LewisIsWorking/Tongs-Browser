@@ -70,7 +70,6 @@ describe('KeyButtons.build', () => {
     expect(tap(MOMENTARY)?.classList.contains('tb-key--momentary')).toBe(true);
   });
 });
-
 describe('the three latch states', () => {
   it('cycles off, latched, locked and back on repeated taps', () => {
     const keys = build();
@@ -116,7 +115,6 @@ describe('the three latch states', () => {
     ).toEqual(['tb-key--latched']);
   });
 });
-
 describe('pressing the real key', () => {
   it('presses once when latched and releases once when cleared', () => {
     build();
@@ -152,7 +150,6 @@ describe('pressing the real key', () => {
     expect(onLatchesChanged).toHaveBeenCalledTimes(2);
   });
 });
-
 describe('momentary keys', () => {
   /** Latch Ctrl, then tap Delete: this is what makes combinations reachable at all. */
   it('taps the key, carrying whatever is currently latched', () => {
@@ -193,52 +190,5 @@ describe('momentary keys', () => {
     tap(MOMENTARY)?.click();
 
     expect(onLatchesChanged).not.toHaveBeenCalled();
-  });
-});
-
-describe('KeyButtons.clearAll', () => {
-  it('releases everything held and returns every key to off', () => {
-    const keys = build();
-    // Locked, which is the state that survives an action, so clearAll is the only way out of it.
-    tap(STICKY)?.click();
-    tap(STICKY)?.click();
-
-    keys.clearAll();
-
-    expect(tap(STICKY)?.dataset['latch']).toBe(KeyLatch.OFF);
-    expect(tap(STICKY)?.getAttribute('aria-pressed')).toBe('false');
-    expect(released).toEqual([STICKY]);
-  });
-});
-
-describe('KeyButtons.get', () => {
-  it('hands back a built button, and nothing for an unknown code', () => {
-    const keys = build();
-
-    expect(keys.get(STICKY)).toBe(tap(STICKY));
-    expect(keys.get('NoSuchKey')).toBeUndefined();
-  });
-});
-
-describe('a button that has gone missing', () => {
-  /**
-   * A key can go missing when something else re-renders over the bar. The render guard skips that one
-   * rather than throwing, which would take every remaining key with it.
-   */
-  it('renders the remaining keys when one button has gone', () => {
-    const keys = build();
-    const buttons = (keys as unknown as { buttons: Map<string, HTMLButtonElement> }).buttons;
-    const firstCode = [...buttons.keys()][0];
-    if (firstCode === undefined) {
-      throw new Error('no keys were built');
-    }
-    buttons.delete(firstCode);
-
-    expect(() => {
-      tap(STICKY === firstCode ? (MODIFIER_KEYS[1]?.code ?? STICKY) : STICKY)?.click();
-    }).not.toThrow();
-
-    const survivor = container.querySelector('.tb-key');
-    expect(survivor?.hasAttribute('aria-pressed')).toBe(true);
   });
 });

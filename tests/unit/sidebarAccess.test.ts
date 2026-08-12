@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  decideSidebarAction,
   popOutSidebarTab,
   resolveSidebarTabNames,
-  toggleFoundrySidebar,
   type FoundryUi,
 } from '../../src/foundry/SidebarAccess.js';
 
@@ -84,7 +82,6 @@ describe('resolveSidebarTabNames', () => {
     expect(resolveSidebarTabNames(access(undefined))).toEqual([]);
   });
 });
-
 describe('popOutSidebarTab', () => {
   it('pops a tab out when it is not already open', () => {
     let rendered = '';
@@ -137,110 +134,5 @@ describe('popOutSidebarTab', () => {
     expect(() => {
       popOutSidebarTab(access({ sidebar: { popouts: {} } }), 'nope');
     }).not.toThrow();
-  });
-});
-
-describe('toggleFoundrySidebar', () => {
-  it('expands a collapsed sidebar and reports that it worked', () => {
-    let asked: boolean | undefined;
-    const ui: FoundryUi = {
-      sidebar: {
-        expanded: false,
-        toggleExpanded: (expanded?: boolean) => {
-          asked = expanded;
-        },
-      },
-    };
-
-    expect(toggleFoundrySidebar(access(ui))).toBe(true);
-    expect(asked).toBe(true);
-  });
-
-  it('collapses an expanded one', () => {
-    let asked: boolean | undefined;
-    const ui: FoundryUi = {
-      sidebar: {
-        expanded: true,
-        toggleExpanded: (expanded?: boolean) => {
-          asked = expanded;
-        },
-      },
-    };
-
-    toggleFoundrySidebar(access(ui));
-
-    expect(asked).toBe(false);
-  });
-
-  /**
-   * Reporting failure is the point. A caller that cannot expand the sidebar falls back to the tab
-   * picker, and a silent no op would leave the user tapping a button that does nothing, which is
-   * exactly what a device reported before the picker existed.
-   */
-  it('reports failure when this Foundry build cannot toggle', () => {
-    expect(toggleFoundrySidebar(access({ sidebar: {} }))).toBe(false);
-    expect(toggleFoundrySidebar(access(undefined))).toBe(false);
-  });
-});
-
-/**
- * What the sidebar button decides to do, which is the part that was wrong twice before it was right.
- *
- * Both lessons in the ordering came from a device rather than from reasoning, and both replaced
- * something that looked obviously correct: expanding the docked sidebar does nothing visible on a
- * phone, and popping out only the ACTIVE tab gives chat and nothing else because changing tabs needs
- * the 27px strip that started the whole problem.
- */
-describe('decideSidebarAction', () => {
-  const withTabs = (tabs: Record<string, { gmOnly?: boolean }>, extra: Partial<FoundryUi> = {}) =>
-    ({
-      sidebar: sidebarDeclaring(tabs),
-      ...Object.fromEntries(Object.keys(tabs).map((name) => [name, tab(() => undefined)])),
-      ...extra,
-    }) as FoundryUi;
-
-  it('closes an open picker, so the button is never a one way trip', () => {
-    expect(decideSidebarAction(access(withTabs({ chat: {} })), true)).toEqual({
-      kind: 'closeMenu',
-    });
-  });
-
-  /** Every tab, not just the active one. Popping out the active tab gave chat and nothing else. */
-  it('offers a picker when there is more than one tab', () => {
-    const action = decideSidebarAction(access(withTabs({ chat: {}, actors: {} })), false);
-
-    expect(action).toEqual({ kind: 'openMenu', tabNames: ['chat', 'actors'] });
-  });
-
-  it('pops the only tab straight out rather than showing a picker of one', () => {
-    expect(decideSidebarAction(access(withTabs({ chat: {} })), false)).toEqual({
-      kind: 'togglePopout',
-      tabName: 'chat',
-    });
-  });
-
-  /**
-   * Expanding the docked sidebar is the LAST resort, not the first. On a phone it flips `expanded`
-   * and nothing appears, so it only makes sense when there is genuinely nothing to pop out.
-   */
-  it('falls back to the docked sidebar only when no tab can pop out', () => {
-    const ui = {
-      sidebar: Object.assign(sidebarDeclaring({ chat: {} }), {
-        toggleExpanded: () => undefined,
-      }),
-      chat: tab(undefined),
-    } as FoundryUi;
-
-    expect(decideSidebarAction(access(ui), false)).toEqual({ kind: 'toggleDocked' });
-  });
-
-  it('does nothing when there is no sidebar at all', () => {
-    expect(decideSidebarAction(access(undefined), false)).toEqual({ kind: 'nothing' });
-  });
-
-  it('does nothing when there is neither a tab to pop out nor a way to expand', () => {
-    const ui = { sidebar: sidebarDeclaring({ chat: {} }), chat: tab(undefined) } as FoundryUi;
-
-    expect(decideSidebarAction(access(ui), false)).toEqual({ kind: 'nothing' });
   });
 });

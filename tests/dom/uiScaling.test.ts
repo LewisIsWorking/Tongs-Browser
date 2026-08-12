@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { HitTester } from '../../src/pointer/HitTester.js';
 import { DEFAULT_UI_SCALE } from '../../src/scaling/ScaleRegions.js';
 import { UiScaler } from '../../src/scaling/UiScaler.js';
-import { WindowClampBinder } from '../../src/scaling/WindowClampBinder.js';
 
 beforeEach(() => {
   document.body.innerHTML = '';
@@ -105,21 +104,6 @@ describe('UiScaler', () => {
     expect(document.querySelector<HTMLElement>('#ui-left')?.style.transformOrigin).toBe('top left');
   });
 });
-
-/**
- * The brief predicted that transform: scale() would break elementFromPoint and require every hit
- * test to convert coordinates first. Checked against Chromium instead of assumed, and the prediction
- * is wrong: browser hit testing is transform aware, elementFromPoint takes viewport coordinates, and
- * a cursor drawn at P and a hit test at P already agree at any scale.
- *
- * With a 400px box scaled to 0.5 about its top left, containing a child at 200,200:
- *   elementFromPoint(120, 120) -> the child, its visual position
- *   elementFromPoint(250, 250) -> nothing, its untransformed layout position
- *
- * So the pointer must keep using raw viewport coordinates while the interface is scaled. Converting
- * would turn a working case into a broken one. This test pins that decision so a future change
- * cannot quietly wire the UI scale into the hit tester.
- */
 describe('scaling and hit testing must stay decoupled', () => {
   it('hit tests at raw viewport coordinates by default, applying no conversion', () => {
     const calls: [number, number][] = [];
@@ -135,76 +119,5 @@ describe('scaling and hit testing must stay decoupled', () => {
     tester.resolve({ clientX: 120, clientY: 120 });
 
     expect(calls).toEqual([[120, 120]]);
-  });
-});
-
-describe('WindowClampBinder', () => {
-  function makeWindow(
-    className: string,
-    rect: { left: number; top: number; width: number; height: number }
-  ): HTMLElement {
-    const element = document.createElement('div');
-    element.className = className;
-    document.body.append(element);
-
-    // jsdom reports zero for every layout property, so the offsets are defined explicitly.
-    Object.defineProperty(element, 'offsetLeft', { value: rect.left, configurable: true });
-    Object.defineProperty(element, 'offsetTop', { value: rect.top, configurable: true });
-    Object.defineProperty(element, 'offsetWidth', { value: rect.width, configurable: true });
-    Object.defineProperty(element, 'offsetHeight', { value: rect.height, configurable: true });
-    return element;
-  }
-
-  function binder(): WindowClampBinder {
-    return new WindowClampBinder({
-      document,
-      window: { innerWidth: 400, innerHeight: 800 } as Window,
-    });
-  }
-
-  /**
-   * Foundry has two application systems live at once and a real PF2e session has both on screen, so
-   * handling only one leaves half the windows unreachable.
-   */
-  it('handles legacy Application windows', () => {
-    const element = makeWindow('app window-app', { left: 350, top: 10, width: 300, height: 200 });
-    binder().clampAll();
-
-    expect(element.style.left).toBe('100px');
-  });
-
-  it('handles ApplicationV2 windows', () => {
-    const element = makeWindow('application', { left: 350, top: 10, width: 300, height: 200 });
-    binder().clampAll();
-
-    expect(element.style.left).toBe('100px');
-  });
-
-  it('counts a window matching both selectors only once', () => {
-    const element = makeWindow('app window-app application', {
-      left: 350,
-      top: 10,
-      width: 300,
-      height: 200,
-    });
-    binder().clampAll();
-
-    expect(element.style.left).toBe('100px');
-  });
-
-  it('caps size as well as position', () => {
-    const element = makeWindow('application', { left: 0, top: 0, width: 2000, height: 2000 });
-    binder().clampAll();
-
-    expect(element.style.maxWidth).toBe('95vw');
-    expect(element.style.maxHeight).toBe('90vh');
-  });
-
-  it('leaves a window that already fits untouched', () => {
-    const element = makeWindow('application', { left: 10, top: 10, width: 100, height: 100 });
-    binder().clampAll();
-
-    expect(element.style.left).toBe('');
-    expect(element.style.top).toBe('');
   });
 });

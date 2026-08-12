@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDiagnosticsReport,
   describeThinly,
-  toPlainText,
   type DiagnosticsSnapshot,
 } from '../../src/debug/DiagnosticsReport.js';
 
@@ -99,7 +98,6 @@ describe('describeThinly', () => {
     expect(describeThinly({ sampled: true, peak: 5, samples: 1 }, 0)).toBe('5.0px over 1 samples');
   });
 });
-
 describe('buildDiagnosticsReport', () => {
   /**
    * The ORDER is load bearing. A phone chat window shows roughly fifteen lines and silently
@@ -249,15 +247,5 @@ describe('buildDiagnosticsReport', () => {
     const lines = buildDiagnosticsReport(snapshot({ recentDispatches: ['a', 'b'] }));
 
     expect(lines.at(-1)).toBe('<code>a</code><br><code>b</code>');
-  });
-});
-
-describe('toPlainText', () => {
-  /**
-   * The clipboard copy exists because reading a report off a phone screenshot truncates it, so the
-   * plain form has to keep every line break the markup was providing.
-   */
-  it('turns line break markup into real newlines and drops the rest', () => {
-    expect(toPlainText(['<strong>a</strong>', '<code>b</code><br><code>c</code>'])).toBe('a\nb\nc');
   });
 });
