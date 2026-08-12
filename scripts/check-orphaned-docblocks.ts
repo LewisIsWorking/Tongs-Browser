@@ -33,6 +33,7 @@ export function findOrphanedDocblocks(source: string, file = ''): Orphan[] {
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? '';
+
     /*
      * ⚠️ TWO or more spaces of indent, not one, and the self test caught this on the first run.
      *
@@ -42,7 +43,21 @@ export function findOrphanedDocblocks(source: string, file = ''): Orphan[] {
      * its first export, which is the ordinary and correct shape, and the guard would then have had
      * to be turned off rather than trusted.
      */
-    if (!/^\s{2,}\*\/\s*$/.test(line)) {
+    if (!/^\s{2,}/.test(line)) {
+      continue;
+    }
+
+    /*
+     * ⚠️ BOTH shapes of ending, and missing the second one hid two real orphans.
+     *
+     * A multi line block closes on a line of its own. A ONE LINE block closes on the same line it
+     * opens, so a check for a lone closing marker walks straight past it. Both were sitting in
+     * TongsBrowser, one line each, documenting fields that had moved into DragSampler.
+     */
+    const trimmed = line.trim();
+    const isMultiLineEnd = trimmed === '*/';
+    const isSingleLineBlock = trimmed.startsWith('/**') && trimmed.endsWith('*/');
+    if (!isMultiLineEnd && !isSingleLineBlock) {
       continue;
     }
 
@@ -50,18 +65,22 @@ export function findOrphanedDocblocks(source: string, file = ''): Orphan[] {
     while (next < lines.length && (lines[next] ?? '').trim() === '') {
       next += 1;
     }
-    if (next < lines.length && (lines[next] ?? '').trim().startsWith('/**')) {
-      // Walk back to the opening, so the message can name what is being orphaned.
-      let open = index;
-      while (open > 0 && !(lines[open] ?? '').trim().startsWith('/**')) {
-        open -= 1;
-      }
-      orphans.push({
-        file,
-        line: open + 1,
-        firstLine: (lines[open + 1] ?? '').replace(/^\s*\*\s?/, '').slice(0, 72),
-      });
+    if (next >= lines.length || !(lines[next] ?? '').trim().startsWith('/**')) {
+      continue;
     }
+
+    // Walk back to the opening, so the message can name what is being orphaned.
+    let open = index;
+    while (open > 0 && !(lines[open] ?? '').trim().startsWith('/**')) {
+      open -= 1;
+    }
+    orphans.push({
+      file,
+      line: open + 1,
+      firstLine: (lines[isSingleLineBlock ? open : open + 1] ?? '')
+        .replace(/^\s*\/?\*+\s?/, '')
+        .slice(0, 72),
+    });
   }
 
   return orphans;

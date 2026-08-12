@@ -17,7 +17,10 @@ import type { DragSample, DragSnapshot, Point } from './DragMeasurements.js';
 export type { DragSample, DragSnapshot, Point };
 
 export class DragSampler {
+  /** Highest Foundry interaction state seen during the current gesture. */
   private peakInteractionState = 0;
+
+  /** Most drag preview objects seen during the current gesture. Non zero means a drag really began. */
   private peakPreviewCount = 0;
   private movesDispatched = 0;
   private lastGateDistance = Number.NaN;
