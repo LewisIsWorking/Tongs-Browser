@@ -1,4 +1,5 @@
-import type { SampledPeak } from './DiagnosticsReport.js';
+import { Peak } from './Peak.js';
+import type { DragSample, DragSnapshot, Point } from './DragMeasurements.js';
 
 /**
  * The measurements taken during one drag. Extracted from TongsBrowser 2026-08-12.
@@ -11,54 +12,9 @@ import type { SampledPeak } from './DiagnosticsReport.js';
  *
  * So nothing here exposes a bare number. Every reading leaves with its count attached.
  */
-export interface Point {
-  readonly x: number;
-  readonly y: number;
-}
 
-export interface DragSample {
-  readonly interactionState?: number | undefined;
-  readonly previewCount?: number | undefined;
-  /** Foundry's recorded drag origin, in screen space, or undefined when it is not readable. */
-  readonly foundryOrigin?: Point | undefined;
-  /** PIXI's own pointer, which is what Foundry measures its drag gate against. */
-  readonly pixiPointer?: Point | undefined;
-  /** Where our virtual pointer is, which is the only position Foundry cannot confound. */
-  readonly ourPointer?: { readonly clientX: number; readonly clientY: number } | undefined;
-}
-
-export interface DragSnapshot {
-  readonly peakInteractionState: number;
-  readonly peakPreviewCount: number;
-  readonly movesDispatched: number;
-  readonly originDrift: SampledPeak;
-  readonly dragGate: SampledPeak;
-  readonly divergence: SampledPeak;
-  readonly lastGateDistance: number;
-  readonly travel: { readonly recorded: boolean; readonly peak: number };
-}
-
-/** A peak that also remembers how often it was looked at. */
-class Peak {
-  private value = 0;
-  private count = 0;
-
-  public add(reading: number): void {
-    this.count += 1;
-    if (Number.isFinite(reading) && reading > this.value) {
-      this.value = reading;
-    }
-  }
-
-  public reset(): void {
-    this.value = 0;
-    this.count = 0;
-  }
-
-  public read(): SampledPeak {
-    return { sampled: this.count > 0, peak: this.value, samples: this.count };
-  }
-}
+// Re-exported so every existing importer of DragSampler keeps working unchanged.
+export type { DragSample, DragSnapshot, Point };
 
 export class DragSampler {
   private peakInteractionState = 0;
@@ -66,9 +22,65 @@ export class DragSampler {
   private movesDispatched = 0;
   private lastGateDistance = Number.NaN;
 
+  /**
+   * The distance Foundry itself gates the drag on. Must reach 10 or no drag ever starts.
+   *
+   * ⚠️ `peakDragDistance` starts at 0 and is only ever written when BOTH Foundry's `screenOrigin`
+   * and PIXI's pointer are readable. When they are not, it keeps its initial 0 and the report
+   * printed "peak distance 0.0px, needs >= 10" beside it, which reads as a measurement saying the
+   * pointer never travelled. It measured nothing at all. `sampledDragDistance` records whether the
+   * computation ever ran, so the report can say "not measurable" rather than invent a zero.
+   */
   private readonly gate = new Peak();
+  /**
+   * How far OUR pointer got from PIXI's, at their furthest apart during the drag.
+   *
+   * This is the measurement that splits the remaining problem, and a device forced it. Foundry gates
+   * the drag on PIXI's pointer, never on ours, and `canvas.mousePosition` is derived from PIXI's too.
+   * So if PIXI is not tracking the events we dispatch, every position in this report except our own
+   * describes something else entirely, and it does so silently: a report saying the pointer is not
+   * inside the token is perfectly true about PIXI's pointer and says nothing about ours.
+   *
+   * Measured on desktop Chrome the two agree, which is why every check passes there. A device
+   * reported Foundry's gate distance as exactly 0.0 across a whole gesture while our own trace showed
+   * the pointer moving, and those two facts can only both be true if PIXI never saw the moves.
+   *
+   * Sampled during the drag rather than at report time, because by report time the user has tapped a
+   * button and PIXI's pointer is on that button.
+   */
   private readonly divergence = new Peak();
+  /**
+   * How far Foundry's OWN recorded drag origin moved during the drag. It is supposed to move zero.
+   *
+   * A device's three numbers say this already by arithmetic: our pointer travelled 139px, PIXI's
+   * pointer was 0px from ours, and Foundry's gate `|pixi - screenOrigin|` was 0px, so screenOrigin
+   * must have travelled 139px too. An origin that follows the pointer can never be 10px away from
+   * it, which is why that device sits at GRABBED forever and no drag ever begins.
+   *
+   * Measured directly rather than inferred, because a three step inference is exactly the kind of
+   * reasoning that has been wrong twice already in this investigation, and because a direct number
+   * is what would be worth reporting upstream. Measured on desktop and under emulated touch, a
+   * mobile user agent and dpr 3, screenOrigin is PINNED: 800 across twelve steps, 683 across twelve
+   * more. So this is not something the module does to it in the ordinary case.
+   */
   private readonly originDrift = new Peak();
+  /**
+   * How far OUR pointer got from where the grab started, measured only against ourselves.
+   *
+   * ⚠️ This is the measurement three device reports needed and none of them had, and its absence is
+   * why they were unreadable. Every distance in the report was computed against something Foundry
+   * owns, so when Foundry's numbers came back as zeros there was no way to tell which of two
+   * completely different bugs was in front of us:
+   *
+   *   1. the pointer travelled 200px and Foundry's drag origin FOLLOWED it, so its gate can never
+   *      open, or
+   *   2. the pointer only ever travelled 8px, Foundry is entirely correct to refuse, and the
+   *      complaint is about how far a finger has to travel to move the pointer.
+   *
+   * Both produce `gate distance 0.0` and both produce a token that does not move. They have nothing
+   * else in common and the fixes share no code. Measuring our own travel against our own grab point
+   * touches no Foundry state at all, so it cannot be confounded by whatever Foundry is doing.
+   */
   private readonly travel = new Peak();
 
   private originAtStart: Point | null = null;
