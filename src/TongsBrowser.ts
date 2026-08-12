@@ -1,16 +1,16 @@
 import { logger } from './core/Logger.js';
 import { DragDiagnostics } from './debug/DragDiagnostics.js';
+import { FoundryAccess } from './foundry/FoundryAccess.js';
+import { wireTrayActions } from './TrayWiring.js';
 import { FoundryActions } from './foundry/FoundryActions.js';
-import { availableWidthBesideSidebar } from './foundry/AvailableWidth.js';
-import { readCanvasPivot, readCanvasScale, readZoomLimits } from './foundry/CanvasReaders.js';
 import { DebugOverlay } from './debug/DebugOverlay.js';
-import { CanvasController, type CanvasLike } from './gesture/CanvasController.js';
+import { CanvasController } from './gesture/CanvasController.js';
 import { ExclusionZones } from './gesture/ExclusionZones.js';
 import { GestureController } from './gesture/GestureController.js';
 import { TouchBinder } from './gesture/TouchBinder.js';
 import type { GestureConfig } from './gesture/GestureTypes.js';
-import { KeyboardSynthesizer, type KeyboardManagerLike } from './modifiers/KeyboardSynthesizer.js';
-import { ModifierBar, type BarPosition, type TrayAction } from './modifiers/ModifierBar.js';
+import { KeyboardSynthesizer } from './modifiers/KeyboardSynthesizer.js';
+import { ModifierBar, type BarPosition } from './modifiers/ModifierBar.js';
 import { MODULE_ID } from './constants.js';
 import { PauseRelay, type SocketLike } from './relay/PauseRelay.js';
 import { CursorOverlay } from './pointer/CursorOverlay.js';
@@ -18,7 +18,6 @@ import { VirtualPointer } from './pointer/VirtualPointer.js';
 import { UiScaler } from './scaling/UiScaler.js';
 import { WindowClampBinder } from './scaling/WindowClampBinder.js';
 import { createPointerStack } from './PointerStack.js';
-import { buildTrayActions } from './ui/TrayActions.js';
 
 export interface TongsBrowserOptions {
   readonly document: Document;
@@ -54,6 +53,9 @@ export class TongsBrowser {
   private readonly pauseRelay: PauseRelay;
   /** What the tray buttons do to Foundry. See foundry/FoundryActions.ts. */
   private readonly actions: FoundryActions;
+
+  /** Reaching for Foundry's globals, in one place. See foundry/FoundryAccess.ts. */
+  private readonly access = new FoundryAccess();
 
   /** Everything measured about a drag, and the report it whispers. See debug/DragDiagnostics.ts. */
   private readonly diagnostics: DragDiagnostics;
@@ -94,10 +96,10 @@ export class TongsBrowser {
     this.cursor = stack.cursor;
 
     const canvasController = new CanvasController({
-      getCanvas: () => this.resolveCanvas(),
-      getScale: () => this.resolveCanvasScale(),
-      getPivot: () => this.resolveCanvasPivot(),
-      getZoomLimits: () => this.resolveZoomLimits(),
+      getCanvas: () => this.access.resolveCanvas(),
+      getScale: () => this.access.resolveCanvasScale(),
+      getPivot: () => this.access.resolveCanvasPivot(),
+      getZoomLimits: () => this.access.resolveZoomLimits(),
       logger,
     });
 
@@ -113,7 +115,7 @@ export class TongsBrowser {
 
     this.synthesizer = new KeyboardSynthesizer({
       document: doc,
-      getKeyboardManager: () => this.resolveKeyboardManager(),
+      getKeyboardManager: () => this.access.resolveKeyboardManager(),
       logger,
     });
 
@@ -131,8 +133,13 @@ export class TongsBrowser {
       ...(options.onBarPositionChanged === undefined
         ? {}
         : { onPositionChanged: options.onBarPositionChanged }),
-      getAvailableWidth: () => this.resolveAvailableWidth(),
-      trayActions: this.buildTrayActions(canvasController),
+      getAvailableWidth: () => this.access.resolveAvailableWidth(),
+      trayActions: wireTrayActions(canvasController, {
+        actions: this.actions,
+        // A thunk, because the pointer field is not assigned until after the bar is built.
+        pointer: () => this.pointer,
+        diagnostics: this.diagnostics,
+      }),
     });
 
     this.scaler = new UiScaler({
@@ -291,121 +298,6 @@ export class TongsBrowser {
   /** Which strategy the keyboard probe settled on. Surfaced for diagnostics and the settings UI. */
   public getKeyboardStrategy(): string {
     return this.synthesizer.getStrategy();
-  }
-
-  private resolveKeyboardManager(): KeyboardManagerLike | null {
-    if (typeof game === 'undefined') {
-      return null;
-    }
-    return game.keyboard ?? null;
-  }
-
-  /**
-   * The typeof guard is not redundant with the declared type. A global that Foundry has not defined
-   * at all throws a ReferenceError on plain access, which typeof is the only way to survive.
-   */
-  private resolveCanvas(): CanvasLike | null {
-    if (typeof canvas === 'undefined') {
-      return null;
-    }
-    return canvas;
-  }
-
-  /**
-   * How far the canvas is actually zoomed, straight from PIXI's root container.
-   *
-   * Read fresh on every pinch rather than cached. Foundry fits a scene to the viewport on load, and
-   * the user can also zoom with the wheel or Foundry's own controls, so any remembered value is
-   * wrong the moment something else touches it. Returning null when it cannot be read lets the
-   * controller fall back rather than build a pinch on NaN.
-   */
-  private resolveCanvasScale(): number | null {
-    return readCanvasScale(typeof canvas === 'undefined' ? undefined : canvas);
-  }
-
-  /**
-   * The buttons on the bar, beyond the modifier keys.
-   *
-   * Asked for after testing on a real phone, and every one of them exists because a touch only
-   * gesture proved unreliable or unreachable there. Arrows and zoom buttons give a way to navigate
-   * that does not depend on getting a two finger gesture recognised at all, which matters because a
-   * gesture that half works is worse than a button: you cannot tell whether you did it wrong.
-   *
-   * The pan step is in screen pixels and CanvasController converts it, so the map moves the same
-   * visible distance at every zoom level. A step in scene units would crawl when zoomed out and
-   * leap when zoomed in.
-   */
-  private buildTrayActions(canvasController: CanvasController): readonly TrayAction[] {
-    return buildTrayActions({
-      toggleSidebar: () => {
-        this.actions.toggleFoundrySidebar();
-      },
-      openCharacterSheet: () => {
-        this.actions.openCharacterSheet();
-      },
-      togglePause: () => {
-        this.actions.togglePause();
-      },
-      isPaused: () => (globalThis as { game?: { paused?: boolean } }).game?.paused === true,
-      isDragging: () => this.pointer.isDragging(),
-      beginDrag: () => {
-        this.pointer.beginDrag();
-      },
-      endDrag: () => {
-        this.pointer.endDrag();
-      },
-      whisperDiagnostics: () => {
-        this.diagnostics.whisperDiagnostics();
-      },
-      zoomBy: (factor) => {
-        canvasController.zoomBy(factor);
-      },
-      panBy: (deltaX, deltaY) => {
-        canvasController.panBy(deltaX, deltaY);
-      },
-    });
-  }
-
-  /**
-   * Where the viewport is centred, in scene coordinates, straight from PIXI's root container.
-   *
-   * Read live for the same reason the scale is: anything that moves the view without going through
-   * this module, which includes Foundry's own controls, the arrow keys and a scene change, would
-   * leave a remembered value stale.
-   */
-  private resolveCanvasPivot(): { x: number; y: number } | null {
-    return readCanvasPivot(typeof canvas === 'undefined' ? undefined : canvas);
-  }
-
-  /**
-   * How much horizontal room the modifier bar may use, which is the window minus Foundry's sidebar.
-   *
-   * Measured 2026-08-11 on a 412px phone viewport: the sidebar sits hard against the right edge and
-   * runs the full height, so once the bar wraps to the full width it lands on top of the sidebar's
-   * icon column. That column is the only route to chat, actors and everything else, so covering it
-   * costs far more than covering a single button.
-   *
-   * Read live rather than remembered. The sidebar expands, collapses and moves as the window
-   * changes, and a width captured once would be wrong immediately afterwards. Returns the whole
-   * window whenever the sidebar is absent, hidden, or already off screen, so nothing here can make
-   * the bar narrower than it needs to be.
-   */
-  private resolveAvailableWidth(): number {
-    // The arithmetic, and the three ways a sidebar can be present and not in the way, live in
-    // foundry/AvailableWidth.ts where they can be tested without a layout engine.
-    const sidebar = document.querySelector('#sidebar');
-    return availableWidthBesideSidebar(
-      window.innerWidth,
-      sidebar === null ? null : sidebar.getBoundingClientRect()
-    );
-  }
-
-  /**
-   * Reads Foundry's zoom bounds when it exposes them, falling back otherwise. Written defensively
-   * because these have moved between versions and a missing value here would produce NaN scales.
-   */
-  private resolveZoomLimits(): { minimum: number; maximum: number } {
-    return readZoomLimits(typeof CONFIG === 'undefined' ? undefined : CONFIG.Canvas);
   }
 
   /**
