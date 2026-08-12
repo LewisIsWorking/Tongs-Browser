@@ -29,42 +29,10 @@ import {
   requireActiveWorld,
   type ClientPoint,
 } from './foundry-session.ts';
+import { viewport } from './touch/support.ts';
+import { checkPinchIsRelative, checkPinchIsReversible } from './touch/pinchChecks.ts';
+import { createRecorder, describeOutcome, isFailure, type Recorder } from './live/recorder.ts';
 import { Hand } from './foundry-touch.ts';
-
-/**
- * One check outcome.
- *
- * `passed: null` is a SKIP and is deliberately not a boolean, so a skip can never be mistaken for a
- * pass by a reader or by a filter. See the skip helper for why that distinction is load bearing.
- */
-interface CheckResult {
-  readonly name: string;
-  readonly passed: boolean | null;
-  readonly detail: string;
-}
-
-const results: CheckResult[] = [];
-
-function record(name: string, passed: boolean, detail: string): void {
-  results.push({ name, passed, detail });
-}
-
-/**
- * Where the canvas is looking: how far in, and at what.
- *
- * Both fields are needed together rather than separately, because every assertion in this file is a
- * comparison between two readings, and a pan is only correct RELATIVE to the scale it happened at.
- */
-interface Viewport {
-  readonly scale: number;
-  readonly pivot: ClientPoint;
-}
-
-const viewport = (page: Page): Promise<Viewport> =>
-  page.evaluate(() => ({
-    scale: canvas.stage.scale.x,
-    pivot: { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y },
-  }));
 
 /**
  * Two fingers moving together pan the canvas, and the map moves WITH the fingers.
@@ -73,7 +41,12 @@ const viewport = (page: Page): Promise<Viewport> =>
  * moves left. Asserted as a sign rather than a magnitude, because the pixel to scene conversion
  * depends on the current zoom and pinning it would test the arithmetic rather than the behaviour.
  */
-async function checkTwoFingerPan(page: Page, hand: Hand, centre: ClientPoint): Promise<void> {
+async function checkTwoFingerPan(
+  page: Page,
+  hand: Hand,
+  centre: ClientPoint,
+  recorder: Recorder
+): Promise<void> {
   const before = await viewport(page);
 
   const gap = 80;
@@ -111,91 +84,23 @@ async function checkTwoFingerPan(page: Page, hand: Hand, centre: ClientPoint): P
     return ratio > 0.5 && ratio < 1.5;
   };
 
-  record(
+  recorder.record(
     'two finger drag pans the canvas, map following the fingers',
     movedX < 0 && movedY < 0 && withinBand(movedX) && withinBand(movedY),
     `fingers moved +120,+120 at scale ${before.scale.toFixed(3)}, so the pivot should move about ` +
       `-${expected.toFixed(0)} on each axis. It moved (${movedX.toFixed(0)}, ${movedY.toFixed(0)})`
   );
 
-  record(
+  recorder.record(
     'panning does not change the zoom',
     Math.abs(after.scale - before.scale) < 1e-6,
     `scale ${before.scale} -> ${after.scale}`
   );
 }
 
-/**
- * A pinch scales the canvas RELATIVE to where it already was.
- *
- * This is the regression guard for ADR 0007. Before the fix, a canvas sitting at 0.5 took a 1.6x
- * pinch and landed on 1.6, a jump of 3.2x, because the controller multiplied the ratio onto a
- * remembered 1 and applied the result absolutely.
- */
-async function checkPinchIsRelative(
-  page: Page,
-  hand: Hand,
-  centre: ClientPoint
-): Promise<Viewport> {
-  const before = await viewport(page);
-
-  const startGap = 100;
-  const endGap = 160;
-  const fingerRatio = endGap / startGap;
-
-  await hand.start([
-    { x: centre.x - startGap, y: centre.y },
-    { x: centre.x + startGap, y: centre.y },
-  ]);
-  await hand.move([
-    { x: centre.x - endGap, y: centre.y },
-    { x: centre.x + endGap, y: centre.y },
-  ]);
-  await hand.end();
-
-  const after = await viewport(page);
-  const appliedRatio = after.scale / before.scale;
-  const error = Math.abs(appliedRatio - fingerRatio) / fingerRatio;
-
-  record(
-    'pinch scales relative to where the canvas already was',
-    error < 0.05,
-    `scale ${before.scale} -> ${after.scale}, applied ratio ${appliedRatio.toFixed(3)} against a ` +
-      `finger ratio of ${fingerRatio.toFixed(3)}, error ${(error * 100).toFixed(1)}%`
-  );
-
-  return after;
-}
-
-/** Pinching back in returns roughly where it started, so the two directions agree. */
-async function checkPinchIsReversible(
-  page: Page,
-  hand: Hand,
-  centre: ClientPoint,
-  beforePinch: { readonly scale: number }
-): Promise<void> {
-  await hand.start([
-    { x: centre.x - 160, y: centre.y },
-    { x: centre.x + 160, y: centre.y },
-  ]);
-  await hand.move([
-    { x: centre.x - 100, y: centre.y },
-    { x: centre.x + 100, y: centre.y },
-  ]);
-  await hand.end();
-
-  const after = await viewport(page);
-  const drift = Math.abs(after.scale - beforePinch.scale) / beforePinch.scale;
-
-  record(
-    'pinching back in returns to roughly the starting zoom',
-    drift < 0.05,
-    `back to ${after.scale.toFixed(4)} from a start of ${beforePinch.scale.toFixed(4)}, ` +
-      `drift ${(drift * 100).toFixed(1)}%`
-  );
-}
-
 async function main() {
+  const recorder = createRecorder();
+  const { record, results } = recorder;
   const status = await requireActiveWorld();
   const { browser, page } = await launchBrowser({ hasTouch: true });
   const log = captureModuleLog(page);
@@ -224,9 +129,15 @@ async function main() {
 
     const board = await boardCentre(page);
 
-    await checkTwoFingerPan(page, hand, board);
-    const afterPinch = await checkPinchIsRelative(page, hand, board);
-    await checkPinchIsReversible(page, hand, board, { scale: afterPinch.scale / (160 / 100) });
+    await checkTwoFingerPan(page, hand, board, recorder);
+    const afterPinch = await checkPinchIsRelative(page, hand, board, recorder);
+    await checkPinchIsReversible(
+      page,
+      hand,
+      board,
+      { scale: afterPinch.scale / (160 / 100) },
+      recorder
+    );
 
     const errors = log.filter((line) => line.startsWith('pageerror') || line.startsWith('error'));
     record('no page errors from the module', errors.length === 0, errors.join(' | ') || 'none');
@@ -244,10 +155,10 @@ async function main() {
   );
 
   for (const result of results) {
-    console.error(`${result.passed ? 'PASS' : 'FAIL'}  ${result.name}: ${result.detail}`);
+    console.error(`${describeOutcome(result)}  ${result.name}: ${result.detail}`);
   }
 
-  const failed = results.filter((r) => !r.passed);
+  const failed = results.filter(isFailure);
   if (failed.length > 0) {
     console.error(`\n${failed.length} of ${results.length} multitouch checks failed.`);
     process.exitCode = 1;

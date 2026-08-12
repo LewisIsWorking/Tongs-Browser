@@ -21,7 +21,6 @@
 import type { Page } from 'playwright';
 import {
   BASE,
-  MODULE_ID,
   boardBox,
   captureModuleLog,
   ensureActiveScene,
@@ -31,37 +30,15 @@ import {
   removeProbeScene,
   requireActiveWorld,
   type BoardBox,
-  type ClientPoint,
 } from './foundry-session.ts';
+import { checkLongPressRightClicks, checkTapClicksAtPointerNotFinger } from './touch/tapChecks.ts';
+import { pointerPosition } from './touch/support.ts';
+import { checkChatLogIsExcluded, checkNativeTouchSuppressed } from './touch/suppressionChecks.ts';
 import { Finger } from './foundry-touch.ts';
+import { createRecorder, describeOutcome, isFailure, type Recorder } from './live/recorder.ts';
 
 /** Matches SettingDefinitions. Asserted loosely, but the direction and rough size come from these. */
 const SENSITIVITY = 1.5;
-const LONG_PRESS_MS = 500;
-
-/**
- * One check outcome.
- *
- * `passed: null` is a SKIP and is deliberately not a boolean, so a skip can never be mistaken for a
- * pass by a reader or by a filter. See the skip helper for why that distinction is load bearing.
- */
-interface CheckResult {
-  readonly name: string;
-  readonly passed: boolean | null;
-  readonly detail: string;
-}
-
-const results: CheckResult[] = [];
-
-function record(name: string, passed: boolean, detail: string): void {
-  results.push({ name, passed, detail });
-}
-
-const pointerPosition = (page: Page): Promise<ClientPoint> =>
-  page.evaluate((id: string) => {
-    const position = game.modules.get(id).api.getPointer().getPosition();
-    return { x: position.clientX, y: position.clientY };
-  }, MODULE_ID);
 
 /**
  * One finger drag moves the pointer, by roughly the drag distance times sensitivity.
@@ -70,7 +47,12 @@ const pointerPosition = (page: Page): Promise<ClientPoint> =>
  * viewport edge and the gesture machine has a small movement threshold before it starts, so an exact
  * equality here would be a test of arithmetic that would fail for reasons that are not bugs.
  */
-async function checkDragMovesPointer(page: Page, finger: Finger, board: BoardBox): Promise<void> {
+async function checkDragMovesPointer(
+  page: Page,
+  finger: Finger,
+  board: BoardBox,
+  recorder: Recorder
+): Promise<void> {
   const before = await pointerPosition(page);
 
   const deltaX = 200;
@@ -82,7 +64,7 @@ async function checkDragMovesPointer(page: Page, finger: Finger, board: BoardBox
   const movedY = after.y - before.y;
   const ratioX = movedX / (deltaX * SENSITIVITY);
 
-  record(
+  recorder.record(
     'one finger drag moves the pointer',
     movedX > 0 && movedY > 0 && ratioX > 0.6 && ratioX < 1.2,
     `moved (${movedX.toFixed(0)}, ${movedY.toFixed(0)}) for a ${deltaX}x${deltaY} drag, ` +
@@ -90,218 +72,9 @@ async function checkDragMovesPointer(page: Page, finger: Finger, board: BoardBox
   );
 }
 
-/**
- * The single most important behavioural claim in the module, and the one a user notices instantly.
- *
- * MANUAL-TESTING puts it this way: "Tap clicks at the pointer, not where your finger landed. If it
- * clicks under your finger, something is wrong."
- *
- * So the pointer is parked on a sidebar tab, and the tap happens far away over the canvas. If the tab
- * changes, the click went to the pointer. If it does not, the click went to the finger, and the whole
- * trackpad model is broken. Judged by Foundry's own tab state.
- */
-async function checkTapClicksAtPointerNotFinger(
-  page: Page,
-  finger: Finger,
-  board: BoardBox
-): Promise<void> {
-  const before = await page.evaluate(() => ui.sidebar.tabGroups.primary);
-  const target = before === 'combat' ? 'chat' : 'combat';
-
-  const parked = await page.evaluate(
-    ({ id, tab }) => {
-      const button = document.querySelector(`button[data-tab="${tab}"]`);
-      if (button === null) {
-        return null;
-      }
-      const box = button.getBoundingClientRect();
-      const centre = { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
-      game.modules.get(id).api.getPointer().moveTo(centre);
-      return centre;
-    },
-    { id: MODULE_ID, tab: target }
-  );
-
-  if (parked === null) {
-    record('tap clicks at the pointer, not the finger', false, `no sidebar button for '${target}'`);
-    return;
-  }
-
-  // Deliberately nowhere near the parked pointer, and over the canvas rather than over the chrome.
-  const fingerX = board.x + board.width * 0.25;
-  const fingerY = board.y + board.height * 0.75;
-  await finger.down(fingerX, fingerY);
-  await finger.up();
-
-  const after = await page
-    .waitForFunction((tab) => ui.sidebar.tabGroups.primary === tab, target, { timeout: 5000 })
-    .then(() => target)
-    .catch(async () => page.evaluate(() => ui.sidebar.tabGroups.primary));
-
-  record(
-    'tap clicks at the pointer, not the finger',
-    after === target,
-    `pointer parked at (${parked.clientX.toFixed(0)}, ${parked.clientY.toFixed(0)}), ` +
-      `finger tapped (${fingerX.toFixed(0)}, ${fingerY.toFixed(0)}), tab ${before} -> ${after}`
-  );
-}
-
-/**
- * A held finger becomes a right click at the pointer.
- *
- * Judged by listening for the contextmenu event rather than by looking for a Foundry menu, and that
- * limit is deliberate: an empty canvas has no token to open a HUD for, so a menu appearing is not
- * available as evidence here. What this does prove is that the long press timer fires under real
- * event timing, which no unit test with an injected clock can show.
- */
-async function checkLongPressRightClicks(
-  page: Page,
-  finger: Finger,
-  board: BoardBox
-): Promise<void> {
-  await page.evaluate(() => {
-    globalThis.__probeContextMenus = [];
-    document.addEventListener(
-      'contextmenu',
-      (event) => {
-        globalThis.__probeContextMenus.push({ x: event.clientX, y: event.clientY });
-        event.preventDefault();
-      },
-      { capture: true }
-    );
-  });
-
-  const parked = await pointerPosition(page);
-
-  await finger.down(board.x + board.width * 0.5, board.y + board.height * 0.5);
-  await new Promise((resolve) => setTimeout(resolve, LONG_PRESS_MS + 300));
-  await finger.up();
-
-  const seen = await page.evaluate(() => globalThis.__probeContextMenus);
-  const atPointer = seen.some(
-    (point) => Math.abs(point.x - parked.x) < 2 && Math.abs(point.y - parked.y) < 2
-  );
-
-  record(
-    'long press produces a right click at the pointer',
-    seen.length > 0 && atPointer,
-    `${seen.length} contextmenu event(s) ${JSON.stringify(seen)}, pointer at ` +
-      `(${parked.x.toFixed(0)}, ${parked.y.toFixed(0)})`
-  );
-}
-
-/**
- * The browser's own touch derived pointer events must not reach Foundry.
- *
- * If they do, every gesture is seen twice: once as the module intends and once as the browser's
- * compatibility event, and Foundry acts on both. This is the failure that no hand built event can
- * reproduce, because only a genuine touch makes the browser emit the compatibility pair.
- *
- * Counted at the document in the BUBBLE phase, which is where Foundry's own listeners sit. The module
- * stops these in the capture phase, so anything counted here got past it.
- */
-async function checkNativeTouchSuppressed(
-  page: Page,
-  finger: Finger,
-  board: BoardBox
-): Promise<void> {
-  await page.evaluate((virtualId) => {
-    globalThis.__probeLeaked = [];
-    document.addEventListener('pointerdown', (event) => {
-      if (event.pointerType === 'touch' && event.pointerId !== virtualId) {
-        globalThis.__probeLeaked.push({ id: event.pointerId, type: event.pointerType });
-      }
-    });
-  }, 9001);
-
-  await finger.drag(board.x + board.width * 0.5, board.y + board.height * 0.5, 60, 40, 4);
-
-  const leaked = await page.evaluate(() => globalThis.__probeLeaked);
-
-  record(
-    'native touch pointer events never reach foundry',
-    leaked.length === 0,
-    leaked.length === 0 ? 'none leaked past the capture phase' : JSON.stringify(leaked)
-  );
-}
-
-/**
- * Touching the chat log must leave the pointer where it is.
- *
- * The exclusion zones exist so the parts of Foundry that already work on a touch screen keep
- * working: native momentum scrolling in the chat log cannot be reproduced convincingly by
- * synthesising wheel events. If the module swallows those touches, scrolling chat stops working and
- * the pointer wanders every time you try.
- *
- * Asserted behaviourally rather than by checking a selector list, because a selector list can agree
- * with itself while matching nothing. Auditing those selectors against a live 14.365 on 2026-08-09
- * found exactly that: `#chat-log` matched zero elements, since v14 renders `<ol class="chat-log">`
- * and the id belongs to the v12 markup. The behaviour had survived only because `.chat-scroll`
- * happens to wrap the log.
- */
-async function checkChatLogIsExcluded(page: Page, finger: Finger): Promise<void> {
-  // An earlier check parks the sidebar on the combat tab, which hides the chat log entirely. Without
-  // this the check reported "no visible chat log found", which reads as a missing element rather
-  // than as a test ordering problem.
-  await page.evaluate(() => {
-    ui.sidebar.changeTab('chat', 'primary');
-  });
-  await page
-    .waitForFunction(
-      () => {
-        const log = document.querySelector('.chat-log, #chat-log');
-        return log !== null && log.getBoundingClientRect().height > 10;
-      },
-      undefined,
-      { timeout: 5000 }
-    )
-    .catch(() => undefined);
-
-  /*
-   * The first candidate with real geometry wins, rather than the first that exists.
-   *
-   * `.chat-log` on 14.365 resolves to an <ol> that reports a height of ZERO even with the chat tab
-   * active and the sidebar expanded, while `.chat-scroll` around it has the real box. Asking only
-   * for the log therefore reported "no chat log found", which reads as a missing element rather
-   * than as the wrong one of two.
-   */
-  const box = await page.evaluate(() => {
-    for (const selector of ['.chat-scroll', '.chat-log', '#chat-log', '#chat']) {
-      const element = document.querySelector(selector);
-      if (element === null) continue;
-      const rect = element.getBoundingClientRect();
-      if (rect.width >= 10 && rect.height >= 10) {
-        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, via: selector };
-      }
-    }
-    return null;
-  });
-
-  if (box === null) {
-    record(
-      'touching the chat log leaves the pointer alone',
-      false,
-      'no chat region with a usable box, so the exclusion could not be exercised'
-    );
-    return;
-  }
-
-  const before = await pointerPosition(page);
-  await finger.drag(box.x, box.y, 0, -60, 6);
-  const after = await pointerPosition(page);
-
-  const movedX = Math.abs(after.x - before.x);
-  const movedY = Math.abs(after.y - before.y);
-
-  record(
-    'touching the chat log leaves the pointer alone',
-    movedX < 1 && movedY < 1,
-    `dragged 60px up inside ${box.via} and the pointer moved (${movedX.toFixed(1)}, ` +
-      `${movedY.toFixed(1)}), which should be zero`
-  );
-}
-
 async function main() {
+  const recorder = createRecorder();
+  const { record, results } = recorder;
   const status = await requireActiveWorld();
   const { browser, page } = await launchBrowser({ hasTouch: true });
   const log = captureModuleLog(page);
@@ -324,11 +97,11 @@ async function main() {
 
     const board = await boardBox(page);
 
-    await checkDragMovesPointer(page, finger, board);
-    await checkTapClicksAtPointerNotFinger(page, finger, board);
-    await checkLongPressRightClicks(page, finger, board);
-    await checkNativeTouchSuppressed(page, finger, board);
-    await checkChatLogIsExcluded(page, finger);
+    await checkDragMovesPointer(page, finger, board, recorder);
+    await checkTapClicksAtPointerNotFinger(page, finger, board, recorder);
+    await checkLongPressRightClicks(page, finger, board, recorder);
+    await checkNativeTouchSuppressed(page, finger, board, recorder);
+    await checkChatLogIsExcluded(page, finger, recorder);
 
     const errors = log.filter((line) => line.startsWith('pageerror') || line.startsWith('error'));
     record('no page errors from the module', errors.length === 0, errors.join(' | ') || 'none');
@@ -346,10 +119,10 @@ async function main() {
   );
 
   for (const result of results) {
-    console.error(`${result.passed ? 'PASS' : 'FAIL'}  ${result.name}: ${result.detail}`);
+    console.error(`${describeOutcome(result)}  ${result.name}: ${result.detail}`);
   }
 
-  const failed = results.filter((r) => !r.passed);
+  const failed = results.filter(isFailure);
   if (failed.length > 0) {
     console.error(`\n${failed.length} of ${results.length} touch checks failed.`);
     process.exitCode = 1;

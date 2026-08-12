@@ -1,8 +1,6 @@
 {
   "scripts/drag/DragToken.ts": 277,
   "scripts/foundry-drag-check.ts": 266,
-  "scripts/foundry-multitouch-check.ts": 258,
   "scripts/foundry-play-probe.ts": 572,
-  "scripts/foundry-touch-check.ts": 360,
   "tests/browser/pointer.spec.ts": 311
 }

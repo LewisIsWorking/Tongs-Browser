@@ -21,7 +21,7 @@
  */
 import type { Page } from 'playwright';
 
-import { createRecorder, type Recorder } from './live/recorder.ts';
+import { createRecorder, describeOutcome, isFailure, type Recorder } from './live/recorder.ts';
 import { checkChromeRespondsToClick } from './live/chromeChecks.ts';
 import { checkSceneControlToggle } from './live/sceneControlChecks.ts';
 import {
@@ -160,7 +160,7 @@ async function main() {
     await browser.close();
   }
 
-  const failed = results.filter((r) => !r.passed);
+  const failed = results.filter(isFailure);
 
   console.log(
     JSON.stringify(
@@ -171,7 +171,7 @@ async function main() {
   );
 
   for (const result of results) {
-    console.error(`${result.passed ? 'PASS' : 'FAIL'}  ${result.name}: ${result.detail}`);
+    console.error(`${describeOutcome(result)}  ${result.name}: ${result.detail}`);
   }
 
   if (failed.length > 0) {
