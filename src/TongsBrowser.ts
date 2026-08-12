@@ -45,11 +45,10 @@ import {
 } from './foundry/PauseControl.js';
 import { PauseRelay, type SocketLike } from './relay/PauseRelay.js';
 import { CursorOverlay } from './pointer/CursorOverlay.js';
-import { EventDispatcher } from './pointer/EventDispatcher.js';
-import { HitTester } from './pointer/HitTester.js';
 import { VirtualPointer } from './pointer/VirtualPointer.js';
 import { UiScaler } from './scaling/UiScaler.js';
 import { WindowClampBinder } from './scaling/WindowClampBinder.js';
+import { createPointerStack } from './PointerStack.js';
 import { buildTrayActions } from './ui/TrayActions.js';
 
 /**
@@ -288,38 +287,18 @@ export class TongsBrowser {
     this.debug = new DebugOverlay({ document: doc, logger });
     this.bindResizeCounter();
 
-    this.cursor = new CursorOverlay({
+    const stack = createPointerStack({
       document: doc,
-      ...(options.cursorSize === undefined ? {} : { size: options.cursorSize }),
+      window: win,
+      eventView: win,
+      ...(options.cursorSize === undefined ? {} : { cursorSize: options.cursorSize }),
+      onDispatch: (descriptor, target) => {
+        this.debug.onDispatch(descriptor, target);
+        this.recordDispatch(descriptor, target);
+      },
     });
-
-    /*
-     * No getTransform here, deliberately, even though the interface is scaled.
-     *
-     * Browser hit testing is transform aware: elementFromPoint takes viewport coordinates and
-     * accounts for CSS transforms itself, so the cursor and the hit test already agree at any
-     * scale. Verified against Chromium rather than assumed. Feeding the UI scale in here would
-     * convert coordinates that are already correct and break a case that currently works.
-     */
-    const hitTester = new HitTester({
-      // Bound to the document rather than passed as a reference, because elementFromPoint throws
-      // if it loses its receiver.
-      elementFromPoint: (x, y) => doc.elementFromPoint(x, y),
-      getViewport: () => ({ width: win.innerWidth, height: win.innerHeight }),
-    });
-
-    this.pointer = new VirtualPointer({
-      hitTester,
-      dispatcher: new EventDispatcher({
-        view: win,
-        onDispatch: (descriptor, target) => {
-          this.debug.onDispatch(descriptor, target);
-          this.recordDispatch(descriptor, target);
-        },
-      }),
-      cursor: this.cursor,
-      initialPosition: { clientX: win.innerWidth / 2, clientY: win.innerHeight / 2 },
-    });
+    this.pointer = stack.pointer;
+    this.cursor = stack.cursor;
 
     const canvasController = new CanvasController({
       getCanvas: () => this.resolveCanvas(),
