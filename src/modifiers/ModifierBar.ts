@@ -11,8 +11,10 @@ import {
 } from './ModifierState.js';
 import { MODIFIER_KEYS, MOMENTARY_KEYS, type KeyDefinition } from './keyDefinitions.js';
 import type { ModifierFlags } from '../pointer/ModifierFlags.js';
+import { ActionButtons } from './ActionButtons.js';
 import { clampBarPosition } from './BarClamp.js';
 import type { BarPosition } from './BarPosition.js';
+import type { TrayAction } from './TrayAction.js';
 
 // Re-exported so every existing importer of ModifierBar keeps working unchanged.
 export type { BarPosition };
@@ -38,39 +40,8 @@ export interface ModifierBarOptions {
   readonly trayActions?: readonly TrayAction[];
 }
 
-/** A utility button on the bar, such as showing Foundry's sidebar. */
-export interface TrayAction {
-  readonly id: string;
-  /** Short glyph or text shown on the button. */
-  readonly label: string;
-  /** Used for the tooltip and the accessible name. */
-  readonly title: string;
-  readonly activate: () => void;
-  /**
-   * Whether the thing this button controls is currently ON.
-   *
-   * Optional, because most actions are momentary and have no state to show. For the ones that do,
-   * such as pause or a held grab, a button that looks identical whether the game is running or
-   * frozen is worse than no button: it invites a second tap that undoes the first.
-   */
-  readonly isActive?: () => boolean;
-  /**
-   * The label to show right now, when it depends on state.
-   *
-   * ⚠️ Added 2026-08-11 because a latched button whose label never changes cost a whole round of
-   * device diagnostics. The grab button holds the mouse button down until it is tapped again, and it
-   * showed the same open hand whether it was holding a token or idle. The gold latched styling says
-   * "on", but "on" does not tell you that the next thing to do is tap it OFF, and a token stays
-   * exactly where it was until the grab is released. A device report came back with the drag never
-   * dropped and the token never moved, which read as a broken drag and was a control that did not
-   * say what it wanted.
-   *
-   * Colour alone was never going to carry this. The word is the fix.
-   */
-  readonly getLabel?: () => string;
-  /** Buttons sharing a group are rendered together, so related controls cluster rather than wrap. */
-  readonly group?: string;
-}
+// Re-exported so every existing importer of ModifierBar keeps working unchanged.
+export type { TrayAction };
 
 const LATCH_CLASS: Readonly<Record<KeyLatchValue, string>> = {
   [KeyLatch.OFF]: 'tb-key--off',
@@ -112,9 +83,7 @@ export class ModifierBar {
   private readonly root: HTMLDivElement;
   private readonly keysContainer: HTMLDivElement;
   private readonly buttons = new Map<string, HTMLButtonElement>();
-  private readonly actionButtons = new Map<string, HTMLButtonElement>();
-  private readonly statefulActions = new Map<string, () => boolean>();
-  private readonly dynamicLabels = new Map<string, () => string>();
+  private readonly actions = new ActionButtons();
   private latches: ModifierLatchMap = ALL_OFF;
   private position: BarPosition;
   private collapsed: boolean;
@@ -153,50 +122,9 @@ export class ModifierBar {
     });
     this.root.append(collapseButton);
 
-    /*
-     * Tray actions sit OUTSIDE the keys container on purpose, so they survive the bar being
-     * collapsed. Collapsing hides the modifier keys, which is the point of collapsing, but an action
-     * like "show the sidebar" is most needed exactly when the bar has been shrunk out of the way.
-     *
-     * Supplied by the caller rather than built here, so this component stays a bar of keys and knows
-     * nothing about Foundry's interface.
-     */
-    const groups = new Map<string, HTMLDivElement>();
-    for (const action of options.trayActions ?? []) {
-      const button = doc.createElement('button');
-      button.type = 'button';
-      button.className = 'tb-modifier-bar__action';
-      button.textContent = action.label;
-      button.title = action.title;
-      button.setAttribute('aria-label', action.title);
-      button.dataset['action'] = action.id;
-      button.addEventListener('click', () => {
-        action.activate();
-        // Refresh immediately, so a button that reports state is never a tap behind the truth.
-        this.refreshActions();
-      });
-
-      if (action.group === undefined) {
-        this.root.append(button);
-      } else {
-        let container = groups.get(action.group);
-        if (container === undefined) {
-          container = doc.createElement('div');
-          container.className = `tb-modifier-bar__group tb-modifier-bar__group--${action.group}`;
-          this.root.append(container);
-          groups.set(action.group, container);
-        }
-        container.append(button);
-      }
-
-      this.actionButtons.set(action.id, button);
-      if (action.isActive !== undefined) {
-        this.statefulActions.set(action.id, action.isActive);
-      }
-      if (action.getLabel !== undefined) {
-        this.dynamicLabels.set(action.id, action.getLabel);
-      }
-    }
+    this.actions.build(doc, this.root, options.trayActions ?? [], () => {
+      this.refreshActions();
+    });
 
     this.keysContainer = doc.createElement('div');
     this.keysContainer.className = 'tb-modifier-bar__keys';
@@ -261,22 +189,7 @@ export class ModifierBar {
    * only looks pressed is invisible to anyone not looking at it.
    */
   public refreshActions(): void {
-    for (const [id, getLabel] of this.dynamicLabels) {
-      const button = this.actionButtons.get(id);
-      if (button !== undefined) {
-        button.textContent = getLabel();
-      }
-    }
-
-    for (const [id, isActive] of this.statefulActions) {
-      const button = this.actionButtons.get(id);
-      if (button === undefined) {
-        continue;
-      }
-      const active = isActive();
-      button.classList.toggle('tb-modifier-bar__action--on', active);
-      button.setAttribute('aria-pressed', active ? 'true' : 'false');
-    }
+    this.actions.refresh();
   }
 
   /** Re-clamp against whatever room there is now. Public so a caller can prompt it after a re-render. */
