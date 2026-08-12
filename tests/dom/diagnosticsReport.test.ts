@@ -28,6 +28,7 @@ function snapshot(overrides: Partial<DiagnosticsSnapshot> = {}): DiagnosticsSnap
     peakInteractionState: 4,
     peakPreviewCount: 1,
     viewport: { atGrab: '360x607', now: '360x607', resizes: 0 },
+    journal: [],
     dragEndings: [],
     hooksInstalled: { token: true, manager: true },
     moves: { token: 90, layer: 90, stage: 400 },

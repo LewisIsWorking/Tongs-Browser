@@ -26,4 +26,11 @@ export interface ModifierBarOptions {
   readonly getAvailableWidth?: () => number;
   /** Utility buttons shown on the bar itself, kept visible even when the keys are collapsed. */
   readonly trayActions?: readonly TrayAction[];
+  /**
+   * Told which tray button was tapped, for the diagnostics timeline.
+   *
+   * ⚠️ Reporting only, and it must stay that way: the bar's behaviour cannot depend on whether
+   * anyone is listening, or the report would be describing a different module from the one shipped.
+   */
+  readonly onTrayActivated?: (actionId: string) => void;
 }

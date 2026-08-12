@@ -131,6 +131,14 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
       ? {}
       : { onPositionChanged: options.onBarPositionChanged }),
     getAvailableWidth: () => access.resolveAvailableWidth(),
+    /*
+     * ⚠️ The single most useful line in a device report, and it took four rounds to add. The user
+     * discovered "dragging works with the hand off, and breaks with it on" by experiment; the report
+     * could not have said it, because nothing recorded that a button had been pressed at all.
+     */
+    onTrayActivated: (actionId) => {
+      diagnostics.recordUi(`tray '${actionId}' pressed`);
+    },
     trayActions: wireTrayActions(canvasController, {
       actions: actions,
       // A thunk, because the pointer field is not assigned until after the bar is built.

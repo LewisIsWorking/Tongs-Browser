@@ -3,6 +3,7 @@ import { deliverDiagnostics } from './DiagnosticsDelivery.js';
 import { DragRecorder } from './DragRecorder.js';
 import { readChatTargets, type ChatGlobals } from './ChatTargets.js';
 import { readFoundryFacts, type FoundryGlobals } from './FoundryFacts.js';
+import { DebugJournal } from './DebugJournal.js';
 import { DragObservers } from './DragObservers.js';
 import {
   describeControlledToken,
@@ -45,22 +46,41 @@ export class DragDiagnostics {
   /** Watching one drag as it happens. See debug/DragRecorder.ts. */
   private readonly record: DragRecorder;
 
+  /**
+   * The timeline of causes and effects. See debug/DebugJournal.ts.
+   *
+   * ⚠️ Public, because the things worth recording are mostly NOT in this class. A tray button press
+   * is the single most useful entry in the whole report and it happens in the UI layer, which is
+   * exactly why four rounds of self contained diagnostics never captured one.
+   */
+  public readonly journal = new DebugJournal({ now: () => Date.now() });
+
+  /** A control the user touched. The one class of entry a snapshot can never reconstruct. */
+  public recordUi(detail: string): void {
+    this.journal.record('ui', detail);
+  }
+
   /** Every dispatched event goes through the recorder, which decides what is worth keeping. */
   public recordDispatch(
     descriptor: { type: string; buttons?: number; position?: { clientX: number; clientY: number } },
     target: Element
   ): void {
     this.record.recordDispatch(descriptor, target);
+    this.journal.record('dispatch', descriptor.type);
   }
 
   public countGestureInput(type: string): void {
     this.record.countGestureInput(type);
+    this.journal.record('gesture', type);
   }
 
   public constructor(private readonly options: DragDiagnosticsPort) {
     this.observers = new DragObservers({
       window: options.window,
       isCapturing: () => this.record.captureWindow.isCapturing(),
+      onObservation: (note) => {
+        this.journal.record('foundry', note);
+      },
     });
     this.record = new DragRecorder({
       window: options.window,
@@ -120,6 +140,7 @@ export class DragDiagnostics {
         resizes: observed.resizes,
       },
       dragEndings: observed.dragEndings,
+      journal: this.journal.getEntries(),
       hooksInstalled: observed.hooksInstalled,
       moves: {
         token: observed.counts.token,

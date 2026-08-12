@@ -50,29 +50,28 @@ function describeCause(event: unknown): string {
  */
 function describeCallSite(): string {
   const frames = (new Error('cancel').stack ?? '').split(String.fromCharCode(10)).slice(1);
+
   /*
-   * ⚠️ OUR OWN wrapper is excluded first, and leaving it in made the whole thing useless.
+   * ⚠️ Filtered by the BUNDLE URL, not by source file names, and the difference is why two releases
+   * of this reported nothing useful.
    *
-   * The wrapper is assigned onto `MouseInteractionManager.prototype`, so its stack frame reads
-   * `MouseInteractionManager.wrapped` and matched the search before any real frame did. The report
-   * then said `via MouseInteractionManager.wrapped`, which is the observer naming itself.
+   * After bundling there is no `FoundryDragHooks.ts` in a stack: every frame from this module says
+   * `tongs-browser`. Filtering on the source name matched nothing, so the fallback happily reported
+   * `at describeCallSite (...)`, which is this function naming itself.
    */
-  const theirs = frames.filter(
-    (frame) => !frame.includes('wrapped') && !frame.includes('FoundryDragHooks')
-  );
-  const foundry = theirs.find(
-    (frame) => frame.includes('mouse-handler') || frame.includes('MouseInteractionManager')
-  );
-  if (foundry === undefined) {
-    /*
-     * ⚠️ Skip OUR OWN frames. The wrapper that records this is itself on the stack, and naming it
-     * says only "the observer observed", which is exactly the kind of true and useless line this
-     * report has too many of already.
-     */
-    return theirs[0]?.trim().slice(0, 60) ?? 'unknown caller';
-  }
-  const named = /at ([\w#.<>]+)/.exec(foundry.trim());
-  return named?.[1] ?? foundry.trim().slice(0, 60);
+  const theirs = frames.filter((frame) => !frame.includes('tongs-browser'));
+
+  /*
+   * ⚠️ THREE frames, not one, and one frame was never going to be enough. The first Foundry frame is
+   * usually `MouseInteractionManager.callback`, which says only "a placeable's handler did it" and
+   * not WHICH handler: `_onClickLeft` closing the HUD, a redraw, and a refused permission all arrive
+   * through `callback`. The caller is the answer, and it is one frame further up.
+   */
+  const named = theirs.slice(0, 3).map((frame) => {
+    const match = /at ([\w#.<>$]+)/.exec(frame.trim());
+    return match?.[1] ?? frame.trim().slice(0, 40);
+  });
+  return named.length === 0 ? 'unknown caller' : named.join(' < ');
 }
 
 /** What actually got hooked, so silence can be told apart from not watching. */

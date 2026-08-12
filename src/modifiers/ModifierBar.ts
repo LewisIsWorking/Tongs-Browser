@@ -73,8 +73,9 @@ export class ModifierBar {
     });
     this.root = chrome.root;
 
-    this.actions.build(doc, this.root, options.trayActions ?? [], () => {
+    this.actions.build(doc, this.root, options.trayActions ?? [], (actionId) => {
       this.refreshActions();
+      options.onTrayActivated?.(actionId);
     });
 
     this.keysContainer = chrome.keysContainer;
