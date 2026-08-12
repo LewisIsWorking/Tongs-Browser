@@ -23,7 +23,21 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        /*
+         * ⚠️ Honours PLAYWRIGHT_CHANNEL, exactly as the live Foundry harnesses in scripts/ do, and
+         * it did not until 2026-08-13. Without it a machine with Chrome installed but no downloaded
+         * Chromium could run every harness and not this suite, which is the confusing half of a
+         * split: the same command works for one runner and fails for the other with a message about
+         * a missing headless_shell.exe.
+         *
+         * Unset, Playwright uses its own bundled build, which is what CI does and should keep doing.
+         */
+        ...(process.env['PLAYWRIGHT_CHANNEL'] === undefined
+          ? {}
+          : { channel: process.env['PLAYWRIGHT_CHANNEL'] }),
+      },
     },
   ],
   // Serves the repo root, so the fixture can load the real dist output over http rather than
