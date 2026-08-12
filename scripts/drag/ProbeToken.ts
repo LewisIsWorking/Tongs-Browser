@@ -1,7 +1,7 @@
 import type { Page } from 'playwright';
 import { PROBE_PREFIX } from '../foundry-session.ts';
 import type { CdpPage } from '../cdp-page.ts';
-import { evaluateOn } from './EvaluateOn.js';
+import { evaluateOn } from './EvaluateOn.ts';
 
 /**
  * A token to drag, created and removed in a live world. Extracted from foundry-drag-check

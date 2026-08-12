@@ -1,5 +1,5 @@
 import type { Page } from 'playwright';
-import { record, skip } from './CheckResults.js';
+import { record, skip } from './CheckResults.ts';
 import { MODULE_ID } from '../foundry-session.ts';
 import { Finger } from '../foundry-touch.ts';
 

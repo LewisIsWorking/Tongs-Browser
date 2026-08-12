@@ -1,10 +1,10 @@
 import type { Page } from 'playwright';
 import { ensureActiveScene } from '../foundry-session.ts';
 import { Finger } from '../foundry-touch.ts';
-import { checkHoverSemantics } from './CheckHover.js';
-import { checkTapClicksAtPointer } from './CheckTap.js';
-import { createProbeTokens } from './ProbeTokens.js';
-import { describeError, record, skip } from './CheckResults.js';
+import { checkHoverSemantics } from './CheckHover.ts';
+import { checkTapClicksAtPointer } from './CheckTap.ts';
+import { createProbeTokens } from './ProbeTokens.ts';
+import { describeError, record, skip } from './CheckResults.ts';
 import type { TokenProbe } from '../foundry-types.ts';
 
 /**

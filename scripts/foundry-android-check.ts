@@ -27,17 +27,17 @@ import {
   removeProbeScene,
   requireActiveWorld,
 } from './foundry-session.ts';
-import { runCanvasChecks } from './android/CanvasChecks.js';
-import { removeProbeTokens } from './android/ProbeTokens.js';
-import { moveBarToDefault, restoreBarPosition } from './android/BarSetting.js';
-import { checkKeyboardStrategy } from './android/CheckKeyboard.js';
-import { record, results } from './android/CheckResults.js';
-import { insideViewport, overlaps, readGeometry } from './android/Geometry.js';
+import { runCanvasChecks } from './android/CanvasChecks.ts';
+import { removeProbeTokens } from './android/ProbeTokens.ts';
+import { moveBarToDefault, restoreBarPosition } from './android/BarSetting.ts';
+import { checkKeyboardStrategy } from './android/CheckKeyboard.ts';
+import { record, results } from './android/CheckResults.ts';
+import { insideViewport, overlaps, readGeometry } from './android/Geometry.ts';
 import {
   captureAttributedErrors,
   captureLog,
   installFontDecodeShim,
-} from './android/PageObservers.js';
+} from './android/PageObservers.ts';
 
 async function main() {
   const status = await requireActiveWorld();

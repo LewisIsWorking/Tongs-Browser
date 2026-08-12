@@ -1,5 +1,5 @@
 import type { Page } from 'playwright';
-import { record } from './CheckResults.js';
+import { record } from './CheckResults.ts';
 
 /**
  * Does Foundry honour a synthesised keyboard event on Android? Extracted from

@@ -34,7 +34,7 @@ import {
   removeProbeScene,
   requireActiveWorld,
 } from './foundry-session.ts';
-import { reportCapabilities } from './probe/Report.js';
+import { reportCapabilities } from './probe/Report.ts';
 import type {
   CapabilityRow,
   ClientAt,
@@ -42,7 +42,7 @@ import type {
   TrialOutcome,
   TrialPath,
   TrialRead,
-} from './probe/Trials.js';
+} from './probe/Trials.ts';
 import type { FoundryToken } from './foundry-types.ts';
 
 const TRIALS = Number(process.env.PROBE_TRIALS ?? '3');
