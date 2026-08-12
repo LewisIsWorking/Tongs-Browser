@@ -1,6 +1,6 @@
 import type { CursorOverlay } from './CursorOverlay.js';
 import { DragController } from './DragController.js';
-import { EventDispatcher, type DispatchTargets } from './EventDispatcher.js';
+import { EventDispatcher } from './EventDispatcher.js';
 import type { EventDescriptor, PointerPosition } from './EventDescriptor.js';
 import type { HitTester } from './HitTester.js';
 import type { ModifierFlags } from './ModifierFlags.js';
@@ -23,7 +23,7 @@ import {
   buildDragMoveSequence,
   buildDragStartSequence,
 } from './sequences/dragSequence.js';
-import { buildMoveSequence } from './sequences/moveSequence.js';
+import { dispatchHover } from './HoverSequence.js';
 import { buildWheelSequence } from './sequences/wheelSequence.js';
 
 export interface VirtualPointerOptions {
@@ -31,6 +31,11 @@ export interface VirtualPointerOptions {
   readonly dispatcher: EventDispatcher;
   readonly cursor?: CursorOverlay;
   readonly initialPosition?: PointerPosition;
+  /**
+   * Called immediately after a drag's opening pointerdown. Required, never optional: see
+   * foundry/LongPressGuard.ts for what it defuses and why forgetting it must not be possible.
+   */
+  readonly onDragBegun: () => void;
 }
 
 /**
@@ -50,11 +55,13 @@ export class VirtualPointer {
   private readonly drag: DragController;
 
   private readonly hitTester: HitTester;
+  private readonly onDragBegun: () => void;
   private readonly dispatcher: EventDispatcher;
   private readonly cursor: CursorOverlay | undefined;
 
   public constructor(options: VirtualPointerOptions) {
     this.hitTester = options.hitTester;
+    this.onDragBegun = options.onDragBegun;
     this.dispatcher = options.dispatcher;
     this.cursor = options.cursor;
     this.state = createPointerState(options.initialPosition ?? { clientX: 0, clientY: 0 });
@@ -124,6 +131,8 @@ export class VirtualPointer {
 
   public beginDrag(button: MouseButtonValue = MouseButton.LEFT): void {
     this.drag.begin(button, (held) => buildDragStartSequence(this.state, held));
+    // ⚠️ AFTER the sequence: the pointerdown is what arms the timer. See foundry/LongPressGuard.ts.
+    this.onDragBegun();
   }
 
   /**
@@ -173,16 +182,7 @@ export class VirtualPointer {
       return;
     }
 
-    const targets: DispatchTargets = { current: result.element, previous: this.previousTarget };
-    const targetChanged = result.element !== this.previousTarget;
-
-    const sequence = buildMoveSequence(this.state, {
-      targetChanged,
-      hasPreviousTarget: this.previousTarget !== null,
-      hasCurrentTarget: result.element !== null,
-    });
-
-    this.dispatcher.dispatchAll(sequence, targets);
+    dispatchHover(this.dispatcher, this.state, this.previousTarget, result.element);
     this.previousTarget = result.element;
   }
 

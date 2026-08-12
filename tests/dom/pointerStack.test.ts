@@ -30,7 +30,13 @@ beforeEach(() => {
 });
 
 const make = (onDispatch = vi.fn()) =>
-  createPointerStack({ document, window, onDispatch, cursorSize: 24 });
+  createPointerStack({
+    document,
+    window,
+    onDispatch,
+    cursorSize: 24,
+    onDragBegun: () => undefined,
+  });
 
 describe('createPointerStack', () => {
   /**
@@ -120,6 +126,7 @@ describe('createPointerStack', () => {
       document,
       window,
       eventView: window,
+      onDragBegun: () => undefined,
       onDispatch: vi.fn(),
     });
 
@@ -127,7 +134,12 @@ describe('createPointerStack', () => {
   });
 
   it('works without a cursor size, which is the ordinary case', () => {
-    const stack = createPointerStack({ document, window, onDispatch: vi.fn() });
+    const stack = createPointerStack({
+      document,
+      window,
+      onDispatch: vi.fn(),
+      onDragBegun: () => undefined,
+    });
 
     expect(stack.pointer.getPosition().clientX).toBe(window.innerWidth / 2);
   });

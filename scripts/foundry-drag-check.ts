@@ -35,6 +35,7 @@ import {
   COMMIT_TIMEOUT_MS,
   DRAG_DISTANCE,
   DRAG_STEPS,
+  HOLD_MS,
   MOBILE_DPR,
   PAN_DURING_DRAG,
   TRAVEL_TOLERANCE,
@@ -165,6 +166,7 @@ async function main() {
       steps: DRAG_STEPS,
       timeout: USE_ANDROID ? ANDROID_COMMIT_TIMEOUT_MS : COMMIT_TIMEOUT_MS,
       pan: PAN_DURING_DRAG,
+      holdMs: HOLD_MS,
     });
 
     report(result);

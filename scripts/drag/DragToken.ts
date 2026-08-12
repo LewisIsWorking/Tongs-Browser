@@ -3,19 +3,16 @@ import type { CdpPage } from '../cdp-page.ts';
 import { evaluateOn } from './EvaluateOn.ts';
 
 /**
- * Driving one drag and watching every step of it. Extracted from foundry-drag-check 2026-08-12.
- *
- * ⚠️ This is the check that finally asserts on the OUTCOME rather than on the event stream: it waits
- * for the token's position to SETTLE, not merely to change, because Foundry animates a commit and a
- * position read mid animation is neither where it started nor where it is going.
- */
-/**
  * Select the token, put the virtual pointer on it, grab, move, drop, and watch the document.
+ * Extracted from foundry-drag-check 2026-08-12.
+ *
+ * ⚠️ Asserts on the OUTCOME rather than on the event stream, and waits for the token's position to
+ * SETTLE rather than merely to change: Foundry animates a commit, so a position read mid animation
+ * is neither where it started nor where it is going.
  *
  * The pointer is driven through the module's own public API rather than through synthesised touch,
  * on purpose. Touch would test the gesture layer as well, and when both are in the frame a failure
- * cannot say which one broke. The gesture layer already has its own check; this one is about whether
- * a held pointer moving across a token relocates it, which is the complaint.
+ * cannot say which one broke.
  */
 export async function dragControlledToken(
   page: Page | CdpPage,
@@ -25,6 +22,8 @@ export async function dragControlledToken(
     readonly timeout: number;
     /** Pan the canvas mid drag, to prove a moving viewport does not cancel the interaction. */
     readonly pan: boolean;
+    /** Wait this long after the grab before moving. See drag/Options.ts HOLD_MS for why. */
+    readonly holdMs: number;
   }
 ) {
   return evaluateOn(
@@ -34,9 +33,11 @@ export async function dragControlledToken(
       dragSteps,
       commitTimeout,
       panDuringDrag,
+      holdBeforeMoving,
     }: {
       dragDistance: number;
       dragSteps: number;
+      holdBeforeMoving: number;
       commitTimeout: number;
       panDuringDrag: boolean;
     }) => {
@@ -111,6 +112,11 @@ export async function dragControlledToken(
       const pointer = api.getPointer();
       pointer.moveTo({ clientX: Math.round(client.x), clientY: Math.round(client.y) });
       pointer.beginDrag();
+
+      // ⚠️ The pause a human takes. See drag/Options.ts HOLD_MS.
+      if (holdBeforeMoving > 0) {
+        await new Promise((resolve) => setTimeout(resolve, holdBeforeMoving));
+      }
 
       /*
        * A reading after every step, of the three positions that must agree.
@@ -269,6 +275,7 @@ export async function dragControlledToken(
     {
       dragDistance: options.distance,
       dragSteps: options.steps,
+      holdBeforeMoving: options.holdMs,
       commitTimeout: options.timeout,
       panDuringDrag: options.pan,
     }
