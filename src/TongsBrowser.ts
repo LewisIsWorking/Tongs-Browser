@@ -120,10 +120,6 @@ export class TongsBrowser {
   /** When the drag record is open, frozen or retired. See debug/DragCaptureWindow.ts. */
   private readonly captureWindow = new DragCaptureWindow();
 
-  /** Highest Foundry interaction state seen during the current gesture. See recordDispatch. */
-
-  /** Most drag preview objects seen during the current gesture. Non zero means a drag really began. */
-
   /**
    * How many pointermove events PIXI delivered to the token LAYER during this gesture.
    *
@@ -629,7 +625,6 @@ export class TongsBrowser {
     this.grabbedOnToken = describeGrabTarget();
   }
 
-  /** Where the token was when the grab began, against where it is now. */
   /** Where the token was at the grab, against where it is now. See debug/TokenMovement.ts. */
   private describeTokenMovement(): string {
     const now = (
