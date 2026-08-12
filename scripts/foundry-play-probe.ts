@@ -34,8 +34,58 @@ import {
   removeProbeScene,
   requireActiveWorld,
 } from './foundry-session.ts';
+import type { FoundryToken } from './foundry-types.ts';
 
 const TRIALS = Number(process.env.PROBE_TRIALS ?? '3');
+
+/**
+ * What one trial concluded.
+ *
+ * ⚠️ 'AIM' is a third outcome and NOT a failure, which is the distinction the whole probe rests
+ * on. It means the pointer never reached the target, so the trial says nothing at all about the
+ * capability: folding it into 'no' would report "this feature is broken" for what is actually
+ * "the test could not be performed", and those lead to completely different work.
+ */
+type TrialOutcome = 'yes' | 'no' | 'AIM';
+
+/** Where a synthetic event is aimed, in client coordinates. */
+interface ClientAt {
+  clientX: number;
+  clientY: number;
+}
+
+/**
+ * One capability, measured both ways.
+ *
+ * `controlTrials` is null when the pointer path was reliable, because a control is only worth
+ * running to explain a failure. A null therefore reads as "not needed", never as "not measured".
+ */
+interface CapabilityRow {
+  name: string;
+  pointerTrials: TrialOutcome[];
+  controlTrials: TrialOutcome[] | null;
+  note?: string;
+}
+
+/**
+ * What a trial's path and read callbacks are handed.
+ *
+ * The Foundry objects here are deliberately `any`, matching `foundry-globals.d.ts`: they are
+ * somebody else's documents and a partial description of them would drift. `at` is OURS though,
+ * computed by `aim` from the canvas transform, so it gets a real type.
+ */
+interface TrialContext {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  actor?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  doc?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  token?: any;
+  at?: ClientAt;
+}
+
+type TrialPath = (context: TrialContext) => Promise<unknown>;
+type TrialRead = (context: TrialContext) => Promise<unknown>;
 
 const status = await requireActiveWorld();
 const { browser, page } = await launchBrowser({ hasTouch: true });
@@ -47,35 +97,7 @@ try {
   scene = await ensureActiveScene(page, { width: 3000, height: 3000, label: 'play probe' });
 
   const rows = await page.evaluate(async (trials) => {
-    /**
-     * One check outcome.
-     *
-     * `passed: null` is a SKIP and is deliberately not a boolean, so a skip can never be mistaken for a
-     * pass by a reader or by a filter. See the skip helper for why that distinction is load bearing.
-     */
-    interface CheckResult {
-      readonly name: string;
-      readonly passed: boolean | null;
-      readonly detail: string;
-    }
-
-    /**
-     * A Foundry token, described only as far as this harness reads it.
-     *
-     * Deliberately partial. Foundry ships no types and its Token surface is enormous, so a fuller
-     * interface would be a second description of somebody else's object, drifting with every release.
-     * Naming the handful of fields actually touched says what the harness depends on and nothing more.
-     */
-    interface FoundryToken {
-      id: string;
-      name: string;
-      center: { x: number; y: number };
-      document: { x: number; y: number; update: (data: unknown) => Promise<unknown> };
-      nameplate?: { visible?: boolean };
-      control: (options?: { releaseOthers?: boolean }) => void;
-    }
-
-    const results: CheckResult[] = [];
+    const results: CapabilityRow[] = [];
     const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     const pointer = game.modules.get('tongs-browser').api.getPointer();
     const view = canvas.app.view;
@@ -83,8 +105,8 @@ try {
     const HOME = { x: grid * 3, y: grid * 3 };
 
     /** A brand new actor and token for one trial, torn down afterwards whatever happens. */
-    async function withFixture(run: (token: FoundryToken) => Promise<unknown>) {
-      const type = game.documentTypes.Actor.find((t: string) => t !== 'base');
+    async function withFixture<T>(run: (fixture: TrialContext) => Promise<T>): Promise<T> {
+      const type: string = game.documentTypes.Actor.find((t: string) => t !== 'base');
       const actor = await Actor.create({ name: '[probe] play', type });
       const [doc] = await canvas.scene.createEmbeddedDocuments('Token', [
         { name: '[probe] play', actorId: actor.id, x: HOME.x, y: HOME.y, displayName: 30 },
@@ -108,7 +130,7 @@ try {
     }
 
     /** Pan, wait for the transform, convert, move, and REPORT whether the aim actually landed. */
-    async function aim(token: FoundryToken) {
+    async function aim(token: FoundryToken): Promise<{ at: ClientAt; landed: boolean }> {
       canvas.pan({ x: token.center.x, y: token.center.y });
       await wait(400);
       const global = canvas.stage.toGlobal({ x: token.center.x, y: token.center.y });
@@ -125,10 +147,24 @@ try {
       return { at, landed };
     }
 
-    const pointerEvent = (type, at, extra = {}) =>
+    /*
+     * ⚠️ The undefined guard is here, once, rather than at each of the twenty call sites.
+     *
+     * `at` is absent for the capabilities that need no token, and those paths never dispatch. If one
+     * ever did, defaulting to (0, 0) would fire a real event at the top left corner of the window and
+     * the trial would report a perfectly ordinary 'no', which is the most expensive kind of wrong
+     * answer this probe can give: a capability declared broken because the test aimed at nothing.
+     */
+    const requireAt = (at: ClientAt | undefined, type: string): ClientAt => {
+      if (at === undefined) {
+        throw new Error(`a '${type}' was dispatched with no aim point, so the trial aimed nowhere`);
+      }
+      return at;
+    };
+
+    const pointerEvent = (type: string, at: ClientAt | undefined, extra: PointerEventInit = {}) =>
       new PointerEvent(type, {
-        clientX: at.clientX,
-        clientY: at.clientY,
+        ...requireAt(at, type),
         bubbles: true,
         cancelable: true,
         composed: true,
@@ -138,10 +174,9 @@ try {
         view: window,
         ...extra,
       });
-    const mouseEvent = (type, at, extra = {}) =>
+    const mouseEvent = (type: string, at: ClientAt | undefined, extra: MouseEventInit = {}) =>
       new MouseEvent(type, {
-        clientX: at.clientX,
-        clientY: at.clientY,
+        ...requireAt(at, type),
         bubbles: true,
         cancelable: true,
         composed: true,
@@ -153,8 +188,12 @@ try {
      * Run one path `trials` times, each in its own fixture. Outcomes are 'yes', 'no', or 'AIM' when
      * the precondition failed and the trial therefore says nothing about the behaviour.
      */
-    async function run(path, read, needsToken = true) {
-      const outcomes = [];
+    async function run(
+      path: TrialPath,
+      read: TrialRead,
+      needsToken = true
+    ): Promise<TrialOutcome[]> {
+      const outcomes: TrialOutcome[] = [];
       for (let trial = 0; trial < trials; trial += 1) {
         if (!needsToken) {
           await path({});
@@ -175,9 +214,16 @@ try {
       return outcomes;
     }
 
-    const reliable = (outcomes) => outcomes.every((o) => o === 'yes');
+    const reliable = (outcomes: readonly TrialOutcome[]): boolean =>
+      outcomes.every((outcome) => outcome === 'yes');
 
-    async function capability(name, viaPointer, viaNative, read, needsToken = true) {
+    async function capability(
+      name: string,
+      viaPointer: TrialPath,
+      viaNative: TrialPath | null,
+      read: TrialRead,
+      needsToken = true
+    ): Promise<void> {
       const pointerTrials = await run(viaPointer, read, needsToken);
       let controlTrials = null;
       if (!reliable(pointerTrials) && viaNative !== null) {
@@ -245,7 +291,8 @@ try {
         }
         pointer.endDrag();
       },
-      async ({ at }) => {
+      async (context) => {
+        const at = requireAt(context.at, 'native drag');
         view.dispatchEvent(pointerEvent('pointerdown', at, { button: 0, buttons: 1 }));
         view.dispatchEvent(mouseEvent('mousedown', at, { button: 0, buttons: 1 }));
         for (let step = 1; step <= 10; step += 1) {
@@ -268,12 +315,13 @@ try {
         zoomBefore = canvas.stage.scale.x;
         pointer.wheel(-120);
       },
-      async ({ at }) => {
+      async (context) => {
         zoomBefore = canvas.stage.scale.x;
+        const wheelAt = requireAt(context.at, 'native wheel');
         view.dispatchEvent(
           new WheelEvent('wheel', {
-            clientX: at.clientX,
-            clientY: at.clientY,
+            clientX: wheelAt.clientX,
+            clientY: wheelAt.clientY,
             deltaY: -120,
             bubbles: true,
             cancelable: true,
@@ -296,7 +344,7 @@ try {
         messagesBefore = game.messages.size;
         const editable = document
           .querySelector('prose-mirror#chat-message')
-          ?.querySelector('[contenteditable="true"], .ProseMirror');
+          ?.querySelector<HTMLElement>('[contenteditable="true"], .ProseMirror');
         if (editable) {
           editable.focus();
           document.execCommand('insertText', false, '/r 1d20');
@@ -323,7 +371,7 @@ try {
      * Same precondition discipline as the canvas aim: a click that missed is a different finding
      * from a click that was ignored.
      */
-    async function aimAtElement(element) {
+    async function aimAtElement(element: Element | null | undefined) {
       if (!element) {
         return { at: null, landed: false, topmost: 'the element does not exist' };
       }
@@ -352,7 +400,7 @@ try {
      * "Create Scene" while reporting on actors.
      */
     {
-      const outcomes = [];
+      const outcomes: TrialOutcome[] = [];
       const madeNames = [];
       let blockedBy = '';
       for (let trial = 0; trial < trials; trial += 1) {
@@ -396,7 +444,16 @@ try {
           continue;
         }
 
-        const nameInput = dialog.querySelector('input[name="name"]');
+        /*
+         * The dialog was FOUND by having this input, so a null here is not really reachable. Guarded
+         * anyway and reported as 'no' rather than left to throw, because an exception inside the page
+         * aborts the whole probe and loses every trial that had already been measured.
+         */
+        const nameInput = dialog.querySelector<HTMLInputElement>('input[name="name"]');
+        if (nameInput === null) {
+          outcomes.push('no');
+          continue;
+        }
         nameInput.value = name;
         nameInput.dispatchEvent(new Event('input', { bubbles: true }));
         nameInput.dispatchEvent(new Event('change', { bubbles: true }));
@@ -440,11 +497,11 @@ try {
      * ownership actually persisted on the document afterwards.
      */
     {
-      const outcomes = [];
+      const outcomes: TrialOutcome[] = [];
       for (let trial = 0; trial < trials; trial += 1) {
         const type = game.documentTypes.Actor.find((t: string) => t !== 'base');
         const actor = await Actor.create({ name: '[probe] ownership', type });
-        let player = game.users.find((user) => user.name === '[probe] player');
+        let player = game.users.find((user: { name?: string }) => user.name === '[probe] player');
         if (!player) {
           player = await User.create({
             name: '[probe] player',
@@ -494,7 +551,7 @@ try {
      * Dropping an actor from the sidebar onto the map. HTML5 drag and drop, so it never touches the
      * virtual pointer, but it is how a scene gets populated in the first place.
      */
-    const dropOutcomes = [];
+    const dropOutcomes: TrialOutcome[] = [];
     let dropNote = '';
     for (let trial = 0; trial < trials; trial += 1) {
       const outcome = await withFixture(async ({ actor, token }) => {
@@ -519,9 +576,11 @@ try {
         await wait(1200);
         const after = canvas.tokens.placeables.length;
         // Remove anything the drop created, so the next trial starts level.
-        const extras = canvas.tokens.placeables
-          .filter((t) => t.name.startsWith('[probe]') && t.id !== token.id)
-          .map((t) => t.id);
+        const extras: string[] = canvas.tokens.placeables
+          .filter(
+            (other: FoundryToken) => other.name.startsWith('[probe]') && other.id !== token.id
+          )
+          .map((other: FoundryToken) => other.id);
         if (extras.length > 0) await canvas.scene.deleteEmbeddedDocuments('Token', extras);
         return after > before ? 'yes' : 'no';
       });
@@ -545,10 +604,15 @@ try {
     )
   );
 
-  const verdict = (trialsList) => {
-    if (trialsList.every((o) => o === 'yes')) return 'YES';
-    if (trialsList.some((o: HTMLOptionElement) => o === 'AIM')) return 'AIM FAILED';
-    if (trialsList.some((o: HTMLOptionElement) => o === 'yes')) return 'FLAKY';
+  /*
+   * ⚠️ Order matters here and it is not cosmetic. 'AIM FAILED' is checked BEFORE 'FLAKY', because a
+   * run that never reached its target is not a flaky capability, it is an unmeasured one, and calling
+   * it flaky would send somebody hunting a race that does not exist.
+   */
+  const verdict = (trialsList: readonly TrialOutcome[]): string => {
+    if (trialsList.every((outcome) => outcome === 'yes')) return 'YES';
+    if (trialsList.some((outcome) => outcome === 'AIM')) return 'AIM FAILED';
+    if (trialsList.some((outcome) => outcome === 'yes')) return 'FLAKY';
     return 'no';
   };
 
@@ -562,9 +626,9 @@ try {
     const control =
       row.controlTrials === null
         ? 'not needed'
-        : row.controlTrials.every((o) => o === 'yes')
+        : row.controlTrials.every((outcome) => outcome === 'yes')
           ? 'reliable -> OUR GAP'
-          : row.controlTrials.some((o: HTMLOptionElement) => o === 'yes')
+          : row.controlTrials.some((outcome) => outcome === 'yes')
             ? 'flaky -> inconclusive'
             : 'also fails -> inconclusive';
     console.error(`${row.name.padEnd(43)} | ${verdict(row.pointerTrials).padEnd(11)} | ${control}`);
@@ -572,9 +636,9 @@ try {
 
   const gaps = rows.filter(
     (row) =>
-      !row.pointerTrials.some((o: HTMLOptionElement) => o === 'yes') &&
+      !row.pointerTrials.some((outcome) => outcome === 'yes') &&
       row.controlTrials !== null &&
-      row.controlTrials.every((o) => o === 'yes')
+      row.controlTrials.every((outcome) => outcome === 'yes')
   );
   console.error(
     `\n${String(gaps.length)} capability gap(s): the pointer failed every trial and a native control succeeded in every trial.`

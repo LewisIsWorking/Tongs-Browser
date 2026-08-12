@@ -19,6 +19,7 @@
 import type { Page } from 'playwright';
 import {
   BASE,
+  boardCentre,
   captureModuleLog,
   ensureActiveScene,
   ensureModuleEnabled,
@@ -26,6 +27,7 @@ import {
   launchBrowser,
   removeProbeScene,
   requireActiveWorld,
+  type ClientPoint,
 } from './foundry-session.ts';
 import { Hand } from './foundry-touch.ts';
 
@@ -47,7 +49,18 @@ function record(name: string, passed: boolean, detail: string): void {
   results.push({ name, passed, detail });
 }
 
-const viewport = (page) =>
+/**
+ * Where the canvas is looking: how far in, and at what.
+ *
+ * Both fields are needed together rather than separately, because every assertion in this file is a
+ * comparison between two readings, and a pan is only correct RELATIVE to the scale it happened at.
+ */
+interface Viewport {
+  readonly scale: number;
+  readonly pivot: ClientPoint;
+}
+
+const viewport = (page: Page): Promise<Viewport> =>
   page.evaluate(() => ({
     scale: canvas.stage.scale.x,
     pivot: { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y },
@@ -60,7 +73,7 @@ const viewport = (page) =>
  * moves left. Asserted as a sign rather than a magnitude, because the pixel to scene conversion
  * depends on the current zoom and pinning it would test the arithmetic rather than the behaviour.
  */
-async function checkTwoFingerPan(page: Page, hand, centre) {
+async function checkTwoFingerPan(page: Page, hand: Hand, centre: ClientPoint): Promise<void> {
   const before = await viewport(page);
 
   const gap = 80;
@@ -93,7 +106,7 @@ async function checkTwoFingerPan(page: Page, hand, centre) {
    * wide enough to admit a teleport.
    */
   const expected = 120 / before.scale;
-  const withinBand = (moved) => {
+  const withinBand = (moved: number): boolean => {
     const ratio = Math.abs(moved) / expected;
     return ratio > 0.5 && ratio < 1.5;
   };
@@ -119,7 +132,11 @@ async function checkTwoFingerPan(page: Page, hand, centre) {
  * pinch and landed on 1.6, a jump of 3.2x, because the controller multiplied the ratio onto a
  * remembered 1 and applied the result absolutely.
  */
-async function checkPinchIsRelative(page: Page, hand, centre) {
+async function checkPinchIsRelative(
+  page: Page,
+  hand: Hand,
+  centre: ClientPoint
+): Promise<Viewport> {
   const before = await viewport(page);
 
   const startGap = 100;
@@ -151,7 +168,12 @@ async function checkPinchIsRelative(page: Page, hand, centre) {
 }
 
 /** Pinching back in returns roughly where it started, so the two directions agree. */
-async function checkPinchIsReversible(page: Page, hand, centre, beforePinch) {
+async function checkPinchIsReversible(
+  page: Page,
+  hand: Hand,
+  centre: ClientPoint,
+  beforePinch: { readonly scale: number }
+): Promise<void> {
   await hand.start([
     { x: centre.x - 160, y: centre.y },
     { x: centre.x + 160, y: centre.y },
@@ -200,10 +222,7 @@ async function main() {
       `canvas loaded at ${start.scale}`
     );
 
-    const board = await page.evaluate(() => {
-      const box = document.querySelector('#board').getBoundingClientRect();
-      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-    });
+    const board = await boardCentre(page);
 
     await checkTwoFingerPan(page, hand, board);
     const afterPinch = await checkPinchIsRelative(page, hand, board);
