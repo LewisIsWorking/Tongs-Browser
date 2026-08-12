@@ -1,5 +1,6 @@
 import { logger } from './core/Logger.js';
 import { copyToClipboard } from './debug/Clipboard.js';
+import { DispatchTrace } from './debug/DispatchTrace.js';
 import { buildDiagnosticsReport, toPlainText } from './debug/DiagnosticsReport.js';
 import { installFoundryDragHooks } from './debug/FoundryDragHooks.js';
 import { DebugOverlay } from './debug/DebugOverlay.js';
@@ -31,9 +32,6 @@ import { WindowClampBinder } from './scaling/WindowClampBinder.js';
  * for why macro ownership alone still cannot let a player pause the whole world.
  */
 const PAUSE_MACRO_NAME = 'Tongs Pause';
-
-/** How many recent dispatches the diagnostics report carries. Enough for a whole short drag. */
-const DISPATCH_TRACE_LENGTH = 18;
 
 /** Stamped in at build time by Vite. See vite.config.ts for why the manifest version is not enough. */
 declare const __TB_BUILD_VERSION__: string;
@@ -85,7 +83,7 @@ export class TongsBrowser {
    * whole session and a leak in a diagnostic is a poor trade for information nobody has asked for
    * yet.
    */
-  private readonly recentDispatches: string[] = [];
+  private readonly trace = new DispatchTrace();
 
   /** Highest Foundry interaction state seen during the current gesture. See recordDispatch. */
   private peakInteractionState = 0;
@@ -836,7 +834,7 @@ export class TongsBrowser {
      */
     const dragging = this.pointer.isDragging();
     if (dragging && !this.wasDragging) {
-      this.recentDispatches.length = 0;
+      this.trace.clear();
       this.peakInteractionState = 0;
       this.peakPreviewCount = 0;
       this.layerMoveCount = 0;
@@ -901,12 +899,12 @@ export class TongsBrowser {
 
     // Once a drag has been captured, later taps are ignored rather than allowed to overwrite it.
     if (!dragging && !this.capturingDrag) {
-      this.recentDispatches.length = 0;
+      this.trace.clear();
     }
     if (!dragging && this.capturingDrag && descriptor.type === 'pointerdown') {
       // A fresh press with no grab held: the drag record has served its purpose.
       this.capturingDrag = false;
-      this.recentDispatches.length = 0;
+      this.trace.clear();
     }
 
     /*
@@ -1063,27 +1061,7 @@ export class TongsBrowser {
      * clientY, which is our bug, or they change and PIXI is not mapping them, which is not. The trace
      * recorded type, buttons and target, which is everything except the field that decides it.
      */
-    const buttons = descriptor.buttons ?? 0;
-    const at = descriptor.position;
-    const where =
-      at === undefined
-        ? ''
-        : ` @${String(Math.round(at.clientX))},${String(Math.round(at.clientY))}`;
-    const line = `${descriptor.type} buttons=${String(buttons)}${where} -> ${target.tagName.toLowerCase()}#${target.id}`;
-
-    // Collapse a run of identical move lines rather than filling the report with them.
-    const last = this.recentDispatches[this.recentDispatches.length - 1];
-    if (last?.startsWith(line) === true) {
-      const repeats = /\bx(\d+)$/.exec(last);
-      const count = repeats === null ? 2 : Number(repeats[1]) + 1;
-      this.recentDispatches[this.recentDispatches.length - 1] = `${line} x${String(count)}`;
-      return;
-    }
-
-    this.recentDispatches.push(line);
-    if (this.recentDispatches.length > DISPATCH_TRACE_LENGTH) {
-      this.recentDispatches.shift();
-    }
+    this.trace.record(descriptor, `${target.tagName.toLowerCase()}#${target.id}`);
   }
 
   /** Where the token was when the grab began, against where it is now. */
@@ -1219,7 +1197,7 @@ export class TongsBrowser {
       interactionStateNow: describeInteractionState(selected),
       probeAttached: this.pixiProbeAttached,
       userAgent: navigator.userAgent,
-      recentDispatches: this.recentDispatches,
+      recentDispatches: this.trace.getLines(),
     });
 
     /*
