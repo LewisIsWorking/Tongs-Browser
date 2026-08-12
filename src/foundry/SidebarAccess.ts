@@ -108,3 +108,61 @@ export function toggleFoundrySidebar(options: SidebarAccessOptions): boolean {
   void sidebar.toggleExpanded(sidebar.expanded !== true);
   return true;
 }
+
+/**
+ * What tapping the sidebar button should do next.
+ *
+ * A discriminated result rather than the action itself, so the decision can be tested without a DOM
+ * and the DOM work stays where the DOM is. The decision is the interesting part: it encodes what a
+ * device taught us, and it was wrong twice before it was right.
+ */
+export type SidebarAction =
+  | { readonly kind: 'closeMenu' }
+  | { readonly kind: 'openMenu'; readonly tabNames: readonly string[] }
+  | { readonly kind: 'togglePopout'; readonly tabName: string }
+  | { readonly kind: 'toggleDocked' }
+  | { readonly kind: 'nothing' };
+
+/**
+ * Decide what the sidebar button does, given what is on screen now.
+ *
+ * ⚠️ Two measured lessons are baked into this order, and both replaced something that looked
+ * obviously right:
+ *
+ * 1. **Pop a tab OUT rather than expanding the docked sidebar.** Toggling `expanded` genuinely
+ *    flips and NOTHING APPEARS, because the docked sidebar is a column pinned to the right edge of a
+ *    layout a phone browser does not place where the maths says. A popped out tab is an ordinary
+ *    application window, which WindowClampBinder already keeps inside the viewport, so it is visible
+ *    by construction rather than by luck.
+ * 2. **Offer EVERY tab, not just the active one.** Popping out the active tab gave chat and nothing
+ *    else, because the only way to change tabs is the docked tab strip, which is the 27px column
+ *    that started all of this.
+ *
+ * Expanding the docked sidebar survives as the last resort, for a build with nothing to pop out.
+ */
+export function decideSidebarAction(
+  options: SidebarAccessOptions,
+  menuIsOpen: boolean
+): SidebarAction {
+  if (menuIsOpen) {
+    // An open picker closes, so the button is never a one way trip.
+    return { kind: 'closeMenu' };
+  }
+
+  const ui = options.getUi();
+  if (ui?.sidebar === undefined) {
+    return { kind: 'nothing' };
+  }
+
+  const tabNames = resolveSidebarTabNames(options);
+  if (tabNames.length > 1) {
+    return { kind: 'openMenu', tabNames };
+  }
+
+  const only = tabNames[0];
+  if (only !== undefined) {
+    return { kind: 'togglePopout', tabName: only };
+  }
+
+  return ui.sidebar.toggleExpanded === undefined ? { kind: 'nothing' } : { kind: 'toggleDocked' };
+}

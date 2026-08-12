@@ -20,8 +20,9 @@ import { KeyboardSynthesizer, type KeyboardManagerLike } from './modifiers/Keybo
 import { ModifierBar, type BarPosition, type TrayAction } from './modifiers/ModifierBar.js';
 import { MODULE_ID } from './constants.js';
 import {
+  decideSidebarAction,
   popOutSidebarTab,
-  resolveSidebarTabNames,
+  toggleFoundrySidebar,
   type FoundryUi,
   type SidebarAccessOptions,
 } from './foundry/SidebarAccess.js';
@@ -1168,10 +1169,6 @@ export class TongsBrowser {
     };
   }
 
-  private resolveSidebarTabNames(): string[] {
-    return resolveSidebarTabNames(this.sidebarAccess());
-  }
-
   private popOutSidebarTab(name: string): void {
     popOutSidebarTab(this.sidebarAccess(), name);
   }
@@ -1298,86 +1295,30 @@ export class TongsBrowser {
    * Falls back to the older collapse and expand pair, and does nothing at all if neither exists,
    * because a button that throws is worse than a button that is merely inert.
    */
+  /**
+   * Act on what the sidebar button should do.
+   *
+   * The DECISION lives in foundry/SidebarAccess.ts, where it is testable without a DOM and where
+   * the two measured lessons behind its ordering are recorded. This only carries it out.
+   */
   private toggleFoundrySidebar(): void {
-    const ui = (globalThis as { ui?: Record<string, unknown> }).ui;
-    const sidebar = ui?.['sidebar'] as
-      | {
-          expanded?: boolean;
-          toggleExpanded?: (expanded?: boolean) => void;
-          expand?: () => void;
-          collapse?: () => void;
-          tabGroups?: { primary?: string };
-          tabs?: Record<string, { renderPopout?: () => unknown; popout?: unknown }>;
-          popouts?: Record<string, { close?: () => unknown }>;
-        }
-      | undefined;
+    const action = decideSidebarAction(this.sidebarAccess(), this.sidebarMenu !== null);
 
-    if (sidebar === undefined) {
-      return;
-    }
-
-    /*
-     * Pop the active tab out as a window rather than relying on the docked sidebar.
-     *
-     * Expanding the docked sidebar is the obvious thing and it is not good enough. Measured on a
-     * real device: toggling `expanded` genuinely flips, and nothing appears, because the docked
-     * sidebar is a 48px column pinned to the right edge of a layout that a phone browser does not
-     * put where the maths says it should be. A popped out tab is an ordinary application window,
-     * which WindowClampBinder already keeps inside the viewport, so it is visible by construction
-     * rather than by luck.
-     *
-     * It also toggles honestly: a second tap closes the window it opened.
-     */
-    /*
-     * Offer EVERY tab, not just the active one.
-     *
-     * Popping out the active tab gave chat and nothing else, because the only way to change tabs is
-     * the docked tab strip, which is the 27px column that started all of this. So the button opens a
-     * small picker of its own instead: our DOM, our sizing, guaranteed tappable.
-     */
-    if (this.sidebarMenu !== null) {
-      this.closeSidebarMenu();
-      return;
-    }
-
-    /*
-     * The tab NAMES come from Sidebar.TABS, a static definition map, and the tab APPLICATIONS live
-     * on `ui` directly as ui.chat, ui.actors and so on. There is no instance collection joining the
-     * two, which is what the first attempt assumed: it read `sidebar.tabs`, found nothing, offered
-     * no tabs, and silently fell through to popping out chat again.
-     *
-     * gmOnly entries are dropped for players, matching what Foundry's own tab strip renders, so a
-     * player is never offered a Scenes tab that would refuse to open.
-     */
-    const tabNames = this.resolveSidebarTabNames();
-    if (tabNames.length > 1) {
-      this.openSidebarMenu(tabNames);
-      return;
-    }
-
-    const tabName = sidebar.tabGroups?.primary ?? 'chat';
-    const existingPopout = sidebar.popouts?.[tabName];
-    if (existingPopout?.close !== undefined) {
-      void existingPopout.close();
-      return;
-    }
-
-    const tab =
-      sidebar.tabs?.[tabName] ?? (ui?.[tabName] as { renderPopout?: () => unknown } | undefined);
-    if (tab?.renderPopout !== undefined) {
-      void tab.renderPopout();
-      return;
-    }
-
-    // Nothing to pop out on this build, so fall back to the docked sidebar.
-    if (typeof sidebar.toggleExpanded === 'function') {
-      sidebar.toggleExpanded();
-      return;
-    }
-    if (sidebar.expanded === true) {
-      sidebar.collapse?.();
-    } else {
-      sidebar.expand?.();
+    switch (action.kind) {
+      case 'closeMenu':
+        this.closeSidebarMenu();
+        return;
+      case 'openMenu':
+        this.openSidebarMenu(action.tabNames);
+        return;
+      case 'togglePopout':
+        this.popOutSidebarTab(action.tabName);
+        return;
+      case 'toggleDocked':
+        toggleFoundrySidebar(this.sidebarAccess());
+        return;
+      case 'nothing':
+        return;
     }
   }
 
