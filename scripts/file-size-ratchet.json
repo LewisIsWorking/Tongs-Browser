@@ -1,6 +1,6 @@
 {
-  "scripts/drag/DragToken.ts": 277,
-  "scripts/foundry-drag-check.ts": 266,
+  "scripts/drag/DragToken.ts": 284,
+  "scripts/foundry-drag-check.ts": 268,
   "scripts/foundry-play-probe.ts": 572,
   "tests/browser/pointer.spec.ts": 311
 }

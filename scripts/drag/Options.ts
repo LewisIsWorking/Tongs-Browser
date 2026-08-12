@@ -110,3 +110,17 @@ export const ANDROID_COMMIT_TIMEOUT_MS = 120_000;
  * anything outside it is the drag not following the pointer.
  */
 export const TRAVEL_TOLERANCE = 100;
+
+/**
+ * How long to hold the grab before moving, from `--hold=<ms>`. Added 2026-08-12.
+ *
+ * ⚠️ Default zero, because that is what every previous run did, and it is exactly why this check
+ * passed against a bug a phone hit every time. Foundry arms a 500ms long press timer on pointerdown
+ * and clears it only when a drag actually starts, so `--hold=700` is the interesting number: it is
+ * roughly what a person takes between tapping the grab button and starting to drag. Foundry then
+ * decides the pointer is being held still, pings the canvas, and cancels from
+ * ControlsLayer._onLongPress.
+ */
+export const HOLD_MS = Number(
+  process.argv.find((arg) => arg.startsWith('--hold='))?.slice('--hold='.length) ?? '0'
+);

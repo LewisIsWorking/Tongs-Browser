@@ -121,13 +121,22 @@ export function makeRegion(
   return element;
 }
 
-export function createPointer(initial = { clientX: 0, clientY: 0 }): VirtualPointer {
+export function createPointer(
+  initial = { clientX: 0, clientY: 0 },
+  /**
+   * ⚠️ Injectable so the ORDER can be asserted. The disarm has to happen after the pointerdown,
+   * because the pointerdown is what arms Foundry's long press timer; disarming first clears a timer
+   * Foundry immediately replaces, which is a change that runs on every drag and fixes nothing.
+   */
+  onDragBegun: () => void = () => undefined
+): VirtualPointer {
   const hitTester = new HitTester({
     elementFromPoint: elementAt,
     getViewport: () => ({ width: 1000, height: 800 }),
   });
   // No view: Vitest's jsdom window is not a branded Window and UIEvent would reject it.
   return new VirtualPointer({
+    onDragBegun,
     hitTester,
     dispatcher: new EventDispatcher(),
     initialPosition: initial,

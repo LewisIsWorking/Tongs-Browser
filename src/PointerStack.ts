@@ -12,6 +12,8 @@ import type { EventDescriptor } from './pointer/EventDescriptor.js';
  * joined are the sort that a build cannot check and that read as arbitrary until something breaks.
  */
 export interface PointerStackOptions {
+  /** Called after a drag's opening pointerdown. See foundry/LongPressGuard.ts. */
+  readonly onDragBegun: () => void;
   readonly document: Document;
   /** Where the viewport size is read from. */
   readonly window: Window;
@@ -64,6 +66,7 @@ export function createPointerStack(options: PointerStackOptions): PointerStack {
   });
 
   const pointer = new VirtualPointer({
+    onDragBegun: options.onDragBegun,
     hitTester,
     dispatcher: new EventDispatcher({
       ...(options.eventView === undefined ? {} : { view: options.eventView }),

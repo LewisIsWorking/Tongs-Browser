@@ -1,3 +1,4 @@
+import { buildLongPressGuard } from './foundry/BuildLongPressGuard.js';
 import { CanvasController } from './gesture/CanvasController.js';
 import { DebugOverlay } from './debug/DebugOverlay.js';
 import { DragDiagnostics } from './debug/DragDiagnostics.js';
@@ -81,7 +82,13 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
 
   const debug = new DebugOverlay({ document: doc, logger });
 
+  // Foundry cancels a held drag after 500ms as a long press. See foundry/LongPressGuard.ts.
+  const longPress = buildLongPressGuard(win);
+
   const stack = createPointerStack({
+    onDragBegun: () => {
+      longPress.disarm();
+    },
     document: doc,
     window: win,
     ...(options.eventView === undefined ? {} : { eventView: options.eventView }),
