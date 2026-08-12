@@ -1,3 +1,5 @@
+import { buildJournalSection } from './JournalSection.js';
+import type { JournalEntry } from './DebugJournal.js';
 import { summariseDragEndings, type InstalledHooks } from './FoundryDragHooks.js';
 
 /**
@@ -40,6 +42,8 @@ export interface DiagnosticsSnapshot {
   readonly peakPreviewCount: number;
   readonly viewport: { readonly atGrab: string; readonly now: string; readonly resizes: number };
   readonly dragEndings: readonly string[];
+  /** The interleaved record of causes and effects. See debug/DebugJournal.ts. */
+  readonly journal: readonly JournalEntry[];
   readonly hooksInstalled: InstalledHooks;
   readonly moves: { readonly token: number; readonly layer: number; readonly stage: number };
   readonly lastGateDistance: number;
@@ -133,6 +137,7 @@ function buildFoundryView(snapshot: DiagnosticsSnapshot): string[] {
         : ''
     }</strong>`,
     `<strong>FOUNDRY'S DRAG ENDING: ${summariseDragEndings(snapshot.dragEndings, snapshot.hooksInstalled)}</strong>`,
+    ...buildJournalSection(snapshot.journal),
     // TOKEN first: Foundry checks its drag gate in a handler on the object, so a zero here means the
     // gate was never evaluated after the press and no amount of travel could have opened it.
     `<strong>PIXI moves TO THE TOKEN: ${String(snapshot.moves.token)}${

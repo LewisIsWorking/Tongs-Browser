@@ -157,8 +157,21 @@ export function describeDragPermissions(target: unknown): string {
   const answers = ['clickLeft', 'dragStart', 'dragLeftStart'].map((action) => {
     try {
       return `${action}=${String(can.call(manager, action, probe))}`;
-    } catch {
-      return `${action}=unaskable`;
+    } catch (error) {
+      /*
+       * ⚠️ The MESSAGE, not the bare word `unaskable`, and the difference cost a device round trip.
+       *
+       * `dragLeftStart=unaskable` was reported by a phone and said only "the probe threw", which is
+       * the one thing already obvious from the word. The message names the field the check read and
+       * this probe did not supply, which is the actual answer.
+       *
+       * Deliberately NOT fixed by enriching the probe until that message says what to enrich it
+       * with. Adding fields to make a probe stop throwing is how a probe starts reporting healthy
+       * every time, and a permission check that answers the wrong question is worse than one that
+       * refuses to answer.
+       */
+      const message = error instanceof Error ? error.message : String(error);
+      return `${action}=unaskable(${message.slice(0, 60)})`;
     }
   });
   return answers.join(' ');

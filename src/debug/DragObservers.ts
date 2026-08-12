@@ -12,6 +12,8 @@ export interface DragObserverPort {
   readonly window: Window;
   /** Whether a drag record is currently open, so nothing is counted outside one. */
   readonly isCapturing: () => boolean;
+  /** Optional sink for the same observations, so they can be interleaved on the timeline. */
+  readonly onObservation?: (note: string) => void;
 }
 
 export class DragObservers {
@@ -120,7 +122,15 @@ export class DragObservers {
       getManagerPrototype: () =>
         global.canvas?.tokens?.controlled?.[0]?.mouseInteractionManager?.constructor?.prototype,
       isRecording: () => this.options.isCapturing(),
-      onObservation: (note) => this.dragEndings.push(note),
+      onObservation: (note) => {
+        this.dragEndings.push(note);
+        /*
+         * ⚠️ ALSO to the journal, and the duplication is deliberate. `dragEndings` is a list of
+         * what Foundry did; the journal is the one place a Foundry action sits NEXT TO the button
+         * press that caused it. Reading either alone is what cost four device round trips.
+         */
+        this.options.onObservation?.(note);
+      },
     });
   }
 

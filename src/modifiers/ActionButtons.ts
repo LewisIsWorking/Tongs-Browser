@@ -24,7 +24,13 @@ export class ActionButtons {
     doc: Document,
     root: HTMLElement,
     actions: readonly TrayAction[],
-    onActivated: () => void
+    /**
+     * ⚠️ Takes the ACTION ID, and it did not until 2026-08-12. A parameterless callback cannot say
+     * WHICH button was tapped, so the diagnostics timeline recorded "a button" and the one question
+     * a user's report turned on -- "does the hand button break the drag?" -- was unanswerable from
+     * it. A parameter that cannot carry the answer is worse than no parameter.
+     */
+    onActivated: (actionId: string) => void
   ): void {
     const groups = new Map<string, HTMLDivElement>();
 
@@ -39,7 +45,7 @@ export class ActionButtons {
       button.addEventListener('click', () => {
         action.activate();
         // Refresh immediately, so a button that reports state is never a tap behind the truth.
-        onActivated();
+        onActivated(action.id);
       });
 
       if (action.group === undefined) {
