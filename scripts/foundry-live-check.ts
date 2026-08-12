@@ -20,6 +20,10 @@
  *    finally block, so anything a crash leaves behind is identifiable and safe to remove by hand.
  */
 import type { Page } from 'playwright';
+
+import { createRecorder, type Recorder } from './live/recorder.ts';
+import { checkChromeRespondsToClick } from './live/chromeChecks.ts';
+import { checkSceneControlToggle } from './live/sceneControlChecks.ts';
 import {
   BASE,
   MODULE_ID,
@@ -38,27 +42,15 @@ import {
  * `passed: null` is a SKIP and is deliberately not a boolean, so a skip can never be mistaken for a
  * pass by a reader or by a filter. See the skip helper for why that distinction is load bearing.
  */
-interface CheckResult {
-  readonly name: string;
-  readonly passed: boolean | null;
-  readonly detail: string;
-}
-
-const results: CheckResult[] = [];
-
-function record(name: string, passed: boolean, detail: string): void {
-  results.push({ name, passed, detail });
-}
-
 /** The overlays exist at all. Everything below is meaningless if they do not. */
-async function checkOverlaysAttached(page: Page) {
+async function checkOverlaysAttached(page: Page, recorder: Recorder) {
   const found = await page.evaluate(() => ({
     cursor: document.querySelectorAll('.tb-cursor').length,
     bar: document.querySelectorAll('.tb-modifier-bar').length,
     keys: document.querySelectorAll('.tb-key').length,
   }));
 
-  record(
+  recorder.record(
     'overlays attached',
     found.cursor === 1 && found.bar === 1 && found.keys > 0,
     `cursor=${found.cursor} bar=${found.bar} keys=${found.keys}`
@@ -71,7 +63,7 @@ async function checkOverlaysAttached(page: Page) {
  * Unit tested already, but against a stub layout. Foundry stacks a lot of positioned elements and
  * this is the one property whose failure would make every click land on the cursor itself.
  */
-async function checkCursorNotHitTestable(page: Page) {
+async function checkCursorNotHitTestable(page: Page, recorder: Recorder) {
   const outcome = await page.evaluate(() => {
     const cursor = document.querySelector('.tb-cursor');
     if (cursor === null) {
@@ -90,58 +82,7 @@ async function checkCursorNotHitTestable(page: Page) {
     return { hits, anyCursor: hits.some((c) => String(c).includes('tb-cursor')) };
   });
 
-  record('cursor is never hit testable', !outcome.anyCursor, outcome.hits.join(' | '));
-}
-
-/**
- * The HTML chrome half: does Foundry's own click handling accept a synthesised click.
- *
- * Asserted against ui.sidebar.tabGroups rather than against a CSS class, because that is Foundry's
- * own record of which tab is active. A class check would pass on a tab that merely looks selected.
- */
-async function checkChromeRespondsToClick(page: Page) {
-  const before = await page.evaluate(() => ui.sidebar.tabGroups.primary);
-  const target = before === 'combat' ? 'chat' : 'combat';
-
-  const moved = await page.evaluate(
-    ({ id, tab }) => {
-      const button = document.querySelector(`button[data-tab="${tab}"]`);
-      if (button === null) {
-        return { ok: false, reason: `no sidebar button for '${tab}'` };
-      }
-      const box = button.getBoundingClientRect();
-      const pointer = game.modules.get(id).api.getPointer();
-      pointer.moveTo({ clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 });
-      const over = pointer.getCurrentTarget();
-      pointer.leftClick();
-      return { ok: true, hovered: over?.dataset?.tab ?? over?.tagName ?? null };
-    },
-    { id: MODULE_ID, tab: target }
-  );
-
-  if (!moved.ok) {
-    // A failure always carries a reason, but only the failing branch sets one, so the type is
-    // optional. Naming the fallback keeps a missing reason visible rather than printing "undefined".
-    record(
-      'foundry chrome responds to a synthesised click',
-      false,
-      moved.reason ?? 'no reason recorded'
-    );
-    return;
-  }
-
-  // Polled rather than slept: the tab switch is synchronous today, and a fixed wait would be both
-  // slower than needed and silently wrong if it ever stops being.
-  const after = await page
-    .waitForFunction((tab) => ui.sidebar.tabGroups.primary === tab, target, { timeout: 5000 })
-    .then(() => target)
-    .catch(async () => page.evaluate(() => ui.sidebar.tabGroups.primary));
-
-  record(
-    'foundry chrome responds to a synthesised click',
-    after === target,
-    `hovered=${moved.hovered} tab ${before} -> ${after} (wanted ${target})`
-  );
+  recorder.record('cursor is never hit testable', !outcome.anyCursor, outcome.hits.join(' | '));
 }
 
 /**
@@ -155,7 +96,7 @@ async function checkChromeRespondsToClick(page: Page) {
  * the scene to screen transform depends on zoom and padding, and hardcoding a number would be a test
  * of the arithmetic in this file rather than of Foundry.
  */
-async function checkCanvasRespondsToMove(page: Page) {
+async function checkCanvasRespondsToMove(page: Page, recorder: Recorder) {
   const outcome = await page.evaluate((id) => {
     const board = document.querySelector('#board');
     if (board === null) {
@@ -179,123 +120,16 @@ async function checkCanvasRespondsToMove(page: Page) {
     };
   }, MODULE_ID);
 
-  record(
+  recorder.record(
     'pixi canvas tracks a synthesised pointer move',
     outcome.moved,
     `hit=#${outcome.target} ${JSON.stringify(outcome.first)} -> ${JSON.stringify(outcome.second)}`
   );
 }
 
-/**
- * The scene control toggle exists, and toggling it actually turns the module off and on.
- *
- * This is the module's escape hatch: if the pointer misbehaves mid session, reaching the settings
- * dialog means using the pointer to get there, which is the thing that is not working. So it is the
- * one control that has to work when nothing else does.
- *
- * It was completely absent on Foundry 14 until 2026-08-09, for two independent reasons, both
- * measured rather than guessed: the hook was registered at `ready` when Foundry builds the controls
- * exactly once before that, and the group is called `tokens` while the code looked for `token`.
- *
- * Judged by Foundry's own control state AND by the DOM, because either alone can lie: the state can
- * hold a tool that never renders, and a rendered button can be a leftover.
- */
-async function checkSceneControlToggle(page: Page) {
-  const present = await page.evaluate((id) => {
-    const groups = ui.controls.controls;
-    const inGroup = Object.entries(
-      groups as Record<string, { tools?: Record<string, unknown> }>
-    ).find(([, group]) => Object.keys(group.tools ?? {}).includes(id));
-    return {
-      group: inGroup?.[0] ?? null,
-      groupNames: Object.keys(groups),
-      inDom: document.querySelectorAll(`[data-tool="${id}"]`).length,
-    };
-  }, MODULE_ID);
-
-  record(
-    'scene control toggle is registered in the tokens group',
-    present.group === 'tokens',
-    `found in ${present.group ?? 'no group'}, of ${present.groupNames.join(', ')}`
-  );
-
-  record(
-    'scene control toggle is rendered in the toolbar',
-    present.inDom === 1,
-    `${present.inDom} element(s) matching [data-tool="${MODULE_ID}"]`
-  );
-
-  if (present.inDom !== 1) {
-    return;
-  }
-
-  /*
-   * The toggle must not merely exist, it must be REACHABLE.
-   *
-   * At the default bar position of x 16 it was not. Measured on 14.365: the scene control toolbar
-   * runs x 12 to 66 down the left edge, the bar was 445x54 at (16, 120), and the toggle at x 42 to
-   * 66, y 132 to 156 was entirely underneath it. elementFromPoint at the toggle's centre returned
-   * the bar's own collapse button, so a real finger could never have hit it.
-   *
-   * Judged by hit testing rather than by comparing rectangles, because that is the question a finger
-   * asks. The default moved to x 88 to clear the toolbar.
-   */
-  const reachable = await page.evaluate((id) => {
-    const button = document.querySelector(`[data-tool="${id}"]`);
-    if (button === null) {
-      throw new Error(`no [data-tool="${id}"] control: the scene control was never created.`);
-    }
-    const box = button.getBoundingClientRect();
-    const topmost = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-    return {
-      topmost: topmost ? `${topmost.tagName.toLowerCase()}.${String(topmost.className)}` : null,
-      isTheToggle: button === topmost || button.contains(topmost),
-    };
-  }, MODULE_ID);
-
-  record(
-    'the scene control toggle is not covered by the modifier bar',
-    reachable.isTheToggle,
-    `topmost element at the toggle's centre is ${reachable.topmost}`
-  );
-
-  /*
-   * Invoked through the tool's own onChange, which is the callback Foundry calls, rather than by
-   * clicking the button.
-   *
-   * ⚠️ THE LIMIT IS DELIBERATE AND WORTH STATING. This proves the wiring behind the button is
-   * correct: the callback Foundry will invoke does flip the module and persist the setting. It does
-   * NOT prove Foundry's own click routing reaches that callback, because a synthetic mouse click on
-   * the button was measured not to trigger its data-action="tool" handler, which is a limitation of
-   * the harness rather than a finding about the module.
-   *
-   * Reachability, the part a finger cares about, is asked separately above by hit testing. Between
-   * the two, the only thing left unproven is Foundry's internal dispatch, which is Foundry's to get
-   * right and which the device checklist still exercises.
-   *
-   * Toggled twice, so the world's saved setting ends where it started.
-   */
-  const before = await page.evaluate((id) => game.modules.get(id).api.isEnabled(), MODULE_ID);
-
-  const fire = async () => {
-    await page.evaluate((id) => {
-      ui.controls.controls.tokens?.tools?.[id]?.onChange?.();
-    }, MODULE_ID);
-    await page.waitForTimeout(400);
-    return page.evaluate((id) => game.modules.get(id).api.isEnabled(), MODULE_ID);
-  };
-
-  const middle = await fire();
-  const after = await fire();
-
-  record(
-    'the scene control toggle actually toggles the module',
-    middle === !before && after === before,
-    `enabled ${before} -> ${middle} -> ${after}, so it flipped and came back`
-  );
-}
-
 async function main() {
+  const recorder = createRecorder();
+  const { record, results } = recorder;
   const status = await requireActiveWorld();
   const { browser, page } = await launchBrowser();
   const log = captureModuleLog(page);
@@ -311,13 +145,13 @@ async function main() {
     );
     record('module is enabled', enabled, `api.isEnabled() = ${enabled}`);
 
-    await checkOverlaysAttached(page);
-    await checkCursorNotHitTestable(page);
-    await checkChromeRespondsToClick(page);
-    await checkSceneControlToggle(page);
+    await checkOverlaysAttached(page, recorder);
+    await checkCursorNotHitTestable(page, recorder);
+    await checkChromeRespondsToClick(page, recorder);
+    await checkSceneControlToggle(page, recorder);
 
     createdScene = await ensureActiveScene(page);
-    await checkCanvasRespondsToMove(page);
+    await checkCanvasRespondsToMove(page, recorder);
 
     const errors = log.filter((line) => line.startsWith('pageerror') || line.startsWith('error'));
     record('no page errors from the module', errors.length === 0, errors.join(' | ') || 'none');
