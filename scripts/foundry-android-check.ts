@@ -48,6 +48,22 @@ interface CheckResult {
   readonly detail: string;
 }
 
+/**
+ * A Foundry token, described only as far as this harness reads it.
+ *
+ * Deliberately partial. Foundry ships no types and its Token surface is enormous, so a fuller
+ * interface would be a second description of somebody else's object, drifting with every release.
+ * Naming the handful of fields actually touched says what the harness depends on and nothing more.
+ */
+interface FoundryToken {
+  id: string;
+  name: string;
+  center: { x: number; y: number };
+  document: { x: number; y: number; update: (data: unknown) => Promise<unknown> };
+  nameplate?: { visible?: boolean };
+  control: (options?: { releaseOthers?: boolean }) => void;
+}
+
 const results: CheckResult[] = [];
 
 function record(name: string, passed: boolean, detail: string): void {
@@ -273,7 +289,9 @@ async function createProbeTokens(page: Page) {
      * straight away reports nameplate visibility as null and the whole check judges nothing.
      */
     for (let attempt = 0; attempt < 50; attempt += 1) {
-      const drawn = tokens.every((token) => canvas.tokens.get(token.id)?.nameplate !== undefined);
+      const drawn = tokens.every(
+        (token: FoundryToken) => canvas.tokens.get(token.id)?.nameplate !== undefined
+      );
       if (drawn) {
         break;
       }
@@ -282,7 +300,12 @@ async function createProbeTokens(page: Page) {
       });
     }
 
-    return { actorId: actor.id, tokenIds: tokens.map((token) => token.id) };
+    return {
+      actorId: actor.id,
+      tokenIds: tokens.map(
+        (token: { name: string; id: string; document: { x: number; y: number } }) => token.id
+      ),
+    };
   }, PROBE_PREFIX);
 }
 
@@ -329,8 +352,14 @@ async function checkHoverSemantics(page: Page, probe) {
       const tokens = ids.map((id) => canvas.tokens.get(id));
       return {
         highlightObjects: canvas.tokens.highlightObjects === true,
-        hovered: tokens.map((token) => token?.hover ?? null),
-        nameplates: tokens.map((token) => token?.nameplate?.visible ?? null),
+        hovered: tokens.map(
+          (token: { name: string; id: string; document: { x: number; y: number } }) =>
+            token?.hover ?? null
+        ),
+        nameplates: tokens.map(
+          (token: { name: string; id: string; document: { x: number; y: number } }) =>
+            token?.nameplate?.visible ?? null
+        ),
       };
     },
     { ids: probe.tokenIds }
@@ -378,7 +407,7 @@ async function checkHoverSemantics(page: Page, probe) {
           setTimeout(resolve, 250);
         });
 
-        const tokens = ids.map((other) => canvas.tokens.get(other));
+        const tokens = ids.map((other: { x: number; y: number }) => canvas.tokens.get(other));
         return {
           client,
           // Cross check the coordinate maths against Foundry's own reading of where the mouse is,
@@ -389,8 +418,10 @@ async function checkHoverSemantics(page: Page, probe) {
             canvas.mousePosition.x <= token.document.x + token.w &&
             canvas.mousePosition.y >= token.document.y &&
             canvas.mousePosition.y <= token.document.y + token.h,
-          hovered: tokens.map((other) => other?.hover ?? null),
-          nameplates: tokens.map((other) => other?.nameplate?.visible ?? null),
+          hovered: tokens.map((other: { x: number; y: number }) => other?.hover ?? null),
+          nameplates: tokens.map(
+            (other: { x: number; y: number }) => other?.nameplate?.visible ?? null
+          ),
           layerHoverIsThis: canvas.tokens.hover === token,
         };
       },

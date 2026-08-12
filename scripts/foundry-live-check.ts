@@ -74,8 +74,14 @@ async function checkOverlaysAttached(page: Page) {
 async function checkCursorNotHitTestable(page: Page) {
   const outcome = await page.evaluate(() => {
     const cursor = document.querySelector('.tb-cursor');
+    if (cursor === null) {
+      // Naming what is missing beats a TypeError from the next line. An absent cursor is a real
+      // outcome, the module not having rendered, and it must not read as a failed hit test.
+      throw new Error('no .tb-cursor in the document: the module has not drawn its pointer.');
+    }
     const box = cursor.getBoundingClientRect();
-    const points = [
+    // Tuples rather than arrays, so destructuring gives numbers instead of number | undefined.
+    const points: [number, number][] = [
       [box.left + box.width / 2, box.top + box.height / 2],
       [box.left + 1, box.top + 1],
       [box.right - 1, box.bottom - 1],
@@ -114,7 +120,13 @@ async function checkChromeRespondsToClick(page: Page) {
   );
 
   if (!moved.ok) {
-    record('foundry chrome responds to a synthesised click', false, moved.reason);
+    // A failure always carries a reason, but only the failing branch sets one, so the type is
+    // optional. Naming the fallback keeps a missing reason visible rather than printing "undefined".
+    record(
+      'foundry chrome responds to a synthesised click',
+      false,
+      moved.reason ?? 'no reason recorded'
+    );
     return;
   }
 
@@ -146,6 +158,9 @@ async function checkChromeRespondsToClick(page: Page) {
 async function checkCanvasRespondsToMove(page: Page) {
   const outcome = await page.evaluate((id) => {
     const board = document.querySelector('#board');
+    if (board === null) {
+      throw new Error('no #board in the document: Foundry has not drawn its canvas.');
+    }
     const box = board.getBoundingClientRect();
     const pointer = game.modules.get(id).api.getPointer();
 
@@ -188,9 +203,9 @@ async function checkCanvasRespondsToMove(page: Page) {
 async function checkSceneControlToggle(page: Page) {
   const present = await page.evaluate((id) => {
     const groups = ui.controls.controls;
-    const inGroup = Object.entries(groups).find(([, group]) =>
-      Object.keys(group.tools ?? {}).includes(id)
-    );
+    const inGroup = Object.entries(
+      groups as Record<string, { tools?: Record<string, unknown> }>
+    ).find(([, group]) => Object.keys(group.tools ?? {}).includes(id));
     return {
       group: inGroup?.[0] ?? null,
       groupNames: Object.keys(groups),
@@ -227,6 +242,9 @@ async function checkSceneControlToggle(page: Page) {
    */
   const reachable = await page.evaluate((id) => {
     const button = document.querySelector(`[data-tool="${id}"]`);
+    if (button === null) {
+      throw new Error(`no [data-tool="${id}"] control: the scene control was never created.`);
+    }
     const box = button.getBoundingClientRect();
     const topmost = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
     return {

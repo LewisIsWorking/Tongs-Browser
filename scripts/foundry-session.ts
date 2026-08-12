@@ -214,13 +214,15 @@ export async function joinWorld(page: Page): Promise<void> {
     const options = [
       ...document.querySelectorAll<HTMLOptionElement>("select[name='userid'] option"),
     ];
-    return options.find((o) => (o.textContent ?? '').trim() === name)?.value ?? null;
+    return (
+      options.find((o: HTMLOptionElement) => (o.textContent ?? '').trim() === name)?.value ?? null
+    );
   }, USER);
 
   if (userId === null) {
     const available = await page.evaluate(() =>
       [...document.querySelectorAll<HTMLOptionElement>("select[name='userid'] option")]
-        .map((o) => (o.textContent ?? '').trim())
+        .map((o: HTMLOptionElement) => (o.textContent ?? '').trim())
         .filter(Boolean)
     );
     throw new Error(`no user named '${USER}'. This world offers: ${available.join(', ')}`);
