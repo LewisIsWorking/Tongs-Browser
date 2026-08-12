@@ -6,14 +6,6 @@
   "scripts/foundry-touch-check.ts": 360,
   "tests/browser/pointer.spec.ts": 311,
   "tests/dom/canvasController.test.ts": 237,
-  "tests/dom/diagnosticsReport.test.ts": 264,
-  "tests/dom/foundryDragHooks.test.ts": 219,
-  "tests/dom/foundryProbes.test.ts": 231,
-  "tests/dom/keyButtons.test.ts": 245,
-  "tests/dom/modifierBarClamping.test.ts": 213,
-  "tests/dom/modifierBarDragHandle.test.ts": 233,
-  "tests/dom/pixiMoveProbe.test.ts": 205,
-  "tests/dom/uiScaling.test.ts": 211,
-  "tests/unit/settings.test.ts": 209,
-  "tests/unit/sidebarAccess.test.ts": 247
+  "tests/dom/diagnosticsReport.test.ts": 252,
+  "tests/dom/modifierBarClamping.test.ts": 213
 }

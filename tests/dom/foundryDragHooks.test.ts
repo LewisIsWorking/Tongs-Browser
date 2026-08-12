@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { installFoundryDragHooks, summariseDragEndings } from '../../src/debug/FoundryDragHooks.js';
+import { installFoundryDragHooks } from '../../src/debug/FoundryDragHooks.js';
 
 /**
  * The observers that watch how Foundry ends a token drag.
@@ -166,53 +166,5 @@ describe('installFoundryDragHooks', () => {
 
     expect(installed).toEqual({ token: true, manager: true });
     expect(observations).toEqual([]);
-  });
-});
-
-describe('summariseDragEndings', () => {
-  it('says nothing was observed, and that the observers were installed', () => {
-    expect(summariseDragEndings([])).toContain('observers ARE installed');
-  });
-
-  /**
-   * ⚠️ Silence and not watching must never read the same. A device reported "NOTHING observed" while
-   * the drag origin was demonstrably being wiped, which cannot both be true of a watched drag.
-   */
-  it('says NOT WATCHING when the observers never installed', () => {
-    expect(summariseDragEndings([], { token: false, manager: false })).toContain('NOT WATCHING');
-  });
-
-  it('warns that a cancel would be invisible without the manager hook', () => {
-    expect(summariseDragEndings([], { token: true, manager: false })).toContain(
-      'MANAGER hook never installed'
-    );
-  });
-
-  /** A redraw explains everything else, so it wins over the other verdicts. */
-  it('blames a redraw above all else', () => {
-    const summary = summariseDragEndings([
-      'token.draw DURING THE DRAG (this cancels the interaction)',
-      'manager.cancel at GRABBED [no event, Foundry did it itself]',
-    ]);
-
-    expect(summary).toContain('a REDRAW cancelled the interaction');
-  });
-
-  it('says a drop means the write itself refused', () => {
-    expect(summariseDragEndings(['_onDragLeftDrop [pointerup button=0 mouse]'])).toContain(
-      'the write itself refused'
-    );
-  });
-
-  it('says a cancel writes nothing', () => {
-    expect(summariseDragEndings(['manager.cancel at DRAG [contextmenu button=2 n/a]'])).toContain(
-      'CANCELLED, which writes nothing'
-    );
-  });
-
-  it('just lists observations it has no verdict for', () => {
-    expect(summariseDragEndings(['_onDragLeftStart [pointermove button=0 n/a]'])).toBe(
-      '_onDragLeftStart [pointermove button=0 n/a]'
-    );
   });
 });
