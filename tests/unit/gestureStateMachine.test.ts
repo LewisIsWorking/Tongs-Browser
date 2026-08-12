@@ -378,4 +378,30 @@ describe('GestureStateMachine: reset', () => {
     const next = subject.handle({ type: 'touchstart', touches: [finger(0, 12, 12)], at: 120 });
     expect(next.actions).toEqual([{ type: 'startTimer', durationMs: 500 }]);
   });
+
+  /**
+   * A gesture after a reset is measured from its OWN start, never from the one before it.
+   *
+   * ⚠️ Worth saying what this does not prove. Clearing the last position inside `reset` is hygiene
+   * rather than a fix: `fromIdle` writes the position on every fresh `touchstart`, before any move
+   * can read it, so removing that line leaves this test green. That was checked by removing it, not
+   * assumed. What this DOES pin is the outcome a user would notice, which holds either way.
+   */
+  it('measures the next gesture from its own start, not the previous one', () => {
+    const subject = machine();
+    // Track a finger a long way across the screen, leaving a last position of (500, 500).
+    subject.handle({ type: 'touchstart', touches: [finger(0, 10, 10)], at: 0 });
+    subject.handle({ type: 'touchmove', touches: [finger(0, 500, 500)], at: 50 });
+    expect(subject.getState()).toBe(GestureState.TRACKING);
+
+    subject.reset();
+
+    // A fresh gesture starting back at the origin must not be measured against (500, 500).
+    subject.handle({ type: 'touchstart', touches: [finger(0, 10, 10)], at: 200 });
+    const moved = subject.handle({ type: 'touchmove', touches: [finger(0, 40, 10)], at: 250 });
+
+    // 30px of finger travel. A stale position would measure from (500, 500) and produce a delta of
+    // roughly (-460, -490): the pointer flung across the screen on the first move.
+    expect(moved.actions).toContainEqual({ type: 'movePointerBy', deltaX: 30, deltaY: 0 });
+  });
 });
