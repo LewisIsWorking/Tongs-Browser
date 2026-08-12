@@ -28,8 +28,8 @@ import {
   removeProbeScene,
   requireActiveWorld,
 } from './foundry-session.ts';
-import { evaluateOn } from './drag/EvaluateOn.js';
-import { openSurface } from './drag/Surface.js';
+import { evaluateOn } from './drag/EvaluateOn.ts';
+import { openSurface } from './drag/Surface.ts';
 import {
   ANDROID_COMMIT_TIMEOUT_MS,
   COMMIT_TIMEOUT_MS,
@@ -40,10 +40,10 @@ import {
   TRAVEL_TOLERANCE,
   USE_ANDROID,
   USE_MOBILE,
-} from './drag/Options.js';
-import { createProbeToken, removeProbeToken } from './drag/ProbeToken.js';
-import { dragControlledToken } from './drag/DragToken.js';
-import { format, report } from './drag/Report.js';
+} from './drag/Options.ts';
+import { createProbeToken, removeProbeToken } from './drag/ProbeToken.ts';
+import { dragControlledToken } from './drag/DragToken.ts';
+import { format, report } from './drag/Report.ts';
 
 /**
  * The slice of a page these checks actually need, satisfied by BOTH surfaces.

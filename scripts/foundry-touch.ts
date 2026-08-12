@@ -52,7 +52,16 @@ export interface CdpSender {
 
 /** A single finger. */
 export class Finger {
-  public constructor(private readonly client: CdpSender) {}
+  /*
+   * ⚠️ An explicit field, NOT a parameter property. Node runs these scripts by STRIPPING types, and
+   * a parameter property is not erasable: it emits an assignment. Node rejects the whole file with
+   * `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, and `tsc` says nothing, because it is valid TypeScript.
+   */
+  private readonly client: CdpSender;
+
+  public constructor(client: CdpSender) {
+    this.client = client;
+  }
 
   async down(x: number, y: number): Promise<void> {
     await this.client.send('Input.dispatchTouchEvent', {
@@ -96,7 +105,12 @@ export class Finger {
 
 /** Two or more fingers, for pan and pinch. */
 export class Hand {
-  public constructor(private readonly client: CdpSender) {}
+  /** Explicit, for the same reason as Finger: a parameter property is not erasable. */
+  private readonly client: CdpSender;
+
+  public constructor(client: CdpSender) {
+    this.client = client;
+  }
 
   send(type: TouchDispatch['type'], points: readonly TouchPoint[]): Promise<unknown> {
     return this.client.send('Input.dispatchTouchEvent', {

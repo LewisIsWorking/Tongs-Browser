@@ -1,7 +1,7 @@
 import type { Browser, Page } from 'playwright';
 import { connectCdpPage, type CdpPage } from '../cdp-page.ts';
 import { launchBrowser } from '../foundry-session.ts';
-import { MOBILE_DPR, USE_ANDROID, USE_MOBILE } from './Options.js';
+import { MOBILE_DPR, USE_ANDROID, USE_MOBILE } from './Options.ts';
 
 /**
  * Opening whichever surface the run asked for. Extracted from foundry-drag-check 2026-08-12.

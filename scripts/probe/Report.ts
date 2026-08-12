@@ -1,4 +1,4 @@
-import type { CapabilityRow, TrialOutcome } from './Trials.js';
+import type { CapabilityRow, TrialOutcome } from './Trials.ts';
 
 /**
  * Saying what the probe found. Extracted from foundry-play-probe 2026-08-12.

@@ -1,6 +1,6 @@
 import type { Page } from 'playwright';
 import type { CdpPage } from '../cdp-page.ts';
-import { evaluateOn } from './EvaluateOn.js';
+import { evaluateOn } from './EvaluateOn.ts';
 
 /**
  * Driving one drag and watching every step of it. Extracted from foundry-drag-check 2026-08-12.

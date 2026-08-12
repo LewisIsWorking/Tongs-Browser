@@ -1,6 +1,6 @@
 import type { Page } from 'playwright';
-import { record, skip } from './CheckResults.js';
-import { hoverToken } from './HoverDriver.js';
+import { record, skip } from './CheckResults.ts';
+import { hoverToken } from './HoverDriver.ts';
 import type { FoundryToken, TokenProbe } from '../foundry-types.ts';
 
 /**

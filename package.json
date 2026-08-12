@@ -34,14 +34,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "verify": "npm run lint && npm run typecheck && npm run typecheck:scripts && npm run test && npm run build",
+    "verify": "npm run lint && npm run typecheck && npm run typecheck:scripts && npm run check:scripts && npm run test && npm run build",
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:tag": "changeset tag",
     "test:browser": "playwright test",
     "test:all": "npm run test && npm run test:browser",
     "lint:docblocks": "node scripts/check-orphaned-docblocks.ts",
-    "prune:imports": "node scripts/prune-unused-imports.ts"
+    "prune:imports": "node scripts/prune-unused-imports.ts",
+    "check:scripts": "node scripts/check-scripts-load.ts"
   },
   "devDependencies": {
     "@changesets/changelog-github": "0.7.0",
