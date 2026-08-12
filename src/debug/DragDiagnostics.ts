@@ -9,7 +9,11 @@ import {
   describeScenePoint,
   isPointerInsideToken,
 } from './TokenHitTest.js';
-import { describeInteractionState, describePointers } from './FoundryProbes.js';
+import {
+  describeDragPermissions,
+  describeInteractionState,
+  describePointers,
+} from './FoundryProbes.js';
 import { logger } from '../core/Logger.js';
 import { MODULE_ID } from '../constants.js';
 
@@ -143,7 +147,7 @@ export class DragDiagnostics {
       insideSelectedToken: isPointerInsideToken(facts.mouse, facts.selected),
       canvasReady: facts.canvasReady,
       keyboardStrategy: this.options.keyboardStrategy(),
-      interactionStateNow: describeInteractionState(facts.selected),
+      interactionStateNow: `${describeInteractionState(facts.selected)} | ${describeDragPermissions(facts.selected)}`,
       probeAttached: observed.counts.attached,
       userAgent: navigator.userAgent,
       recentDispatches: this.record.trace.getLines(),
