@@ -1,6 +1,7 @@
 import { logger } from './core/Logger.js';
 import { copyToClipboard } from './debug/Clipboard.js';
 import { DispatchTrace } from './debug/DispatchTrace.js';
+import { DragSampler } from './debug/DragSampler.js';
 import { PixiMoveProbe } from './debug/PixiMoveProbe.js';
 import { buildDiagnosticsReport, toPlainText } from './debug/DiagnosticsReport.js';
 import { installFoundryDragHooks } from './debug/FoundryDragHooks.js';
@@ -86,11 +87,12 @@ export class TongsBrowser {
    */
   private readonly trace = new DispatchTrace();
 
+  /** Every peak in the report, each paired with the count of samples behind it. */
+  private readonly sampler = new DragSampler();
+
   /** Highest Foundry interaction state seen during the current gesture. See recordDispatch. */
-  private peakInteractionState = 0;
 
   /** Most drag preview objects seen during the current gesture. Non zero means a drag really began. */
-  private peakPreviewCount = 0;
 
   /**
    * How many pointermove events PIXI delivered to the token LAYER during this gesture.
@@ -161,9 +163,6 @@ export class TongsBrowser {
    * pointer never travelled. It measured nothing at all. `sampledDragDistance` records whether the
    * computation ever ran, so the report can say "not measurable" rather than invent a zero.
    */
-  private peakDragDistance = 0;
-  private lastDragDistance = Number.NaN;
-  private sampledDragDistance = false;
 
   /**
    * How many times each peak was actually sampled, reported beside it. Added 2026-08-11.
@@ -182,10 +181,6 @@ export class TongsBrowser {
    * The count makes the difference visible without anyone having to suspect it: `0.0px over 47
    * samples` is evidence, `0.0px over 1 sample` is noise wearing the same clothes.
    */
-  private dragDistanceSamples = 0;
-  private divergenceSamples = 0;
-  private originDriftSamples = 0;
-  private dragMovesDispatched = 0;
 
   /**
    * How far OUR pointer got from PIXI's, at their furthest apart during the drag.
@@ -203,8 +198,6 @@ export class TongsBrowser {
    * Sampled during the drag rather than at report time, because by report time the user has tapped a
    * button and PIXI's pointer is on that button.
    */
-  private peakPointerDivergence = 0;
-  private sampledDivergence = false;
 
   /**
    * How far OUR pointer got from where the grab started, measured only against ourselves.
@@ -223,8 +216,6 @@ export class TongsBrowser {
    * else in common and the fixes share no code. Measuring our own travel against our own grab point
    * touches no Foundry state at all, so it cannot be confounded by whatever Foundry is doing.
    */
-  private pointerAtGrab: { clientX: number; clientY: number } | null = null;
-  private peakTravelFromGrab = 0;
 
   /**
    * How far Foundry's OWN recorded drag origin moved during the drag. It is supposed to move zero.
@@ -240,9 +231,6 @@ export class TongsBrowser {
    * mobile user agent and dpr 3, screenOrigin is PINNED: 800 across twelve steps, 683 across twelve
    * more. So this is not something the module does to it in the ordinary case.
    */
-  private originAtDragStart: { x: number; y: number } | null = null;
-  private peakOriginDrift = 0;
-  private sampledOriginDrift = false;
 
   /** Drag scoping for the record, so a later tap cannot overwrite the gesture being diagnosed. */
   private wasDragging = false;
@@ -785,27 +773,12 @@ export class TongsBrowser {
     const dragging = this.pointer.isDragging();
     if (dragging && !this.wasDragging) {
       this.trace.clear();
-      this.peakInteractionState = 0;
-      this.peakPreviewCount = 0;
       this.pixiProbe.resetCounts();
       this.dragEndings = [];
       this.resizesDuringDrag = 0;
       this.viewportAtGrab = `${String(window.innerWidth)}x${String(window.innerHeight)}`;
-      this.peakDragDistance = 0;
-      this.lastDragDistance = Number.NaN;
-      this.sampledDragDistance = false;
-      this.peakPointerDivergence = 0;
-      this.sampledDivergence = false;
-      this.peakTravelFromGrab = 0;
-      this.originAtDragStart = null;
-      this.peakOriginDrift = 0;
-      this.sampledOriginDrift = false;
-      this.dragDistanceSamples = 0;
-      this.divergenceSamples = 0;
-      this.originDriftSamples = 0;
-      this.dragMovesDispatched = 0;
       const grabPosition = this.pointer.getPosition();
-      this.pointerAtGrab = { clientX: grabPosition.clientX, clientY: grabPosition.clientY };
+      this.sampler.beginDrag({ clientX: grabPosition.clientX, clientY: grabPosition.clientY });
       this.capturingDrag = true;
       /*
        * Remember where the token was when the grab started.
@@ -829,7 +802,7 @@ export class TongsBrowser {
     // probe got: a probe with far fewer samples than there were moves was not watching the gesture,
     // and its peak describes a moment rather than the drag.
     if (this.capturingDrag && descriptor.type === 'pointermove') {
-      this.dragMovesDispatched += 1;
+      this.sampler.countMove();
     }
 
     /*
@@ -898,25 +871,12 @@ export class TongsBrowser {
     const state = (
       controlled?.controlled?.[0] as { mouseInteractionManager?: { state?: number } } | undefined
     )?.mouseInteractionManager?.state;
-    if (typeof state === 'number' && state > this.peakInteractionState) {
-      this.peakInteractionState = state;
-    }
     const previews = controlled?.preview?.children?.length ?? 0;
-    if (previews > this.peakPreviewCount) {
-      this.peakPreviewCount = previews;
-    }
 
     /*
-     * Compute exactly the number Foundry gates the drag on.
-     *
-     * #handlePointerMove starts a drag only when
-     *
-     *   Math.hypot(event.global.x - screenOrigin.x, event.global.y - screenOrigin.y) >= dragResistance
-     *
-     * with a default resistance of 10. The layer is provably receiving moves and the state provably
-     * stays at GRABBED, so this distance is either never reaching 10 or is NaN, and NaN >= 10 is
-     * false, which fails silently forever. Reading PIXI's own pointer rather than our cursor, because
-     * `event.global` is what Foundry actually measures and the two disagreeing is itself a candidate.
+     * Foundry's recorded drag origin, and PIXI's own pointer, which is what Foundry measures its
+     * drag gate against. Reading PIXI's rather than ours because `event.global` is what Foundry
+     * actually uses, and the two disagreeing was itself a candidate for a long time.
      */
     const manager = (
       controlled?.controlled?.[0] as
@@ -927,7 +887,6 @@ export class TongsBrowser {
           }
         | undefined
     )?.mouseInteractionManager;
-    const origin = manager?.interactionData?.screenOrigin;
     const pixiPointer = (
       globalThis as {
         canvas?: {
@@ -936,70 +895,14 @@ export class TongsBrowser {
       }
     ).canvas?.app?.renderer?.events?.pointer?.global;
 
-    /*
-     * Foundry's drag origin against its own first recorded value. Anything but zero means the origin
-     * is following the pointer, and Foundry's 10px gate can then never open however far you drag.
-     */
-    if (origin !== undefined) {
-      this.originAtDragStart ??= { x: origin.x, y: origin.y };
-      const drift = Math.hypot(
-        origin.x - this.originAtDragStart.x,
-        origin.y - this.originAtDragStart.y
-      );
-      this.sampledOriginDrift = true;
-      this.originDriftSamples += 1;
-      if (Number.isFinite(drift) && drift > this.peakOriginDrift) {
-        this.peakOriginDrift = drift;
-      }
-    }
-
-    if (origin !== undefined && pixiPointer !== undefined) {
-      const distance = Math.hypot(pixiPointer.x - origin.x, pixiPointer.y - origin.y);
-      this.lastDragDistance = distance;
-      this.sampledDragDistance = true;
-      this.dragDistanceSamples += 1;
-      if (Number.isFinite(distance) && distance > this.peakDragDistance) {
-        this.peakDragDistance = distance;
-      }
-    }
-
-    /*
-     * Our pointer against PIXI's, while the gesture is still happening.
-     *
-     * Foundry gates the drag on PIXI's pointer and nothing else, so these two disagreeing is not a
-     * curiosity, it is the whole bug. Everything downstream of PIXI's pointer, including
-     * canvas.mousePosition and therefore "insideSelectedToken", describes PIXI's pointer while
-     * reading as though it described ours.
-     */
-    const ourPosition = descriptor.position;
-
-    /*
-     * Our own travel, against our own grab point. No Foundry state involved, on purpose: this is the
-     * one distance in the report that cannot be confounded by whatever Foundry is doing with its
-     * drag origin.
-     */
-    const grabbedAt = this.pointerAtGrab;
-    if (grabbedAt !== null && ourPosition !== undefined) {
-      const travel = Math.hypot(
-        ourPosition.clientX - grabbedAt.clientX,
-        ourPosition.clientY - grabbedAt.clientY
-      );
-      if (Number.isFinite(travel) && travel > this.peakTravelFromGrab) {
-        this.peakTravelFromGrab = travel;
-      }
-    }
-
-    if (pixiPointer !== undefined && ourPosition !== undefined) {
-      const divergence = Math.hypot(
-        pixiPointer.x - ourPosition.clientX,
-        pixiPointer.y - ourPosition.clientY
-      );
-      this.sampledDivergence = true;
-      this.divergenceSamples += 1;
-      if (Number.isFinite(divergence) && divergence > this.peakPointerDivergence) {
-        this.peakPointerDivergence = divergence;
-      }
-    }
+    // All the arithmetic lives in DragSampler, which pairs every peak with its sample count.
+    this.sampler.sample({
+      interactionState: state,
+      previewCount: previews,
+      foundryOrigin: manager?.interactionData?.screenOrigin,
+      pixiPointer,
+      ourPointer: descriptor.position,
+    });
 
     /*
      * Coordinates are in the trace because they are now the question.
@@ -1077,30 +980,20 @@ export class TongsBrowser {
       (mouse.y ?? 0) >= (selected.document.y ?? 0) &&
       (mouse.y ?? 0) <= (selected.document.y ?? 0) + (selected.h ?? 0);
 
+    const sampled = this.sampler.snapshot();
+
     const lines = buildDiagnosticsReport({
       build: __TB_BUILD_VERSION__,
       tokenMovement: this.describeTokenMovement(),
       releasedDuringDrag: this.sawDropDuringDrag,
       grabbedOnToken: this.grabbedOnToken,
-      pointerTravel: { recorded: this.pointerAtGrab !== null, peak: this.peakTravelFromGrab },
-      movesDispatched: this.dragMovesDispatched,
-      originDrift: {
-        sampled: this.sampledOriginDrift,
-        peak: this.peakOriginDrift,
-        samples: this.originDriftSamples,
-      },
-      dragGate: {
-        sampled: this.sampledDragDistance,
-        peak: this.peakDragDistance,
-        samples: this.dragDistanceSamples,
-      },
-      divergence: {
-        sampled: this.sampledDivergence,
-        peak: this.peakPointerDivergence,
-        samples: this.divergenceSamples,
-      },
-      peakInteractionState: this.peakInteractionState,
-      peakPreviewCount: this.peakPreviewCount,
+      pointerTravel: sampled.travel,
+      movesDispatched: sampled.movesDispatched,
+      originDrift: sampled.originDrift,
+      dragGate: sampled.dragGate,
+      divergence: sampled.divergence,
+      peakInteractionState: sampled.peakInteractionState,
+      peakPreviewCount: sampled.peakPreviewCount,
       viewport: {
         atGrab: this.viewportAtGrab,
         now: `${String(window.innerWidth)}x${String(window.innerHeight)}`,
@@ -1113,7 +1006,7 @@ export class TongsBrowser {
         layer: this.pixiProbe.getCounts().layer,
         stage: this.pixiProbe.getCounts().stage,
       },
-      lastGateDistance: this.lastDragDistance,
+      lastGateDistance: sampled.lastGateDistance,
       pointerComparison: describePointers(),
       touchCounts: this.gestureInputCounts,
       manifestVersion:
