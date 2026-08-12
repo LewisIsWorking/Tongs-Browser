@@ -20,12 +20,30 @@ function access(ui: FoundryUi | undefined, isGm = false) {
   return { getUi: () => ui, isGm: () => isGm };
 }
 
+/**
+ * A sidebar whose TABS hang off its CLASS, which is where Foundry actually puts them.
+ *
+ * A plain object with a `constructor` property would not be the same thing: Foundry reads
+ * `ui.sidebar.constructor.TABS`, so the fixture has to be an instance for that lookup to mean
+ * anything. Faking it with a literal would test a shape Foundry never produces.
+ */
+function sidebarDeclaring(tabs: Record<string, { gmOnly?: boolean }>) {
+  // A constructor function with a static, then an instance of it, which is the shape Foundry has.
+  // Written this way rather than as a class because a class holding only statics is a lint error,
+  // and the point here is the instance-to-constructor link rather than the class syntax.
+  function FakeSidebar(this: unknown) {
+    // Intentionally empty: the tabs live on the constructor, exactly as Foundry keeps them.
+  }
+  (FakeSidebar as unknown as { TABS: typeof tabs }).TABS = tabs;
+  return new (FakeSidebar as unknown as new () => object)() as NonNullable<FoundryUi['sidebar']>;
+}
+
 const tab = (renderPopout: (() => unknown) | undefined) => ({ renderPopout });
 
 describe('resolveSidebarTabNames', () => {
   it('offers the tabs Foundry declares', () => {
     const ui: FoundryUi = {
-      sidebar: { constructor: { TABS: { chat: {}, combat: {} } } },
+      sidebar: sidebarDeclaring({ chat: {}, combat: {} }),
       chat: tab(() => undefined),
       combat: tab(() => undefined),
     };
@@ -40,7 +58,7 @@ describe('resolveSidebarTabNames', () => {
    */
   it('drops a declared tab whose application cannot pop out', () => {
     const ui: FoundryUi = {
-      sidebar: { constructor: { TABS: { chat: {}, gone: {} } } },
+      sidebar: sidebarDeclaring({ chat: {}, gone: {} }),
       chat: tab(() => undefined),
       gone: tab(undefined),
     };
@@ -50,7 +68,7 @@ describe('resolveSidebarTabNames', () => {
 
   it('hides a GM only tab from a player and shows it to a GM', () => {
     const ui: FoundryUi = {
-      sidebar: { constructor: { TABS: { chat: {}, settings: { gmOnly: true } } } },
+      sidebar: sidebarDeclaring({ chat: {}, settings: { gmOnly: true } }),
       chat: tab(() => undefined),
       settings: tab(() => undefined),
     };

@@ -15,15 +15,30 @@
  * and being the composition root is exactly what made them untestable.
  */
 
-/** Foundry's `ui`, described only as far as this reads it. */
+/**
+ * Foundry's `ui`, described only as far as this reads it.
+ *
+ * ⚠️ `constructor` is deliberately NOT declared here, even though that is where Foundry keeps the
+ * tab list. Declaring it collides with `Object.prototype.constructor`, so no plain object literal
+ * can satisfy the interface and every fixture and caller has to be cast, which trades one honest
+ * dynamic read for casts scattered everywhere. It is read through a narrow helper instead.
+ */
 export interface FoundryUi {
   readonly sidebar?: {
-    readonly constructor?: { readonly TABS?: Record<string, { readonly gmOnly?: boolean }> };
     readonly popouts?: Record<string, { close?: () => unknown } | undefined>;
     readonly expanded?: boolean;
     toggleExpanded?: (expanded?: boolean) => unknown;
   };
   readonly [tab: string]: unknown;
+}
+
+/** The tab definitions Foundry hangs off the Sidebar CLASS rather than the instance. */
+function readDeclaredTabs(
+  ui: FoundryUi | undefined
+): Record<string, { gmOnly?: boolean }> | undefined {
+  const sidebar = ui?.sidebar as
+    { constructor?: { TABS?: Record<string, { gmOnly?: boolean }> } } | undefined;
+  return sidebar?.constructor?.TABS;
 }
 
 export interface SidebarAccessOptions {
@@ -41,7 +56,7 @@ export interface SidebarAccessOptions {
  */
 export function resolveSidebarTabNames(options: SidebarAccessOptions): string[] {
   const ui = options.getUi();
-  const tabs = ui?.sidebar?.constructor?.TABS;
+  const tabs = readDeclaredTabs(ui);
   if (tabs === undefined) {
     return [];
   }
