@@ -41,6 +41,7 @@ import { HitTester } from './pointer/HitTester.js';
 import { VirtualPointer } from './pointer/VirtualPointer.js';
 import { UiScaler } from './scaling/UiScaler.js';
 import { WindowClampBinder } from './scaling/WindowClampBinder.js';
+import { buildTrayActions } from './ui/TrayActions.js';
 
 /**
  * The macro the pause button looks for before falling back to Foundry's own toggle.
@@ -573,132 +574,34 @@ export class TongsBrowser {
    * leap when zoomed in.
    */
   private buildTrayActions(canvasController: CanvasController): readonly TrayAction[] {
-    const PAN_STEP = 160;
-    const ZOOM_STEP = 1.25;
-
-    return [
-      {
-        id: 'sidebar',
-        label: '☰',
-        title: 'Show or hide the Foundry sidebar',
-        activate: () => {
-          this.toggleFoundrySidebar();
-        },
+    return buildTrayActions({
+      toggleSidebar: () => {
+        this.toggleFoundrySidebar();
       },
-      {
-        id: 'character',
-        label: 'C',
-        title: 'Open your character sheet',
-        activate: () => {
-          this.openCharacterSheet();
-        },
+      openCharacterSheet: () => {
+        this.openCharacterSheet();
       },
-      {
-        id: 'pause',
-        label: '⏸',
-        title: 'Pause or unpause the game',
-        activate: () => {
-          this.togglePause();
-        },
-        isActive: () => (globalThis as { game?: { paused?: boolean } }).game?.paused === true,
+      togglePause: () => {
+        this.togglePause();
       },
-      /*
-       * Grab. The reason dragging a token was so hard.
-       *
-       * The touch gesture for a drag is tap, lift, press again inside the double tap window, hold
-       * past the long press timer without moving more than the tap slop, and only then move. That is
-       * five things in a row, and every one of them is a chance to get it wrong while looking at the
-       * map rather than at your thumb. It works, which is why the harness passes it, but working and
-       * usable are different claims.
-       *
-       * This holds the button down at the pointer until it is tapped again, so dragging becomes:
-       * grab, move the pointer the ordinary way, drop. It is also how a window gets dragged, which is
-       * the same complaint from the other end.
-       *
-       * ⚠️ The label CHANGES while a grab is held, and that is not decoration. Measured against a
-       * live Foundry 14.365 on 2026-08-11: our pointer, Foundry's recorded drag destination and the
-       * drag clone all tracked a 240px drag exactly, and the token committed to its new square. The
-       * drag was never broken. What was broken was that nothing on screen said the held grab still
-       * had to be let go, so a device report came back mid drag, with the token quite correctly
-       * sitting where it started because Foundry only commits a move on the DROP.
-       */
-      {
-        id: 'grab',
-        label: '✋',
-        getLabel: () => (this.pointer.isDragging() ? 'DROP' : '✋'),
-        title: 'Grab and hold, then move the pointer to drag. Tap again to drop.',
-        activate: () => {
-          if (this.pointer.isDragging()) {
-            this.pointer.endDrag();
-          } else {
-            this.pointer.beginDrag();
-          }
-        },
-        isActive: () => this.pointer.isDragging(),
+      isPaused: () => (globalThis as { game?: { paused?: boolean } }).game?.paused === true,
+      isDragging: () => this.pointer.isDragging(),
+      beginDrag: () => {
+        this.pointer.beginDrag();
       },
-      {
-        id: 'diagnose',
-        label: '🔍',
-        title: 'Whisper a diagnostic report to yourself in chat',
-        activate: () => {
-          this.whisperDiagnostics();
-        },
+      endDrag: () => {
+        this.pointer.endDrag();
       },
-      {
-        id: 'zoom-in',
-        label: '+',
-        title: 'Zoom in',
-        activate: () => {
-          canvasController.zoomBy(ZOOM_STEP);
-        },
+      whisperDiagnostics: () => {
+        this.whisperDiagnostics();
       },
-      {
-        id: 'zoom-out',
-        label: '−',
-        title: 'Zoom out',
-        activate: () => {
-          canvasController.zoomBy(1 / ZOOM_STEP);
-        },
+      zoomBy: (factor) => {
+        canvasController.zoomBy(factor);
       },
-      // The signs match panBy's finger metaphor: pressing right moves the VIEW right, which is the
-      // same as dragging the map left.
-      {
-        id: 'pan-left',
-        label: '←',
-        title: 'Pan left',
-        group: 'pan',
-        activate: () => {
-          canvasController.panBy(PAN_STEP, 0);
-        },
+      panBy: (deltaX, deltaY) => {
+        canvasController.panBy(deltaX, deltaY);
       },
-      {
-        id: 'pan-right',
-        label: '→',
-        title: 'Pan right',
-        group: 'pan',
-        activate: () => {
-          canvasController.panBy(-PAN_STEP, 0);
-        },
-      },
-      {
-        id: 'pan-up',
-        label: '↑',
-        title: 'Pan up',
-        group: 'pan',
-        activate: () => {
-          canvasController.panBy(0, PAN_STEP);
-        },
-      },
-      {
-        id: 'pan-down',
-        label: '↓',
-        title: 'Pan down',
-        group: 'pan',
-        activate: () => {
-          canvasController.panBy(0, -PAN_STEP);
-        },
-      },
-    ];
+    });
   }
 
   /**
