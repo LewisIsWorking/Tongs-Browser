@@ -1,6 +1,7 @@
 import { logger } from './core/Logger.js';
 import { copyToClipboard } from './debug/Clipboard.js';
 import { DispatchTrace } from './debug/DispatchTrace.js';
+import { PixiMoveProbe } from './debug/PixiMoveProbe.js';
 import { buildDiagnosticsReport, toPlainText } from './debug/DiagnosticsReport.js';
 import { installFoundryDragHooks } from './debug/FoundryDragHooks.js';
 import { DebugOverlay } from './debug/DebugOverlay.js';
@@ -105,9 +106,7 @@ export class TongsBrowser {
    * Counting them says whether PIXI is delivering them at all, which is a completely different fix
    * from the layer receiving them and declining to act.
    */
-  private layerMoveCount = 0;
-  private stageMoveCount = 0;
-  private pixiProbeAttached = false;
+  private readonly pixiProbe = new PixiMoveProbe(() => (globalThis as { canvas?: never }).canvas);
 
   /**
    * Moves delivered to the controlled TOKEN itself, which is the count that decides the drag.
@@ -120,8 +119,6 @@ export class TongsBrowser {
    * it was read three times as though it answered this. A layer count stays perfectly healthy while
    * the token receives nothing at all.
    */
-  private tokenMoveCount = 0;
-  private watchedToken: unknown = undefined;
 
   /**
    * Which of Foundry's two drag endings actually ran: the DROP, or the CANCEL.
@@ -715,48 +712,19 @@ export class TongsBrowser {
    * are diagnostic listeners on objects Foundry owns: adding a set per gesture would leak them into
    * a scene change.
    */
+  /**
+   * Attach the PIXI move counters, retrying until the canvas and a controlled token exist.
+   *
+   * The counting lives in debug/PixiMoveProbe.ts, which was written and covered days before this
+   * call site existed: the class was extracted and then never wired in, so the composition root
+   * kept its own duplicate of the same logic. Two copies of a counter is two things to get subtly
+   * wrong, and only one of them had tests.
+   */
   private attachPixiProbe(): void {
-    if (this.pixiProbeAttached) {
-      return;
-    }
-    const canvasGlobal = (
-      globalThis as {
-        canvas?: {
-          tokens?: { on?: (event: string, fn: () => void) => void };
-          stage?: { on?: (event: string, fn: () => void) => void };
-        };
-      }
-    ).canvas;
-
-    const layer = canvasGlobal?.tokens;
-    const stage = canvasGlobal?.stage;
-    if (layer?.on === undefined || stage?.on === undefined) {
-      return;
-    }
-
-    layer.on('pointermove', () => {
-      this.layerMoveCount += 1;
-    });
-    stage.on('pointermove', () => {
-      this.stageMoveCount += 1;
-    });
-    this.pixiProbeAttached = true;
+    this.pixiProbe.attach();
+    this.pixiProbe.attachToControlledToken();
   }
 
-  /**
-   * Attach a counter to the controlled token, re-attaching when the selection changes.
-   *
-   * Separate from the layer probe because the token is not there when the canvas is: it is whatever
-   * is selected right now. Guarded on identity so calling this per dispatch does not stack listeners
-   * on the same token.
-   */
-  /**
-   * Wrap Foundry's drop and cancel handlers so the report can say which one ended the drag.
-   *
-   * Wrapped rather than replaced: the original is called with the original `this` and its result
-   * returned untouched, so this observes without changing behaviour. Done once, on the prototype,
-   * because the token object is replaced whenever the scene redraws.
-   */
   /**
    * Install the Foundry observers, retrying until the canvas exists.
    *
@@ -787,23 +755,6 @@ export class TongsBrowser {
     });
   }
 
-  private attachTokenProbe(): void {
-    const token = (
-      globalThis as {
-        canvas?: { tokens?: { controlled?: { on?: (event: string, fn: () => void) => void }[] } };
-      }
-    ).canvas?.tokens?.controlled?.[0];
-
-    if (token?.on === undefined || token === this.watchedToken) {
-      return;
-    }
-    this.watchedToken = token;
-    this.tokenMoveCount = 0;
-    token.on('pointermove', () => {
-      this.tokenMoveCount += 1;
-    });
-  }
-
   private recordDispatch(
     descriptor: { type: string; buttons?: number; position?: { clientX: number; clientY: number } },
     target: Element
@@ -817,7 +768,6 @@ export class TongsBrowser {
      * informative part, so they are the ones that get collapsed.
      */
     this.attachPixiProbe();
-    this.attachTokenProbe();
     this.hookDragEndings();
 
     /*
@@ -837,9 +787,7 @@ export class TongsBrowser {
       this.trace.clear();
       this.peakInteractionState = 0;
       this.peakPreviewCount = 0;
-      this.layerMoveCount = 0;
-      this.stageMoveCount = 0;
-      this.tokenMoveCount = 0;
+      this.pixiProbe.resetCounts();
       this.dragEndings = [];
       this.resizesDuringDrag = 0;
       this.viewportAtGrab = `${String(window.innerWidth)}x${String(window.innerHeight)}`;
@@ -1160,9 +1108,9 @@ export class TongsBrowser {
       },
       dragEndings: this.dragEndings,
       moves: {
-        token: this.tokenMoveCount,
-        layer: this.layerMoveCount,
-        stage: this.stageMoveCount,
+        token: this.pixiProbe.getCounts().token,
+        layer: this.pixiProbe.getCounts().layer,
+        stage: this.pixiProbe.getCounts().stage,
       },
       lastGateDistance: this.lastDragDistance,
       pointerComparison: describePointers(),
@@ -1195,7 +1143,7 @@ export class TongsBrowser {
       canvasReady: String(canvasGlobal?.['ready']),
       keyboardStrategy: this.synthesizer.getStrategy(),
       interactionStateNow: describeInteractionState(selected),
-      probeAttached: this.pixiProbeAttached,
+      probeAttached: this.pixiProbe.getCounts().attached,
       userAgent: navigator.userAgent,
       recentDispatches: this.trace.getLines(),
     });
