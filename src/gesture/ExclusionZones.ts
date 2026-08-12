@@ -65,6 +65,30 @@ export class ExclusionZones {
     return target.closest(this.selector) !== null;
   }
 
+  /**
+   * True when this is the module's OWN interface, rather than somebody else's excluded region.
+   *
+   * ⚠️ The two are NOT the same question, and treating them as one is a measured bug. The gesture
+   * layer must keep away from our own bar, or a tap on a modifier key would be turned into a pointer
+   * event delivered wherever the pointer happens to be. The NATIVE POINTER SUPPRESSOR must do the
+   * opposite: a real finger on our bar produces trusted `pointerdown` and `pointerup` at the window,
+   * PIXI listens there in the capture phase and maps events onto the canvas BY COORDINATE rather
+   * than by DOM target, and the bar sits over the canvas. Foundry then receives a pointerup it was
+   * never meant to see and `#handlePointerUp` ends with `#handleDragCancel`.
+   *
+   * Measured 2026-08-12: one finger tap on the grab button put seven trusted events on the window,
+   * including a `pointerup` with `pointerType: 'touch'`, all at the button's own coordinates.
+   *
+   * Chat and inputs keep their events, because those regions genuinely need native behaviour and are
+   * not ours to interfere with. Our own furniture has no such claim.
+   */
+  public isOwnInterface(target: EventTarget | null): boolean {
+    if (target === null || !(target instanceof Element)) {
+      return false;
+    }
+    return target.closest(`[${IGNORE_ATTRIBUTE}="${IGNORE_ATTRIBUTE_VALUE}"]`) !== null;
+  }
+
   /** Exposed for tests and diagnostics. */
   public getSelector(): string {
     return this.selector;
