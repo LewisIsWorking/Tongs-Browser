@@ -16,7 +16,7 @@
  *   - Enable the module by writing the setting, not by clicking Manage Modules. Foundry's tour
  *     overlay intercepts pointer events on that screen, and a setting write is idempotent.
  */
-import { chromium } from 'playwright';
+import { chromium, type ConsoleMessage, type Page } from 'playwright';
 
 /**
  * There are two addresses here, not one, and conflating them cost real time on 2026-08-10.
@@ -56,7 +56,7 @@ export async function requireActiveWorld() {
   return status;
 }
 
-export async function waitForReady(page) {
+export async function waitForReady(page: Page): Promise<void> {
   await page.waitForFunction(() => globalThis.game?.ready === true, undefined, {
     timeout: 120_000,
   });
@@ -174,20 +174,20 @@ export async function connectAndroidBrowser({
 }
 
 /** Collect the module's own console output, plus anything that throws. */
-export function captureModuleLog(page) {
-  const log = [];
-  page.on('console', (message) => {
+export function captureModuleLog(page: Page): string[] {
+  const log: string[] = [];
+  page.on('console', (message: ConsoleMessage) => {
     const text = message.text();
     if (text.includes('Tongs Browser')) {
       log.push(`${message.type()}: ${text}`);
     }
   });
-  page.on('pageerror', (error) => log.push(`pageerror: ${error.message}`));
+  page.on('pageerror', (error: Error) => log.push(`pageerror: ${error.message}`));
   return log;
 }
 
 /** Resolve the user id from the name, post the join directly, then wait for the world. */
-export async function joinWorld(page) {
+export async function joinWorld(page: Page): Promise<void> {
   await page.goto(`${BASE}/join`, { waitUntil: 'networkidle', timeout: 60_000 });
 
   /**
@@ -203,7 +203,7 @@ export async function joinWorld(page) {
    */
   await page.waitForFunction(
     () =>
-      [...document.querySelectorAll("select[name='userid'] option")].some(
+      [...document.querySelectorAll<HTMLOptionElement>("select[name='userid'] option")].some(
         (option) => option.value !== ''
       ),
     undefined,
@@ -211,13 +211,15 @@ export async function joinWorld(page) {
   );
 
   const userId = await page.evaluate((name) => {
-    const options = [...document.querySelectorAll("select[name='userid'] option")];
+    const options = [
+      ...document.querySelectorAll<HTMLOptionElement>("select[name='userid'] option"),
+    ];
     return options.find((o) => (o.textContent ?? '').trim() === name)?.value ?? null;
   }, USER);
 
   if (userId === null) {
     const available = await page.evaluate(() =>
-      [...document.querySelectorAll("select[name='userid'] option")]
+      [...document.querySelectorAll<HTMLOptionElement>("select[name='userid'] option")]
         .map((o) => (o.textContent ?? '').trim())
         .filter(Boolean)
     );
@@ -252,7 +254,7 @@ export async function joinWorld(page) {
  * screen, and can bump the same user off their own seat. Checking first costs one evaluate and keeps
  * a diagnostic from being destructive.
  */
-export async function ensureInGame(page) {
+export async function ensureInGame(page: Page): Promise<boolean> {
   const alreadyIn = await page.evaluate(() => globalThis.game?.ready === true).catch(() => false);
   if (alreadyIn) {
     return false;
@@ -278,7 +280,7 @@ export const PROBE_PREFIX = '[probe]';
  * by less. Callers that do not care get a size that is larger than a desktop window.
  */
 export async function ensureActiveScene(
-  page,
+  page: Page,
   { width = 2000, height = 2000, label = 'canvas check' } = {}
 ) {
   const existing = await page.evaluate(() => globalThis.canvas?.ready === true);
@@ -287,7 +289,17 @@ export async function ensureActiveScene(
   }
 
   const id = await page.evaluate(
-    async ({ prefix, sceneWidth, sceneHeight, name }) => {
+    async ({
+      prefix,
+      sceneWidth,
+      sceneHeight,
+      name,
+    }: {
+      prefix: string;
+      sceneWidth: number;
+      sceneHeight: number;
+      name: string;
+    }) => {
       const scene = await Scene.create({
         name: `${prefix} Tongs Browser ${name}`,
         width: sceneWidth,
@@ -309,7 +321,7 @@ export async function ensureActiveScene(
 }
 
 /** Remove a scene created by ensureActiveScene. Safe to call with null. */
-export async function removeProbeScene(page, id) {
+export async function removeProbeScene(page: Page, id: string | null): Promise<void> {
   if (id === null || id === undefined) {
     return;
   }
@@ -323,7 +335,7 @@ export async function removeProbeScene(page, id) {
 }
 
 /** Turn the module on if it is off, then reload so it actually initialises. */
-export async function ensureModuleEnabled(page) {
+export async function ensureModuleEnabled(page: Page): Promise<boolean> {
   const alreadyOn = await page.evaluate((id) => game.modules.get(id)?.active === true, MODULE_ID);
   if (alreadyOn) {
     return false;

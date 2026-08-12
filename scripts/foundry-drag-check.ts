@@ -20,6 +20,7 @@
  * Nothing else counts as a pass. The diagnostics are printed alongside because when it fails they
  * are what says why, but they are never what decides.
  */
+import type { Page } from 'playwright';
 import { connectCdpPage } from './cdp-page.ts';
 import {
   BASE,
@@ -349,7 +350,7 @@ async function main() {
  * the next one will not. Hardcoding "character" would make the check fail on a system that spells it
  * differently, and that failure would accuse the drag.
  */
-async function createProbeToken(page) {
+async function createProbeToken(page: Page) {
   return page.evaluate(async (prefix) => {
     /*
      * Two shapes, both real. `game.documentTypes.Actor` is an array of names; the same key on
@@ -376,7 +377,7 @@ async function createProbeToken(page) {
   }, PROBE_PREFIX);
 }
 
-async function removeProbeToken(page, { actorId, tokenId }) {
+async function removeProbeToken(page: Page, { actorId, tokenId }) {
   await page.evaluate(
     async ({ actor, token }) => {
       await canvas.scene?.deleteEmbeddedDocuments('Token', [token]).catch(() => undefined);
@@ -394,7 +395,7 @@ async function removeProbeToken(page, { actorId, tokenId }) {
  * cannot say which one broke. The gesture layer already has its own check; this one is about whether
  * a held pointer moving across a token relocates it, which is the complaint.
  */
-async function dragControlledToken(page, { distance, steps, timeout }) {
+async function dragControlledToken(page: Page, { distance, steps, timeout }) {
   return page.evaluate(
     async ({ dragDistance, dragSteps, commitTimeout, panDuringDrag }) => {
       const api = game.modules.get('tongs-browser')?.api;
