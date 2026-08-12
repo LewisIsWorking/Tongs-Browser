@@ -1,5 +1,6 @@
 import { logger } from './core/Logger.js';
 import { DispatchTrace } from './debug/DispatchTrace.js';
+import { DragCaptureWindow } from './debug/DragCaptureWindow.js';
 import { DragSampler } from './debug/DragSampler.js';
 import { PixiMoveProbe } from './debug/PixiMoveProbe.js';
 import { deliverDiagnostics } from './debug/DiagnosticsDelivery.js';
@@ -105,6 +106,9 @@ export class TongsBrowser {
 
   /** Every peak in the report, each paired with the count of samples behind it. */
   private readonly sampler = new DragSampler();
+
+  /** When the drag record is open, frozen or retired. See debug/DragCaptureWindow.ts. */
+  private readonly captureWindow = new DragCaptureWindow();
 
   /** Highest Foundry interaction state seen during the current gesture. See recordDispatch. */
 
@@ -248,16 +252,11 @@ export class TongsBrowser {
    * more. So this is not something the module does to it in the ordinary case.
    */
 
-  /** Drag scoping for the record, so a later tap cannot overwrite the gesture being diagnosed. */
-  private wasDragging = false;
-  private capturingDrag = false;
-
   /** Raw touch input reaching the gesture layer, counted by type. Never reset, so it is cumulative. */
   private readonly gestureInputCounts: Record<string, number> = {};
 
-  /** Where the token was when the grab began, and whether the grab was ever released. */
+  /** Where the token was when the grab began. Whether it was released lives in the capture window. */
   private tokenAtGrab: { x: number; y: number } | null = null;
-  private sawDropDuringDrag = false;
 
   /**
    * Was the pointer actually ON the controlled token at the moment of the grab?
@@ -408,7 +407,7 @@ export class TongsBrowser {
    */
   private bindResizeCounter(): void {
     this.options.window.addEventListener('resize', () => {
-      if (this.capturingDrag) {
+      if (this.captureWindow.isCapturing()) {
         this.resizesDuringDrag += 1;
       }
     });
@@ -656,7 +655,7 @@ export class TongsBrowser {
       getTokenPrototype: () => global.CONFIG?.Token?.objectClass?.prototype,
       getManagerPrototype: () =>
         global.canvas?.tokens?.controlled?.[0]?.mouseInteractionManager?.constructor?.prototype,
-      isRecording: () => this.capturingDrag,
+      isRecording: () => this.captureWindow.isCapturing(),
       onObservation: (note) => this.dragEndings.push(note),
     });
   }
@@ -665,122 +664,41 @@ export class TongsBrowser {
     descriptor: { type: string; buttons?: number; position?: { clientX: number; clientY: number } },
     target: Element
   ): void {
-    /*
-     * A gesture starts at a pointerdown, so the buffer restarts there.
-     *
-     * A fixed length window was not good enough: a drag emits a move per step, so by the time the
-     * report is read the pointerdown that began it has already scrolled out, and whether the press
-     * and the release reached the same element is precisely the question. Middle moves are the least
-     * informative part, so they are the ones that get collapsed.
-     */
     this.attachPixiProbe();
     this.hookDragEndings();
 
     /*
-     * Scope the record to the DRAG, not to the last pointerdown.
-     *
-     * ⚠️ Resetting on every pointerdown looked obviously right and destroyed the evidence every
-     * time. A single tap anywhere after a drag wiped the whole drag out of the buffer, so a report
-     * came back showing a clean down, up, click at one unchanging coordinate with zero PIXI moves,
-     * and it described the tap rather than the drag it was asked about. The counters reset with it,
-     * which turned a measured 0.0px into a meaningless NaN.
-     *
-     * So the window opens when a drag BEGINS and stays open until the next one begins. Whatever
-     * happens after the drop cannot overwrite what is being diagnosed.
+     * When the record opens, freezes and retires now lives in debug/DragCaptureWindow.ts, where the
+     * ordering rules can be fed sequences and asserted on. Every one of them was learned from a
+     * device report that described the wrong moment.
      */
-    const dragging = this.pointer.isDragging();
-    if (dragging && !this.wasDragging) {
+    const verdict = this.captureWindow.observe(this.pointer.isDragging(), descriptor.type);
+
+    if (verdict.kind === 'frozen') {
+      return;
+    }
+    if (verdict.kind === 'retired' || verdict.kind === 'restart') {
       this.trace.clear();
-      this.pixiProbe.resetCounts();
-      this.dragEndings = [];
-      this.resizesDuringDrag = 0;
-      this.viewportAtGrab = `${String(window.innerWidth)}x${String(window.innerHeight)}`;
-      const grabPosition = this.pointer.getPosition();
-      this.sampler.beginDrag({ clientX: grabPosition.clientX, clientY: grabPosition.clientY });
-      this.capturingDrag = true;
-      /*
-       * Remember where the token was when the grab started.
-       *
-       * "Did the drag work" is a question about the token, and every field so far answered questions
-       * about events. Comparing this against the position now says outright whether the gesture
-       * achieved anything, which is the only thing anyone actually cares about.
-       */
-      const grabbed = (
-        globalThis as {
-          canvas?: { tokens?: { controlled?: { document?: { x?: number; y?: number } }[] } };
-        }
-      ).canvas?.tokens?.controlled?.[0]?.document;
-      this.tokenAtGrab =
-        grabbed?.x === undefined || grabbed.y === undefined ? null : { x: grabbed.x, y: grabbed.y };
-      this.sawDropDuringDrag = false;
-      this.grabbedOnToken = describeGrabTarget();
+      if (verdict.kind === 'retired') {
+        return;
+      }
+    }
+    if (verdict.kind === 'opened') {
+      this.beginDragRecord();
     }
 
-    // The denominator for every sample count in this report. Moves we sent, against samples each
-    // probe got: a probe with far fewer samples than there were moves was not watching the gesture,
-    // and its peak describes a moment rather than the drag.
-    if (this.capturingDrag && descriptor.type === 'pointermove') {
+    /*
+     * ⚠️ The move counter sits AFTER the freeze, and that position is a fix rather than a tidy-up.
+     *
+     * This is the denominator for every sample count in the report: moves we sent, against samples
+     * each probe got, and `describeThinly` refuses to state a peak sampled under 10% of them. Below
+     * the freeze it kept counting after the drop, and on a phone the pointer keeps moving for as long
+     * as it takes to read the report, so the count ran away and every probe was declared thin.
+     */
+    if (this.captureWindow.isCapturing() && descriptor.type === 'pointermove') {
       this.sampler.countMove();
     }
 
-    /*
-     * A release during the captured drag. Without one, Foundry never commits the move.
-     *
-     * ⚠️ `isRelease` is computed here but the flag is set AFTER the freeze below, and the ordering is
-     * the fix for an off by one that hid the single most important event in the trace. `endDrag`
-     * clears the dragging flag before dispatching, so at the release `dragging` is already false;
-     * setting `sawDropDuringDrag` first meant the freeze fired on the release itself and the
-     * `pointerup` was never recorded. Every device trace ended on a `pointermove`, making a released
-     * drag look identical to one still held.
-     */
-    const isRelease = descriptor.type === 'pointerup' || descriptor.type === 'mouseup';
-    this.wasDragging = dragging;
-
-    // Once a drag has been captured, later taps are ignored rather than allowed to overwrite it.
-    if (!dragging && !this.capturingDrag) {
-      this.trace.clear();
-    }
-    if (!dragging && this.capturingDrag && descriptor.type === 'pointerdown') {
-      // A fresh press with no grab held: the drag record has served its purpose.
-      this.capturingDrag = false;
-      this.trace.clear();
-    }
-
-    /*
-     * ⚠️ FREEZE the record once the grab has been released.
-     *
-     * The whole point of scoping the record to the drag was that a later tap must not overwrite the
-     * gesture being diagnosed, and it still let the far more common case through: ordinary pointer
-     * movement AFTER the drop. Every one of those is a `pointermove` with `buttons=0`, they arrive by
-     * the hundred as soon as the finger moves again, and the trace is eighteen entries long.
-     *
-     * Measured on a device: a report showing 305 drag moves and eighteen consecutive `buttons=0`
-     * moves, which describes the moment after the drag rather than the drag. The counters were
-     * polluted the same way, since travel is measured from the grab point and the pointer keeps
-     * moving long after the drop.
-     *
-     * So the record closes on the drop and stays closed until the next grab opens a new one. This is
-     * the same lesson as sampling the interaction state during the gesture rather than at report
-     * time: a diagnostic that keeps recording after the event describes the aftermath.
-     */
-    if (!dragging && this.sawDropDuringDrag) {
-      return;
-    }
-
-    // Set AFTER the freeze, so the release that ends the drag is the last thing recorded rather than
-    // the first thing discarded. See isRelease above.
-    if (this.capturingDrag && isRelease) {
-      this.sawDropDuringDrag = true;
-    }
-
-    /*
-     * Sample Foundry's interaction state AS IT HAPPENS, and keep the peak.
-     *
-     * Reading it when the report is written measures the aftermath rather than the event: Foundry
-     * resets the manager to NONE once the interaction ends, so a report taken afterwards says NONE
-     * whether the drag never started or ran perfectly and committed. The peak survives the gesture,
-     * which is the only reason it can answer the question.
-     */
     const controlled = (
       globalThis as {
         canvas?: { tokens?: { controlled?: unknown[]; preview?: { children?: unknown[] } } };
@@ -831,6 +749,32 @@ export class TongsBrowser {
      * recorded type, buttons and target, which is everything except the field that decides it.
      */
     this.trace.record(descriptor, `${target.tagName.toLowerCase()}#${target.id}`);
+  }
+
+  /**
+   * Everything a fresh drag record starts from.
+   *
+   * ⚠️ The token position is the point of this. Every other field answers a question about EVENTS;
+   * comparing this against the position now says outright whether the gesture achieved anything,
+   * which is the only thing anyone actually cares about.
+   */
+  private beginDragRecord(): void {
+    this.trace.clear();
+    this.pixiProbe.resetCounts();
+    this.dragEndings = [];
+    this.resizesDuringDrag = 0;
+    this.viewportAtGrab = `${String(window.innerWidth)}x${String(window.innerHeight)}`;
+    const grabPosition = this.pointer.getPosition();
+    this.sampler.beginDrag({ clientX: grabPosition.clientX, clientY: grabPosition.clientY });
+
+    const grabbed = (
+      globalThis as {
+        canvas?: { tokens?: { controlled?: { document?: { x?: number; y?: number } }[] } };
+      }
+    ).canvas?.tokens?.controlled?.[0]?.document;
+    this.tokenAtGrab =
+      grabbed?.x === undefined || grabbed.y === undefined ? null : { x: grabbed.x, y: grabbed.y };
+    this.grabbedOnToken = describeGrabTarget();
   }
 
   /** Where the token was when the grab began, against where it is now. */
@@ -903,7 +847,7 @@ export class TongsBrowser {
     const lines = buildDiagnosticsReport({
       build: __TB_BUILD_VERSION__,
       tokenMovement: this.describeTokenMovement(),
-      releasedDuringDrag: this.sawDropDuringDrag,
+      releasedDuringDrag: this.captureWindow.hasSeenDrop(),
       grabbedOnToken: this.grabbedOnToken,
       pointerTravel: sampled.travel,
       movesDispatched: sampled.movesDispatched,
