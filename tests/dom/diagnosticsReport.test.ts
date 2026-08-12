@@ -29,6 +29,7 @@ function snapshot(overrides: Partial<DiagnosticsSnapshot> = {}): DiagnosticsSnap
     peakPreviewCount: 1,
     viewport: { atGrab: '360x607', now: '360x607', resizes: 0 },
     dragEndings: [],
+    hooksInstalled: { token: true, manager: true },
     moves: { token: 90, layer: 90, stage: 400 },
     lastGateDistance: 120,
     pointerComparison: 'pixi=1,2 origin=3,4',
@@ -202,6 +203,35 @@ describe('buildDiagnosticsReport', () => {
     const lines = buildDiagnosticsReport(snapshot({ lastGateDistance: Number.NaN }));
 
     expect(find(lines, 'last gate distance')).toContain('origin or pointer missing');
+  });
+
+  /**
+   * ⚠️ Silence must be distinguishable from not watching. A device reported "NOTHING observed" while
+   * the drag origin was demonstrably being wiped, and those cannot both be true of a WATCHED drag.
+   * They are trivially both true of an unwatched one, and nothing said which it was.
+   */
+  it('says it is not watching when the observers never installed', () => {
+    const lines = buildDiagnosticsReport(
+      snapshot({ hooksInstalled: { token: false, manager: false } })
+    );
+
+    expect(find(lines, "FOUNDRY'S DRAG ENDING")).toContain('NOT WATCHING');
+    expect(find(lines, "FOUNDRY'S DRAG ENDING")).not.toContain('NOTHING observed');
+  });
+
+  it('says a silent result is real when the observers ARE installed', () => {
+    expect(find(buildDiagnosticsReport(snapshot()), "FOUNDRY'S DRAG ENDING")).toContain(
+      'observers ARE installed'
+    );
+  });
+
+  /** A cancel arriving at GRABBED never reaches the token callbacks, only the manager. */
+  it('warns that a cancel would be invisible when only the token hook installed', () => {
+    const lines = buildDiagnosticsReport(
+      snapshot({ hooksInstalled: { token: true, manager: false } })
+    );
+
+    expect(find(lines, "FOUNDRY'S DRAG ENDING")).toContain('MANAGER hook never installed');
   });
 
   it('says none rather than an empty list when no touches arrived', () => {

@@ -136,7 +136,7 @@ export class TongsBrowser {
    * bug is a diagnostic nobody has when the bug happens.
    */
   private dragEndings: string[] = [];
-  private dragEndingHooked = false;
+  private hooksInstalled = { token: false, manager: false };
 
   /**
    * Viewport resizes during the drag, and the size at the grab.
@@ -732,7 +732,7 @@ export class TongsBrowser {
    * observations, which is all a composition root should be doing.
    */
   private hookDragEndings(): void {
-    if (this.dragEndingHooked) {
+    if (this.hooksInstalled.token && this.hooksInstalled.manager) {
       return;
     }
     const global = globalThis as {
@@ -746,7 +746,7 @@ export class TongsBrowser {
       };
     };
 
-    this.dragEndingHooked = installFoundryDragHooks({
+    this.hooksInstalled = installFoundryDragHooks({
       getTokenPrototype: () => global.CONFIG?.Token?.objectClass?.prototype,
       getManagerPrototype: () =>
         global.canvas?.tokens?.controlled?.[0]?.mouseInteractionManager?.constructor?.prototype,
@@ -1107,6 +1107,7 @@ export class TongsBrowser {
         resizes: this.resizesDuringDrag,
       },
       dragEndings: this.dragEndings,
+      hooksInstalled: this.hooksInstalled,
       moves: {
         token: this.pixiProbe.getCounts().token,
         layer: this.pixiProbe.getCounts().layer,

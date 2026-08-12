@@ -130,7 +130,7 @@ describe('installFoundryDragHooks', () => {
   it('reports that nothing was installed when Foundry is not ready', () => {
     const { installed, observations } = install({ getTokenPrototype: () => undefined });
 
-    expect(installed).toBe(false);
+    expect(installed).toEqual({ token: false, manager: false });
     expect(observations).toEqual([]);
   });
 
@@ -138,7 +138,9 @@ describe('installFoundryDragHooks', () => {
   it('still hooks the token when the manager cannot be reached yet', () => {
     const { installed, observations, token } = install({ getManagerPrototype: () => undefined });
 
-    expect(installed).toBe(true);
+    // The manager is reached through a live token, so "token yes, manager no" is a normal state and
+    // must be reported as such rather than collapsed into a single boolean.
+    expect(installed).toEqual({ token: true, manager: false });
     call(token.prototype, 'draw', {});
     expect(observations).toHaveLength(1);
   });
@@ -153,14 +155,28 @@ describe('installFoundryDragHooks', () => {
       onObservation: (note) => observations.push(note),
     });
 
-    expect(installed).toBe(true);
+    expect(installed).toEqual({ token: true, manager: true });
     expect(observations).toEqual([]);
   });
 });
 
 describe('summariseDragEndings', () => {
-  it('says nothing was observed, rather than implying nothing happened', () => {
-    expect(summariseDragEndings([])).toContain('NOTHING observed');
+  it('says nothing was observed, and that the observers were installed', () => {
+    expect(summariseDragEndings([])).toContain('observers ARE installed');
+  });
+
+  /**
+   * ⚠️ Silence and not watching must never read the same. A device reported "NOTHING observed" while
+   * the drag origin was demonstrably being wiped, which cannot both be true of a watched drag.
+   */
+  it('says NOT WATCHING when the observers never installed', () => {
+    expect(summariseDragEndings([], { token: false, manager: false })).toContain('NOT WATCHING');
+  });
+
+  it('warns that a cancel would be invisible without the manager hook', () => {
+    expect(summariseDragEndings([], { token: true, manager: false })).toContain(
+      'MANAGER hook never installed'
+    );
   });
 
   /** A redraw explains everything else, so it wins over the other verdicts. */

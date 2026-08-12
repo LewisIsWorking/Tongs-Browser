@@ -1,4 +1,4 @@
-import { summariseDragEndings } from './FoundryDragHooks.js';
+import { summariseDragEndings, type InstalledHooks } from './FoundryDragHooks.js';
 
 /**
  * Turns a snapshot of the drag into the lines the report prints. Extracted 2026-08-12.
@@ -40,6 +40,7 @@ export interface DiagnosticsSnapshot {
   readonly peakPreviewCount: number;
   readonly viewport: { readonly atGrab: string; readonly now: string; readonly resizes: number };
   readonly dragEndings: readonly string[];
+  readonly hooksInstalled: InstalledHooks;
   readonly moves: { readonly token: number; readonly layer: number; readonly stage: number };
   readonly lastGateDistance: number;
   readonly pointerComparison: string;
@@ -131,7 +132,7 @@ function buildFoundryView(snapshot: DiagnosticsSnapshot): string[] {
         ? ' <em>(a resize redraws the canvas, and redrawing a token CANCELS its interaction)</em>'
         : ''
     }</strong>`,
-    `<strong>FOUNDRY'S DRAG ENDING: ${summariseDragEndings(snapshot.dragEndings)}</strong>`,
+    `<strong>FOUNDRY'S DRAG ENDING: ${summariseDragEndings(snapshot.dragEndings, snapshot.hooksInstalled)}</strong>`,
     // TOKEN first: Foundry checks its drag gate in a handler on the object, so a zero here means the
     // gate was never evaluated after the press and no amount of travel could have opened it.
     `<strong>PIXI moves TO THE TOKEN: ${String(snapshot.moves.token)}${
