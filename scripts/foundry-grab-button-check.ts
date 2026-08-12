@@ -20,6 +20,7 @@ import {
   requireActiveWorld,
 } from './foundry-session.ts';
 import { Finger } from './foundry-touch.ts';
+import { checkGrabThenDrag, removeProbeToken } from './touch/grabDragCheck.ts';
 import { createRecorder, describeOutcome, isFailure } from './live/recorder.ts';
 import {
   clearArrived,
@@ -33,6 +34,7 @@ const { browser, page } = await launchBrowser({ hasTouch: true });
 const recorder = createRecorder();
 const { record, skip, results } = recorder;
 let createdScene = null;
+let probeToken: { actorId: string; tokenId: string } | null = null;
 
 try {
   await joinWorld(page);
@@ -130,8 +132,19 @@ try {
           `${event.pointerType.padEnd(6)} @${String(Math.round(event.x))},${String(Math.round(event.y))} -> ${event.target}`
       );
     }
+
+    /*
+     * ⚠️ The USER'S actual sequence, end to end, and nothing else here covers it. `check:drag`
+     * drives the pointer from JavaScript and `check:touch` never touches the bar, so the one path a
+     * person actually takes, tap the grab button with a finger and then drag with a finger, had no
+     * check at all. That is the path that failed on a device for five rounds.
+     */
+    ({ probeToken } = await checkGrabThenDrag(page, finger, button, recorder));
   }
 } finally {
+  if (probeToken !== null) {
+    await removeProbeToken(page, probeToken);
+  }
   await removeProbeScene(page, createdScene);
   await browser.close();
 }
