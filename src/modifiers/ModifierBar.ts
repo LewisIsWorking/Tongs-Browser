@@ -11,11 +11,11 @@ import {
 } from './ModifierState.js';
 import { MODIFIER_KEYS, MOMENTARY_KEYS, type KeyDefinition } from './keyDefinitions.js';
 import type { ModifierFlags } from '../pointer/ModifierFlags.js';
+import { clampBarPosition } from './BarClamp.js';
+import type { BarPosition } from './BarPosition.js';
 
-export interface BarPosition {
-  readonly x: number;
-  readonly y: number;
-}
+// Re-exported so every existing importer of ModifierBar keeps working unchanged.
+export type { BarPosition };
 
 export interface ModifierBarOptions {
   readonly document: Document;
@@ -446,48 +446,23 @@ export class ModifierBar {
    * remembered position that no longer fits is worth less than a drag that behaves.
    */
   private applyPosition(): void {
-    // Zero before layout, in which case the clamp is a no op and the position is applied unchanged.
-    const width = this.root.offsetWidth;
-    const height = this.root.offsetHeight;
-
     /*
-     * Keep out of the sidebar, not just out of the window. Measured 2026-08-11 on a 412px phone
-     * viewport: once the bar wraps it reaches the right edge, and Foundry's sidebar lives there, so
-     * the shipped default covered the sidebar's icon column between y 120 and 250. That is the ADR
-     * 0008 bug again on the other side of the screen, and it is worse here, because a sidebar the
-     * user cannot reach is how they get to chat, actors and everything else.
-     *
-     * Falls back to the full window when the caller supplies nothing, and when honouring the
-     * available width would push the bar off the left edge instead. Trading a covered sidebar for a
-     * bar hanging off the screen would not be a fix.
+     * The arithmetic lives in BarClamp, where it can be tested. jsdom reports offsetWidth as 0 for
+     * everything, so the DOM suite around this bar clamps a zero sized element every time and cannot
+     * reach a single interesting case.
      */
-    const available = this.options.getAvailableWidth?.() ?? window.innerWidth;
-    const usableWidth = available >= width ? available : window.innerWidth;
+    const clamped = clampBarPosition({
+      desired: this.position,
+      barWidth: this.root.offsetWidth,
+      barHeight: this.root.offsetHeight,
+      availableWidth: this.options.getAvailableWidth?.(),
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+    });
 
-    const maxX = Math.max(0, usableWidth - width);
-    const maxY = Math.max(0, window.innerHeight - height);
-
-    this.position = {
-      x: Math.min(Math.max(this.position.x, 0), maxX),
-      y: Math.min(Math.max(this.position.y, 0), maxY),
-    };
-
+    this.position = clamped.position;
     this.root.style.left = `${String(this.position.x)}px`;
     this.root.style.top = `${String(this.position.y)}px`;
-
-    /*
-     * Bound the WIDTH as well as the position, or the bar reaches the sidebar wherever it is put.
-     *
-     * The bar is position: fixed with only `left` set, so it is shrink to fit against the space that
-     * remains: its used width is min(max-content, max-width, viewport - left). Moving it left makes
-     * it WIDER, and its right edge stays pinned to the viewport edge. Measured on a 412px phone:
-     * clamping x from 88 to 65 changed the width from 324 to 347 and the right edge stayed at 412.
-     * Position alone cannot fix this; the width has to be capped too.
-     *
-     * Set after the clamp so the two agree, which converges in one pass: the clamp picks x from the
-     * current width, and this caps the width so the right edge lands on the available width.
-     */
-    this.root.style.maxWidth = `${String(Math.max(0, usableWidth - this.position.x))}px`;
+    this.root.style.maxWidth = `${String(clamped.maxWidth)}px`;
   }
 
   private applyCollapsed(): void {
