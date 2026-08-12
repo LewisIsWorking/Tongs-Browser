@@ -1,5 +1,6 @@
 import { logger } from './core/Logger.js';
 import { DragDiagnostics } from './debug/DragDiagnostics.js';
+import { FoundryActions } from './foundry/FoundryActions.js';
 import { availableWidthBesideSidebar } from './foundry/AvailableWidth.js';
 import { readCanvasPivot, readCanvasScale, readZoomLimits } from './foundry/CanvasReaders.js';
 import { DebugOverlay } from './debug/DebugOverlay.js';
@@ -11,21 +12,6 @@ import type { GestureConfig } from './gesture/GestureTypes.js';
 import { KeyboardSynthesizer, type KeyboardManagerLike } from './modifiers/KeyboardSynthesizer.js';
 import { ModifierBar, type BarPosition, type TrayAction } from './modifiers/ModifierBar.js';
 import { MODULE_ID } from './constants.js';
-import {
-  decideSidebarAction,
-  popOutSidebarTab,
-  toggleFoundrySidebar,
-  type FoundryUi,
-  type SidebarAccessOptions,
-} from './foundry/SidebarAccess.js';
-import { openCharacterSheet, type SheetOwner } from './foundry/CharacterSheet.js';
-import {
-  applyPause,
-  decidePauseAction,
-  isDesignatedGm,
-  type FoundryGame,
-  type GameAccess,
-} from './foundry/PauseControl.js';
 import { PauseRelay, type SocketLike } from './relay/PauseRelay.js';
 import { CursorOverlay } from './pointer/CursorOverlay.js';
 import { VirtualPointer } from './pointer/VirtualPointer.js';
@@ -33,14 +19,6 @@ import { UiScaler } from './scaling/UiScaler.js';
 import { WindowClampBinder } from './scaling/WindowClampBinder.js';
 import { createPointerStack } from './PointerStack.js';
 import { buildTrayActions } from './ui/TrayActions.js';
-
-/**
- * The macro the pause button looks for before falling back to Foundry's own toggle.
- *
- * A GM can create it and grant every player ownership, which is what was asked for. See togglePause
- * for why macro ownership alone still cannot let a player pause the whole world.
- */
-const PAUSE_MACRO_NAME = 'Tongs Pause';
 
 export interface TongsBrowserOptions {
   readonly document: Document;
@@ -74,7 +52,8 @@ export class TongsBrowser {
   private readonly clampBinder: WindowClampBinder;
   private readonly debug: DebugOverlay;
   private readonly pauseRelay: PauseRelay;
-  private sidebarMenu: HTMLDivElement | null = null;
+  /** What the tray buttons do to Foundry. See foundry/FoundryActions.ts. */
+  private readonly actions: FoundryActions;
 
   /** Everything measured about a drag, and the report it whispers. See debug/DragDiagnostics.ts. */
   private readonly diagnostics: DragDiagnostics;
@@ -82,6 +61,13 @@ export class TongsBrowser {
 
   public constructor(private readonly options: TongsBrowserOptions) {
     const { document: doc, window: win } = options;
+
+    this.actions = new FoundryActions({
+      document: doc,
+      requestPauseFromGm: () => {
+        this.pauseRelay.request();
+      },
+    });
 
     this.diagnostics = new DragDiagnostics({
       document: doc,
@@ -166,9 +152,9 @@ export class TongsBrowser {
         return (globalThis as { game?: { socket?: SocketLike } }).game?.socket ?? null;
       },
       channel: `module.${MODULE_ID}`,
-      isDesignatedGm: () => this.isDesignatedGm(),
+      isDesignatedGm: () => this.actions.isDesignatedGm(),
       applyPause: (pause) => {
-        this.applyPause(pause);
+        this.actions.applyPause(pause);
       },
       getPaused: () => (globalThis as { game?: { paused?: boolean } }).game?.paused === true,
       logger,
@@ -231,7 +217,7 @@ export class TongsBrowser {
     this.cursor.detach();
     this.clampBinder.unbind();
     this.pauseRelay.unbind();
-    this.closeSidebarMenu();
+    this.actions.closeSidebarMenu();
     this.debug.setEnabled(false);
     // Removes the property rather than setting it back to 1, so Foundry's own layout is restored
     // exactly and nothing is left behind.
@@ -352,13 +338,13 @@ export class TongsBrowser {
   private buildTrayActions(canvasController: CanvasController): readonly TrayAction[] {
     return buildTrayActions({
       toggleSidebar: () => {
-        this.toggleFoundrySidebar();
+        this.actions.toggleFoundrySidebar();
       },
       openCharacterSheet: () => {
-        this.openCharacterSheet();
+        this.actions.openCharacterSheet();
       },
       togglePause: () => {
-        this.togglePause();
+        this.actions.togglePause();
       },
       isPaused: () => (globalThis as { game?: { paused?: boolean } }).game?.paused === true,
       isDragging: () => this.pointer.isDragging(),
@@ -381,136 +367,6 @@ export class TongsBrowser {
   }
 
   /**
-   * Pause or unpause the game.
-   *
-   * A macro is tried FIRST, by name, exactly as asked for: a GM can write "Tongs Pause", give every
-   * player ownership of it, and this button will run it. That keeps the behaviour in the world's
-   * hands rather than hard coded here.
-   *
-   * ⚠️ Being straight about the limit, because it is not obvious and macro ownership looks like it
-   * should solve it: a macro cannot give a player the ability to pause the WORLD. Foundry's
-   * Game#togglePause only emits the socket message `if (options.broadcast && game.user.isGM)`, so a
-   * player running any macro toggles their own client and nobody else's. The check is on the emit
-   * path, not on macro permissions. Genuinely letting players pause needs a GM side relay, which is
-   * a separate piece of work.
-   *
-   * So: macro if there is one, otherwise Foundry's own toggle, which broadcasts for a GM and is
-   * local for everyone else.
-   */
-  private togglePause(): void {
-    const action = decidePauseAction(this.gameAccess(), PAUSE_MACRO_NAME);
-    if (action.kind === 'runMacro') {
-      void action.execute();
-      return;
-    }
-    if (action.kind === 'relay') {
-      this.pauseRelay.request();
-    }
-  }
-
-  /** Foundry's game object, injected rather than reached for, so the decisions stay testable. */
-  private gameAccess(): GameAccess {
-    return { getGame: () => (globalThis as { game?: FoundryGame }).game };
-  }
-
-  /**
-   * A picker listing every sidebar tab, built from our own DOM.
-   *
-   * Foundry's own tab strip is 27px wide on a phone, which is what made the sidebar unreachable in
-   * the first place, so reusing it to choose a tab would inherit exactly the problem being solved.
-   * These are 44px rows in an element this module controls, marked with the ignore attribute so the
-   * gesture layer routes taps straight to them rather than through the virtual pointer.
-   */
-  private openSidebarMenu(tabNames: readonly string[]): void {
-    const doc = this.options.document;
-    const menu = doc.createElement('div');
-    menu.className = 'tb-sidebar-menu';
-    menu.setAttribute('data-tongs-browser', 'ignore');
-
-    for (const name of tabNames) {
-      const item = doc.createElement('button');
-      item.type = 'button';
-      item.className = 'tb-sidebar-menu__item';
-      item.dataset['tab'] = name;
-      // Foundry's tab names are already lower case single words, so this is all the label needed.
-      item.textContent = name.charAt(0).toUpperCase() + name.slice(1);
-      item.addEventListener('click', () => {
-        this.closeSidebarMenu();
-        this.popOutSidebarTab(name);
-      });
-      menu.append(item);
-    }
-
-    doc.body.append(menu);
-    this.sidebarMenu = menu;
-  }
-
-  private closeSidebarMenu(): void {
-    this.sidebarMenu?.remove();
-    this.sidebarMenu = null;
-  }
-
-  /** The tabs this user can open, and popping one out. Both live in foundry/SidebarAccess.ts. */
-  private sidebarAccess(): SidebarAccessOptions {
-    return {
-      getUi: () => (globalThis as { ui?: FoundryUi }).ui,
-      isGm: () =>
-        (globalThis as { game?: { user?: { isGM?: boolean } } }).game?.user?.isGM === true,
-    };
-  }
-
-  private popOutSidebarTab(name: string): void {
-    popOutSidebarTab(this.sidebarAccess(), name);
-  }
-
-  /**
-   * Whether this client is the ONE GM that should act on a relayed request.
-   *
-   * `game.users.activeGM` is Foundry's own designated user: it picks the same single GM on every
-   * client, deterministically. Using "am I a GM" instead would have every connected GM answer the
-   * same request, flipping the pause state once per GM and landing wherever the race ended.
-   */
-  private isDesignatedGm(): boolean {
-    return isDesignatedGm(this.gameAccess());
-  }
-
-  private applyPause(pause: boolean): void {
-    applyPause(this.gameAccess(), pause);
-  }
-
-  /**
-   * Open the sheet for whichever actor this user is playing.
-   *
-   * Three sources, in the order that matches what someone means by "my character". The assigned
-   * character first, since that is what the user explicitly nominated. Then a controlled token,
-   * because on a phone selecting a token then asking for its sheet is the natural flow and double
-   * tapping a token is fiddly. Then the only actor they own, which covers the common case of a
-   * player with exactly one character and no assignment set.
-   *
-   * Deliberately system agnostic. PF2e and SF2e were the worlds this was asked for, but every system
-   * renders sheets through the same Actor#sheet, so naming one would only make it break on the next.
-   */
-  private openCharacterSheet(): void {
-    const opened = openCharacterSheet({
-      assigned: () =>
-        (globalThis as { game?: { user?: { character?: SheetOwner | null } } }).game?.user
-          ?.character,
-      controlled: () =>
-        (globalThis as { canvas?: { tokens?: { controlled?: { actor?: SheetOwner }[] } } }).canvas
-          ?.tokens?.controlled?.[0]?.actor,
-      allActors: () => [
-        ...((globalThis as { game?: { actors?: Iterable<SheetOwner> } }).game?.actors ?? []),
-      ],
-    });
-
-    if (!opened) {
-      logger.warn(
-        'No character to open. Assign one in your user configuration, or select a token.'
-      );
-    }
-  }
-
-  /**
    * Where the viewport is centred, in scene coordinates, straight from PIXI's root container.
    *
    * Read live for the same reason the scale is: anything that moves the view without going through
@@ -519,33 +375,6 @@ export class TongsBrowser {
    */
   private resolveCanvasPivot(): { x: number; y: number } | null {
     return readCanvasPivot(typeof canvas === 'undefined' ? undefined : canvas);
-  }
-
-  /**
-   * Act on what the sidebar button should do.
-   *
-   * The DECISION lives in foundry/SidebarAccess.ts, where it is testable without a DOM and where
-   * the two measured lessons behind its ordering are recorded. This only carries it out.
-   */
-  private toggleFoundrySidebar(): void {
-    const action = decideSidebarAction(this.sidebarAccess(), this.sidebarMenu !== null);
-
-    switch (action.kind) {
-      case 'closeMenu':
-        this.closeSidebarMenu();
-        return;
-      case 'openMenu':
-        this.openSidebarMenu(action.tabNames);
-        return;
-      case 'togglePopout':
-        this.popOutSidebarTab(action.tabName);
-        return;
-      case 'toggleDocked':
-        toggleFoundrySidebar(this.sidebarAccess());
-        return;
-      case 'nothing':
-        return;
-    }
   }
 
   /**
