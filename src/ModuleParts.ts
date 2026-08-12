@@ -12,7 +12,7 @@ import { TouchBinder } from './gesture/TouchBinder.js';
 import { UiScaler } from './scaling/UiScaler.js';
 import { WindowClampBinder } from './scaling/WindowClampBinder.js';
 import { createPointerStack } from './PointerStack.js';
-import { wireTrayActions } from './TrayWiring.js';
+import { buildModifierBar } from './BuildModifierBar.js';
 import { logger } from './core/Logger.js';
 import { vibrate } from './core/Vibrate.js';
 import { MODULE_ID } from './constants.js';
@@ -116,35 +116,16 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
     logger,
   });
 
-  const modifierBar = new ModifierBar({
+  const modifierBar = buildModifierBar({
     document: doc,
+    options,
     synthesizer,
-    // Held modifiers must reach the pointer too. Foundry reads its own keyboard state for some
-    // decisions and the event flags for others, so both paths have to agree.
-    onFlagsChanged: (flags) => {
-      stack.pointer.setModifiers(flags);
-    },
-    ...(options.initialBarPosition === undefined
-      ? {}
-      : { initialPosition: options.initialBarPosition }),
-    ...(options.onBarPositionChanged === undefined
-      ? {}
-      : { onPositionChanged: options.onBarPositionChanged }),
-    getAvailableWidth: () => access.resolveAvailableWidth(),
-    /*
-     * ⚠️ The single most useful line in a device report, and it took four rounds to add. The user
-     * discovered "dragging works with the hand off, and breaks with it on" by experiment; the report
-     * could not have said it, because nothing recorded that a button had been pressed at all.
-     */
-    onTrayActivated: (actionId) => {
-      diagnostics.recordUi(`tray '${actionId}' pressed`);
-    },
-    trayActions: wireTrayActions(canvasController, {
-      actions: actions,
-      // A thunk, because the pointer field is not assigned until after the bar is built.
-      pointer: () => stack.pointer,
-      diagnostics: diagnostics,
-    }),
+    access,
+    actions,
+    diagnostics,
+    canvasController,
+    // A thunk, because the pointer field is not assigned until after the bar is built.
+    pointer: () => stack.pointer,
   });
 
   const scaler = new UiScaler({
