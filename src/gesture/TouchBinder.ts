@@ -1,6 +1,11 @@
 import { VIRTUAL_POINTER_ID } from '../constants.js';
 import type { ExclusionZones } from './ExclusionZones.js';
 import type { GestureInput, TouchPoint } from './GestureTypes.js';
+import {
+  TOUCH_LISTENER_SPECS,
+  toListenerOptions,
+  type TouchHandlerName,
+} from './TouchListenerSpecs.js';
 
 export interface TouchBinderOptions {
   readonly target: Document;
@@ -46,95 +51,28 @@ export class TouchBinder {
     this.bound = true;
 
     const { signal } = this.abortController;
-    const target = this.options.target;
+    const handlers: Record<TouchHandlerName, EventListener> = {
+      onTouchStart: this.onTouchStart,
+      onTouchMove: this.onTouchMove,
+      onTouchEnd: this.onTouchEnd,
+      onTouchCancel: this.onTouchCancel,
+      onNativePointer: this.onNativePointer,
+      onNativeContextMenu: this.onNativeContextMenu,
+    };
 
     /*
-     * ⚠️ CAPTURE phase, not bubble. Changed 2026-08-11, and it is the whole bug.
-     *
-     * These handlers called `preventDefault()` and stopped there. That prevents scrolling and the
-     * browser's compatibility mouse events, and it does NOT stop the touch event propagating.
-     * **PIXI listens for `touchstart`, `touchmove` and `touchend` itself** and normalises them into
-     * its own pointer events, so the real finger was driving PIXI in parallel with our virtual
-     * pointer the entire time.
-     *
-     * Foundry therefore saw two interactions at once: ours, holding a button on the token, and the
-     * finger's, starting wherever the finger actually was, which is never on the token because the
-     * whole point of this module is that the pointer goes where the finger is not. The finger's
-     * stream destroyed the token's `interactionData`, so the drag gate had nothing to measure from
-     * and the state never left GRABBED.
-     *
-     * Measured on a OnePlus 13, Chrome 150, Foundry 14.365. Driving the SAME device through the
-     * module's own pointer with no finger involved, the drag works perfectly and `screenOrigin`
-     * stays pinned for 12 samples out of 12. A finger doing the same gesture got 2 samples out of
-     * 235, and the token never moved.
-     *
-     * Capture on the document means we see these before any descendant, and stopping propagation
-     * there keeps them from reaching the canvas at all. Excluded regions still return early, so chat
-     * and the bar keep their own scrolling and their own touch handling.
+     * The table lives in TouchListenerSpecs, where the terms can be ASSERTED. Every entry there
+     * encodes a bug that took a physical device to find, and each is one option flag away from
+     * silently not working: a bubble phase listener still fires and a passive one still runs, and
+     * both look completely normal in a debugger while what they exist to prevent goes right past.
      */
-    // passive false on every one of these. A passive listener cannot preventDefault, and the
-    // browser silently ignores the attempt rather than reporting it.
-    const captureOptions: AddEventListenerOptions = { passive: false, capture: true, signal };
-
-    target.addEventListener('touchstart', this.onTouchStart, captureOptions);
-    target.addEventListener('touchmove', this.onTouchMove, captureOptions);
-    target.addEventListener('touchend', this.onTouchEnd, captureOptions);
-    target.addEventListener('touchcancel', this.onTouchCancel, captureOptions);
-
-    /*
-     * Capture phase, so a real touch derived pointer event is stopped before it reaches Foundry or
-     * PIXI rather than after. Anything arriving with our reserved pointer id is ours and passes
-     * through untouched.
-     */
-    target.addEventListener('pointerdown', this.onNativePointer, { capture: true, signal });
-    target.addEventListener('pointermove', this.onNativePointer, { capture: true, signal });
-    target.addEventListener('pointerup', this.onNativePointer, { capture: true, signal });
-    /*
-     * ⚠️ pointercancel, and it is not symmetry for its own sake. Added 2026-08-11.
-     *
-     * A touchscreen fires `pointercancel` whenever the browser takes a gesture over: a scroll, an
-     * edge swipe, a second finger, a system gesture. A mouse never fires it at all, which is exactly
-     * why desktop has never once seen this and why it took a device to find.
-     *
-     * Foundry's MouseInteractionManager treats a cancel as an ABORT. It resets the interaction and
-     * discards `interactionData`, including the `screenOrigin` its 10px drag gate is measured from.
-     * One stray cancel from the real finger, mid grab, therefore ends the drag silently: the state
-     * sits at GRABBED forever, no preview is created, and the token does not move however far you
-     * drag.
-     *
-     * Measured on a OnePlus 13, Chrome 150, Foundry 14.365: 55 drag moves dispatched with Foundry's
-     * drag origin readable for only 2 of them, against desktop keeping its origin for every step of
-     * the same gesture. Two samples is the interaction being destroyed almost at once.
-     *
-     * The other three are suppressed because they would DRIVE Foundry twice. This one is suppressed
-     * because it would UNDO what we are driving, which is the worse failure of the two: a doubled
-     * action is visible, and this produces nothing at all.
-     */
-    target.addEventListener('pointercancel', this.onNativePointer, { capture: true, signal });
-
-    /*
-     * ⚠️ contextmenu, which is what has been CANCELLING every drag. Added 2026-08-11.
-     *
-     * Read out of Foundry's own `client/canvas/interaction/mouse-handler.mjs`, where
-     * MouseInteractionManager builds its handler map:
-     *
-     *     contextmenu: this.#handleDragCancel.bind(this)
-     *
-     * A `contextmenu` event cancels an in progress drag outright. `_onDragLeftCancel` writes nothing,
-     * so the token stays exactly where it was and every other measurement looks healthy: the gate
-     * opens, the state reaches DRAG, a preview clone is created, and then the whole thing is thrown
-     * away. A device reported precisely that, three cancels and not one drop.
-     *
-     * On a phone a long press on the canvas produces a native `contextmenu`, and a finger dwelling
-     * mid drag is not an edge case, it is how people drag. A mouse only produces one on a deliberate
-     * right click, which is why no desktop run has ever seen this and why it survived every
-     * measurement that did not come from the hardware.
-     *
-     * `isTrusted` separates the two cases exactly: the browser's own event is trusted, and the one
-     * this module synthesises for a long press gesture is not. So a real long press is swallowed and
-     * the module's deliberate right click still reaches Foundry.
-     */
-    target.addEventListener('contextmenu', this.onNativeContextMenu, { capture: true, signal });
+    for (const spec of TOUCH_LISTENER_SPECS) {
+      this.options.target.addEventListener(
+        spec.type,
+        handlers[spec.handler],
+        toListenerOptions(spec, signal)
+      );
+    }
   }
 
   public unbind(): void {
