@@ -8,39 +8,13 @@ import {
   type GestureStateValue,
   type TouchPoint,
 } from './GestureTypes.js';
+import { distance } from './TouchGeometry.js';
+import { TwoFingerTracker } from './TwoFingerTracker.js';
 
 interface TapRecord {
   readonly at: number;
   readonly x: number;
   readonly y: number;
-}
-
-function distance(
-  a: { clientX: number; clientY: number },
-  b: { clientX: number; clientY: number }
-) {
-  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-}
-
-function separation(touches: readonly TouchPoint[]): number {
-  const [first, second] = touches;
-  if (first === undefined || second === undefined) {
-    return 0;
-  }
-  return distance(first, second);
-}
-
-function centroid(touches: readonly TouchPoint[]): { clientX: number; clientY: number } {
-  if (touches.length === 0) {
-    return { clientX: 0, clientY: 0 };
-  }
-  let sumX = 0;
-  let sumY = 0;
-  for (const touch of touches) {
-    sumX += touch.clientX;
-    sumY += touch.clientY;
-  }
-  return { clientX: sumX / touches.length, clientY: sumY / touches.length };
 }
 
 /**
@@ -66,8 +40,7 @@ export class GestureStateMachine {
   /** True when this touch began inside the double tap window of the previous one. */
   private secondTapPending = false;
   private lastTap: TapRecord | null = null;
-  private lastSeparation = 0;
-  private lastCentroid: { clientX: number; clientY: number } = { clientX: 0, clientY: 0 };
+  private readonly twoFinger = new TwoFingerTracker();
 
   public constructor(config: Partial<GestureConfig> = {}) {
     this.config = { ...DEFAULT_GESTURE_CONFIG, ...config };
@@ -105,9 +78,9 @@ export class GestureStateMachine {
       case GestureState.DRAGGING:
         return this.fromDragging(input);
       case GestureState.TWO_FINGER:
-        return this.fromTwoFinger(input);
+        return this.fromTwoFingerState(input, GestureState.TWO_FINGER);
       case GestureState.PINCHING:
-        return this.fromPinching(input);
+        return this.fromTwoFingerState(input, GestureState.PINCHING);
     }
   }
 
@@ -117,8 +90,7 @@ export class GestureStateMachine {
   }
 
   private beginTwoFinger(touches: readonly TouchPoint[]): void {
-    this.lastSeparation = separation(touches);
-    this.lastCentroid = centroid(touches);
+    this.twoFinger.begin(touches);
   }
 
   private fromIdle(input: GestureInput): GestureResult {
@@ -310,87 +282,54 @@ export class GestureStateMachine {
     }
   }
 
-  private fromTwoFinger(input: GestureInput): GestureResult {
+  /**
+   * Pan or zoom, with the arithmetic and the pan-versus-zoom rule in TwoFingerTracker.
+   *
+   * Both states share this because they differ in exactly one way: PINCHING has already committed to
+   * zooming and must not fall back to panning, which is the `alreadyZooming` argument.
+   */
+  private fromTwoFingerState(
+    input: GestureInput,
+    state: typeof GestureState.TWO_FINGER | typeof GestureState.PINCHING
+  ): GestureResult {
     switch (input.type) {
       case 'touchmove': {
-        if (input.touches.length < 2) {
-          return this.result(GestureState.TWO_FINGER);
-        }
+        const outcome = this.twoFinger.update(
+          input.touches,
+          this.config.pinchThresholdPx,
+          state === GestureState.PINCHING
+        );
 
-        const currentSeparation = separation(input.touches);
-        const currentCentroid = centroid(input.touches);
-
-        /*
-         * Pan and zoom are kept apart rather than applied together. Doing both from one gesture
-         * makes the canvas lurch, because a small pinch always drags the centroid slightly too.
-         * Once the separation changes past the threshold the gesture commits to zooming.
-         */
-        if (Math.abs(currentSeparation - this.lastSeparation) > this.config.pinchThresholdPx) {
-          const ratio = this.lastSeparation === 0 ? 1 : currentSeparation / this.lastSeparation;
-          this.lastSeparation = currentSeparation;
-          this.lastCentroid = currentCentroid;
+        if (outcome.kind === 'zoom') {
           return this.result(GestureState.PINCHING, [
             {
               type: 'zoomCanvas',
-              ratio,
-              centerX: currentCentroid.clientX,
-              centerY: currentCentroid.clientY,
+              ratio: outcome.ratio,
+              centerX: outcome.centerX,
+              centerY: outcome.centerY,
             },
           ]);
         }
-
-        const deltaX = currentCentroid.clientX - this.lastCentroid.clientX;
-        const deltaY = currentCentroid.clientY - this.lastCentroid.clientY;
-        this.lastCentroid = currentCentroid;
-        this.lastSeparation = currentSeparation;
-
-        return this.result(GestureState.TWO_FINGER, [{ type: 'panCanvasBy', deltaX, deltaY }]);
+        if (outcome.kind === 'pan') {
+          return this.result(GestureState.TWO_FINGER, [
+            { type: 'panCanvasBy', deltaX: outcome.deltaX, deltaY: outcome.deltaY },
+          ]);
+        }
+        return this.result(state);
       }
 
       case 'touchend':
       case 'touchcancel':
         /*
-         * Ends the gesture even if one finger is still down. Handing the surviving finger straight
-         * to the pointer would make it jump from wherever the pan left it, which reads as a glitch.
+         * Ends the gesture even if one finger is still down. Handing the surviving finger straight to
+         * the pointer would make it jump from wherever the pan left it, which reads as a glitch.
          * Requiring a clean lift is predictable.
          */
         return this.result(GestureState.IDLE);
 
       case 'touchstart':
       case 'timer':
-        return this.result(GestureState.TWO_FINGER);
-    }
-  }
-
-  private fromPinching(input: GestureInput): GestureResult {
-    switch (input.type) {
-      case 'touchmove': {
-        if (input.touches.length < 2) {
-          return this.result(GestureState.PINCHING);
-        }
-        const currentSeparation = separation(input.touches);
-        const currentCentroid = centroid(input.touches);
-        const ratio = this.lastSeparation === 0 ? 1 : currentSeparation / this.lastSeparation;
-        this.lastSeparation = currentSeparation;
-        this.lastCentroid = currentCentroid;
-
-        return this.result(GestureState.PINCHING, [
-          {
-            type: 'zoomCanvas',
-            ratio,
-            centerX: currentCentroid.clientX,
-            centerY: currentCentroid.clientY,
-          },
-        ]);
-      }
-
-      case 'touchend':
-      case 'touchcancel':
-        return this.result(GestureState.IDLE);
-
-      case 'touchstart':
-      case 'timer':
-        return this.result(GestureState.PINCHING);
+        return this.result(state);
     }
   }
 
