@@ -60,15 +60,16 @@ function pointer(type: string, init: { pointerType: string; pointerId: number })
   return event;
 }
 
+/*
+ * ⚠️ Suppressing native POINTER events is no longer the binder's job, and the cases that used to live
+ * here have moved to `nativePointerSuppressor.test.ts`.
+ *
+ * It could never have worked from the document: PIXI binds `pointerup` on the WINDOW in the capture
+ * phase, which fires first, so a document listener is always too late. The suppressor binds on the
+ * window at Foundry's init, before PIXI exists, and its suite asserts against a listener registered
+ * on the same node exactly as PIXI registers its own, which is a stronger check than this ever was.
+ */
 describe('TouchBinder native pointer suppression', () => {
-  it('stops a real finger pointercancel from reaching Foundry', () => {
-    const { reached, target } = bind();
-
-    target.dispatchEvent(pointer('pointercancel', { pointerType: 'touch', pointerId: 1 }));
-
-    expect(reached).toEqual([]);
-  });
-
   /**
    * Our own cancel must still get through. `VirtualPointer.cancelDrag` sends one so that Foundry
    * releases a held button when a gesture is abandoned; swallowing it would leave a token stuck to
