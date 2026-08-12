@@ -2,6 +2,11 @@ import { logger } from './core/Logger.js';
 import { DispatchTrace } from './debug/DispatchTrace.js';
 import { DragCaptureWindow } from './debug/DragCaptureWindow.js';
 import { DragSampler } from './debug/DragSampler.js';
+import {
+  describeControlledToken,
+  describeScenePoint,
+  isPointerInsideToken,
+} from './debug/TokenHitTest.js';
 import { PixiMoveProbe } from './debug/PixiMoveProbe.js';
 import { deliverDiagnostics } from './debug/DiagnosticsDelivery.js';
 import { buildDiagnosticsReport } from './debug/DiagnosticsReport.js';
@@ -834,14 +839,6 @@ export class TongsBrowser {
     const under = this.options.document.elementFromPoint(position.clientX, position.clientY);
     const mouse = canvasGlobal?.['mousePosition'] as { x?: number; y?: number } | undefined;
 
-    const insideToken =
-      selected?.document?.x !== undefined &&
-      mouse?.x !== undefined &&
-      mouse.x >= selected.document.x &&
-      mouse.x <= selected.document.x + (selected.w ?? 0) &&
-      (mouse.y ?? 0) >= (selected.document.y ?? 0) &&
-      (mouse.y ?? 0) <= (selected.document.y ?? 0) + (selected.h ?? 0);
-
     const sampled = this.sampler.snapshot();
 
     const lines = buildDiagnosticsReport({
@@ -879,10 +876,7 @@ export class TongsBrowser {
       isGm: user?.isGM === true,
       paused: game['paused'] === true,
       activeTool: String(game['activeTool']),
-      controlledToken:
-        selected === undefined
-          ? 'NONE, tap a token first'
-          : `${String(selected.name)} at (${String(selected.document?.x)}, ${String(selected.document?.y)})`,
+      controlledToken: describeControlledToken(selected),
       canDrag: selected?._canDrag === undefined ? 'n/a' : String(selected._canDrag(user)),
       pointer: {
         x: position.clientX,
@@ -891,11 +885,8 @@ export class TongsBrowser {
       },
       elementUnderPointer:
         under === null ? 'nothing' : `${under.tagName.toLowerCase()}#${under.id}`,
-      pixiMousePosition:
-        mouse === undefined
-          ? 'n/a'
-          : `(${String(Math.round(mouse.x ?? 0))}, ${String(Math.round(mouse.y ?? 0))})`,
-      insideSelectedToken: insideToken,
+      pixiMousePosition: describeScenePoint(mouse),
+      insideSelectedToken: isPointerInsideToken(mouse, selected),
       canvasReady: String(canvasGlobal?.['ready']),
       keyboardStrategy: this.synthesizer.getStrategy(),
       interactionStateNow: describeInteractionState(selected),
