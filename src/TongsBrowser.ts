@@ -19,6 +19,12 @@ import type { GestureConfig } from './gesture/GestureTypes.js';
 import { KeyboardSynthesizer, type KeyboardManagerLike } from './modifiers/KeyboardSynthesizer.js';
 import { ModifierBar, type BarPosition, type TrayAction } from './modifiers/ModifierBar.js';
 import { MODULE_ID } from './constants.js';
+import {
+  popOutSidebarTab,
+  resolveSidebarTabNames,
+  type FoundryUi,
+  type SidebarAccessOptions,
+} from './foundry/SidebarAccess.js';
 import { PauseRelay, type SocketLike } from './relay/PauseRelay.js';
 import { CursorOverlay } from './pointer/CursorOverlay.js';
 import { EventDispatcher } from './pointer/EventDispatcher.js';
@@ -1153,48 +1159,21 @@ export class TongsBrowser {
     this.sidebarMenu = null;
   }
 
-  /**
-   * Which sidebar tabs this user can actually open.
-   *
-   * Read from the Sidebar class's static TABS, because that is where Foundry defines them; the tab
-   * applications themselves are separate objects hanging off `ui`. A tab is only offered if its
-   * application exists and can pop out, so a build that renames or removes one degrades to a shorter
-   * list rather than to a row of buttons that do nothing.
-   */
-  private resolveSidebarTabNames(): string[] {
-    const ui = (globalThis as { ui?: Record<string, unknown> }).ui;
-    const sidebar = ui?.['sidebar'] as
-      { constructor?: { TABS?: Record<string, { gmOnly?: boolean }> } } | undefined;
-    const tabs = sidebar?.constructor?.TABS;
-    if (tabs === undefined) {
-      return [];
-    }
-
-    const isGm = (globalThis as { game?: { user?: { isGM?: boolean } } }).game?.user?.isGM === true;
-
-    return Object.entries(tabs)
-      .filter(([, definition]) => definition.gmOnly !== true || isGm)
-      .map(([name]) => name)
-      .filter((name) => {
-        const app = ui?.[name] as { renderPopout?: () => unknown } | undefined;
-        return app?.renderPopout !== undefined;
-      });
+  /** The tabs this user can open, and popping one out. Both live in foundry/SidebarAccess.ts. */
+  private sidebarAccess(): SidebarAccessOptions {
+    return {
+      getUi: () => (globalThis as { ui?: FoundryUi }).ui,
+      isGm: () =>
+        (globalThis as { game?: { user?: { isGM?: boolean } } }).game?.user?.isGM === true,
+    };
   }
 
-  /** Pop a named sidebar tab out as a window, closing it again if it is already open. */
+  private resolveSidebarTabNames(): string[] {
+    return resolveSidebarTabNames(this.sidebarAccess());
+  }
+
   private popOutSidebarTab(name: string): void {
-    const ui = (globalThis as { ui?: Record<string, unknown> }).ui;
-    const sidebar = ui?.['sidebar'] as
-      { popouts?: Record<string, { close?: () => unknown }> } | undefined;
-
-    const open = sidebar?.popouts?.[name];
-    if (open?.close !== undefined) {
-      void open.close();
-      return;
-    }
-
-    const app = ui?.[name] as { renderPopout?: () => unknown } | undefined;
-    void app?.renderPopout?.();
+    popOutSidebarTab(this.sidebarAccess(), name);
   }
 
   /**
