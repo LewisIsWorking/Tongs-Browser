@@ -8,14 +8,10 @@ import {
   type GestureStateValue,
   type TouchPoint,
 } from './GestureTypes.js';
+import { pointerMoveActions } from './PointerTranslation.js';
+import { continuesPreviousTap, type TapRecord } from './TapWindow.js';
 import { distance } from './TouchGeometry.js';
 import { TwoFingerTracker } from './TwoFingerTracker.js';
-
-interface TapRecord {
-  readonly at: number;
-  readonly x: number;
-  readonly y: number;
-}
 
 /**
  * The gesture finite state machine.
@@ -118,11 +114,7 @@ export class GestureStateMachine {
      * begin identically, and only the duration of this second touch tells them apart. So the same
      * state covers both and the timer decides.
      */
-    this.secondTapPending =
-      this.lastTap !== null &&
-      input.at - this.lastTap.at <= this.config.doubleTapWindowMs &&
-      distance(touch, { clientX: this.lastTap.x, clientY: this.lastTap.y }) <=
-        this.config.doubleTapSlopPx;
+    this.secondTapPending = continuesPreviousTap(touch, input.at, this.lastTap, this.config);
 
     const timerDuration = this.secondTapPending ? this.config.tapMaxMs : this.config.longPressMs;
 
@@ -153,7 +145,10 @@ export class GestureStateMachine {
           return this.result(GestureState.LONG_PRESS_PENDING);
         }
 
-        const actions: GestureAction[] = [{ type: 'cancelTimer' }, ...this.moveActions(touch)];
+        const actions: GestureAction[] = [
+          { type: 'cancelTimer' },
+          ...pointerMoveActions(touch, this.lastPosition, this.config),
+        ];
         this.lastPosition = touch;
         return this.result(GestureState.TRACKING, actions);
       }
@@ -232,7 +227,7 @@ export class GestureStateMachine {
         if (touch === undefined) {
           return this.result(GestureState.TRACKING);
         }
-        const actions = this.moveActions(touch);
+        const actions = pointerMoveActions(touch, this.lastPosition, this.config);
         this.lastPosition = touch;
         return this.result(GestureState.TRACKING, actions);
       }
@@ -331,38 +326,5 @@ export class GestureStateMachine {
       case 'timer':
         return this.result(state);
     }
-  }
-
-  /**
-   * Turns finger movement into pointer movement, according to the configured mode.
-   *
-   * Trackpad mode applies a relative delta, so the pointer stays where it was left and sensitivity
-   * multiplies reach. Offset mode places the pointer a fixed distance above the finger, so the
-   * finger never covers the target. The first suits a phone, the second a tablet.
-   */
-  private moveActions(touch: TouchPoint): GestureAction[] {
-    if (this.config.pointerMode === 'offset') {
-      return [
-        {
-          type: 'movePointerTo',
-          position: {
-            clientX: touch.clientX,
-            clientY: touch.clientY - this.config.offsetDistancePx,
-          },
-        },
-      ];
-    }
-
-    if (this.lastPosition === null) {
-      return [];
-    }
-
-    return [
-      {
-        type: 'movePointerBy',
-        deltaX: (touch.clientX - this.lastPosition.clientX) * this.config.sensitivity,
-        deltaY: (touch.clientY - this.lastPosition.clientY) * this.config.sensitivity,
-      },
-    ];
   }
 }
