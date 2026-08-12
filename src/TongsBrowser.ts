@@ -3,6 +3,7 @@ import { DispatchTrace } from './debug/DispatchTrace.js';
 import { DragCaptureWindow } from './debug/DragCaptureWindow.js';
 import { DragSampler } from './debug/DragSampler.js';
 import { readFoundryFacts, type FoundryGlobals } from './debug/FoundryFacts.js';
+import { readChatTargets, type ChatGlobals } from './debug/ChatTargets.js';
 import { describeTokenMovement } from './debug/TokenMovement.js';
 import { availableWidthBesideSidebar } from './foundry/AvailableWidth.js';
 import { readCanvasPivot, readCanvasScale, readZoomLimits } from './foundry/CanvasReaders.js';
@@ -797,6 +798,13 @@ export class TongsBrowser {
     const under = this.options.document.elementFromPoint(position.clientX, position.clientY);
 
     const sampled = this.sampler.snapshot();
+    /*
+     * ⚠️ Read ONCE. `getCounts` returns a fresh object every call, and the PIXI listeners behind
+     * these numbers fire continuously while the pointer moves, which it may well still be doing as
+     * the report is assembled. Four separate calls put four fields at four different moments, so the
+     * report could disagree with itself about a single gesture. Same rule as `readFoundryFacts`.
+     */
+    const counts = this.pixiProbe.getCounts();
 
     const lines = buildDiagnosticsReport({
       build: __TB_BUILD_VERSION__,
@@ -817,11 +825,7 @@ export class TongsBrowser {
       },
       dragEndings: this.dragEndings,
       hooksInstalled: this.hooksInstalled,
-      moves: {
-        token: this.pixiProbe.getCounts().token,
-        layer: this.pixiProbe.getCounts().layer,
-        stage: this.pixiProbe.getCounts().stage,
-      },
+      moves: { token: counts.token, layer: counts.layer, stage: counts.stage },
       lastGateDistance: sampled.lastGateDistance,
       pointerComparison: describePointers(),
       touchCounts: this.gestureInputCounts,
@@ -844,18 +848,17 @@ export class TongsBrowser {
       canvasReady: facts.canvasReady,
       keyboardStrategy: this.synthesizer.getStrategy(),
       interactionStateNow: describeInteractionState(facts.selected),
-      probeAttached: this.pixiProbe.getCounts().attached,
+      probeAttached: counts.attached,
       userAgent: navigator.userAgent,
       recentDispatches: this.trace.getLines(),
     });
 
+    const targets = readChatTargets(globalThis as ChatGlobals);
     deliverDiagnostics(lines, {
       document: this.options.document,
-      createChatMessage: (globalThis as { ChatMessage?: { create?: (data: unknown) => unknown } })
-        .ChatMessage?.create,
+      createChatMessage: targets.createChatMessage,
       userId: facts.userId,
-      notify: (globalThis as { ui?: { notifications?: { info?: (message: string) => void } } }).ui
-        ?.notifications?.info,
+      notify: targets.notify,
       fallback: (text) => {
         logger.warn(text);
       },
