@@ -20,8 +20,8 @@
  * Nothing else counts as a pass. The diagnostics are printed alongside because when it fails they
  * are what says why, but they are never what decides.
  */
-import type { Page } from 'playwright';
-import { connectCdpPage } from './cdp-page.ts';
+import type { Browser, Page } from 'playwright';
+import { connectCdpPage, type CdpPage } from './cdp-page.ts';
 import {
   BASE,
   ensureActiveScene,
@@ -140,11 +140,46 @@ const ANDROID_COMMIT_TIMEOUT_MS = 120_000;
  */
 const TRAVEL_TOLERANCE = 100;
 
+/**
+ * The slice of a page these checks actually need, satisfied by BOTH surfaces.
+ *
+ * Playwright's `Page` and the raw CDP stand in are different types that do the same job here, and
+ * only `evaluate` is common ground. Naming that says what the checks require instead of demanding a
+ * Playwright page they do not need, and it is why the same check body runs against a desktop browser
+ * and a phone without knowing which it has.
+ */
+/**
+ * Evaluate on either page surface.
+ *
+ * Both do exactly the same thing at runtime; they differ only in generic plumbing, and Playwright's
+ * overloads make the union uncallable without help. One documented adapter beats a cast at every
+ * call site, and it keeps the check body identical for desktop and device.
+ */
+function evaluateOn<T>(
+  target: Page | CdpPage,
+  fn: (arg: never) => T | Promise<T>,
+  arg?: unknown
+): Promise<T> {
+  return (target as CdpPage).evaluate(fn, arg);
+}
+
 async function main() {
   await requireActiveWorld();
 
-  const { browser, page, device } = USE_ANDROID
-    ? { browser: null, page: await connectCdpPage({ matchUrl: '/game' }), device: undefined }
+  /*
+   * Two genuinely different surfaces, not one type with two shapes.
+   *
+   * Playwright's `Page` and the raw CDP stand in do the same job for the checks and are not
+   * structurally compatible: Playwright's `evaluate` carries generic overloads nothing here can
+   * satisfy. Rather than contort a common interface into existence, the union is kept honest and
+   * narrowed at the two places where a Playwright only method is actually required.
+   */
+  const launched: {
+    browser: Browser | null;
+    page: Page | CdpPage;
+    device?: { width: number; height: number; devicePixelRatio: number; maxTouchPoints: number };
+  } = USE_ANDROID
+    ? { browser: null, page: await connectCdpPage({ matchUrl: '/game' }) }
     : await launchBrowser(
         USE_MOBILE
           ? {
@@ -157,6 +192,7 @@ async function main() {
             }
           : undefined
       );
+  const { browser, page, device } = launched;
 
   if (USE_MOBILE) {
     console.log(
@@ -175,7 +211,7 @@ async function main() {
   const failures = [];
   let sceneId = null;
   let created = null;
-  let restore = null;
+  let restore: { name: string; x: number; y: number } | null = null;
 
   try {
     if (USE_ANDROID) {
@@ -190,7 +226,7 @@ async function main() {
        * Asserting instead means a missing precondition is a clear message rather than a mysterious
        * later failure.
        */
-      const state = await page.evaluate(() => ({
+      const state = await evaluateOn(page, () => ({
         ready: globalThis.game?.ready === true,
         module: globalThis.game?.modules?.get('tongs-browser')?.active === true,
         api: globalThis.game?.modules?.get('tongs-browser')?.api !== undefined,
@@ -211,9 +247,17 @@ async function main() {
         );
       }
     } else {
-      await ensureInGame(page);
-      await ensureModuleEnabled(page);
-      sceneId = await ensureActiveScene(page, { label: 'drag check' });
+      /*
+       * Narrowed rather than cast blindly: outside the android branch the page IS a Playwright page,
+       * because that is the only thing `launchBrowser` returns, and these three helpers
+       * genuinely need `goto` and `waitForFunction` rather than only `evaluate`.
+       */
+      // Through `unknown` because the two page types share no structural overlap, and narrowed here
+      // rather than at the top because ONLY these three helpers need `goto` and `waitForFunction`.
+      const playwrightPage = page as unknown as Page;
+      await ensureInGame(playwrightPage);
+      await ensureModuleEnabled(playwrightPage);
+      sceneId = await ensureActiveScene(playwrightPage, { label: 'drag check' });
     }
 
     /*
@@ -230,7 +274,7 @@ async function main() {
      * only write is the drag itself, which is the thing under test.
      */
     if (USE_ANDROID) {
-      const adopted = await page.evaluate(() => {
+      const adopted = await evaluateOn(page, () => {
         const token = canvas.tokens.controlled[0] ?? canvas.tokens.placeables[0];
         if (token === undefined) {
           return null;
@@ -298,25 +342,30 @@ async function main() {
     }
   } finally {
     if (restore !== null) {
+      // Captured into a const so the arrow callbacks below keep the narrowing. A closure over the
+      // mutable binding would not.
+      const putBack = restore;
       // Put the adopted token back. The drag is allowed to move it; the check is not allowed to
       // leave it moved, because this is somebody's live game and not a fixture.
-      await page
-        .evaluate(async (at) => {
+      await evaluateOn(
+        page,
+        async (at: { name: string; x: number; y: number }) => {
           const token = canvas.tokens.controlled[0] ?? canvas.tokens.placeables[0];
           await token?.document.update({ x: at.x, y: at.y });
-        }, restore)
-        .catch((error) => {
-          console.error(
-            `could not put '${String(restore.name)}' back at (${String(restore.x)}, ${String(restore.y)}): ${String(error)}`
-          );
-        });
+        },
+        putBack
+      ).catch((error: Error) => {
+        console.error(
+          `could not put '${putBack.name}' back at (${String(putBack.x)}, ${String(putBack.y)}): ${String(error)}`
+        );
+      });
     }
     if (created !== null) {
-      await removeProbeToken(page, created).catch((error) => {
+      await removeProbeToken(page, created).catch((error: Error) => {
         console.error(`could not remove the probe token: ${String(error)}`);
       });
     }
-    await removeProbeScene(page, sceneId);
+    await removeProbeScene(page as unknown as Page, sceneId);
     /*
      * Do NOT close a browser we merely attached to. On Android this is the user's own Chrome, with
      * their own tabs in it, and closing it to tidy up after a check would be a rude way to end a
@@ -350,35 +399,43 @@ async function main() {
  * the next one will not. Hardcoding "character" would make the check fail on a system that spells it
  * differently, and that failure would accuse the drag.
  */
-async function createProbeToken(page: Page) {
-  return page.evaluate(async (prefix) => {
-    /*
-     * Two shapes, both real. `game.documentTypes.Actor` is an array of names; the same key on
-     * `game.system.documentTypes` is an object keyed by name whose values carry the type's metadata.
-     * Reading only one of them threw `.filter is not a function` on this world, which is a confusing
-     * way to be told the schema is not what you assumed.
-     */
-    const declared = game.documentTypes?.Actor ?? game.system.documentTypes?.Actor ?? [];
-    const names = Array.isArray(declared) ? declared : Object.keys(declared);
-    const type = names.filter((name) => name !== 'base')[0];
-    if (type === undefined) {
-      throw new Error('this system declares no Actor types, so no token can be made.');
-    }
+async function createProbeToken(page: Page | CdpPage) {
+  return evaluateOn(
+    page,
+    async (prefix) => {
+      /*
+       * Two shapes, both real. `game.documentTypes.Actor` is an array of names; the same key on
+       * `game.system.documentTypes` is an object keyed by name whose values carry the type's metadata.
+       * Reading only one of them threw `.filter is not a function` on this world, which is a confusing
+       * way to be told the schema is not what you assumed.
+       */
+      const declared = game.documentTypes?.Actor ?? game.system.documentTypes?.Actor ?? [];
+      const names = Array.isArray(declared) ? declared : Object.keys(declared);
+      const type = names.filter((name) => name !== 'base')[0];
+      if (type === undefined) {
+        throw new Error('this system declares no Actor types, so no token can be made.');
+      }
 
-    const actor = await Actor.create({ name: `${prefix} drag subject`, type });
+      const actor = await Actor.create({ name: `${prefix} drag subject`, type });
 
-    // Placed well inside the scene, so a 240px drag in any direction stays on the canvas. A token
-    // dragged off the scene is refused, and the refusal looks exactly like the bug being hunted.
-    const [document] = await canvas.scene.createEmbeddedDocuments('Token', [
-      { name: `${prefix} drag subject`, actorId: actor.id, x: 600, y: 600, width: 1, height: 1 },
-    ]);
+      // Placed well inside the scene, so a 240px drag in any direction stays on the canvas. A token
+      // dragged off the scene is refused, and the refusal looks exactly like the bug being hunted.
+      const [document] = await canvas.scene.createEmbeddedDocuments('Token', [
+        { name: `${prefix} drag subject`, actorId: actor.id, x: 600, y: 600, width: 1, height: 1 },
+      ]);
 
-    return { actorId: actor.id, tokenId: document.id };
-  }, PROBE_PREFIX);
+      return { actorId: actor.id, tokenId: document.id };
+    },
+    PROBE_PREFIX
+  );
 }
 
-async function removeProbeToken(page: Page, { actorId, tokenId }) {
-  await page.evaluate(
+async function removeProbeToken(
+  page: Page | CdpPage,
+  { actorId, tokenId }: { actorId: string; tokenId: string }
+) {
+  await evaluateOn(
+    page,
     async ({ actor, token }) => {
       await canvas.scene?.deleteEmbeddedDocuments('Token', [token]).catch(() => undefined);
       await game.actors.get(actor)?.delete();
@@ -395,8 +452,12 @@ async function removeProbeToken(page: Page, { actorId, tokenId }) {
  * cannot say which one broke. The gesture layer already has its own check; this one is about whether
  * a held pointer moving across a token relocates it, which is the complaint.
  */
-async function dragControlledToken(page: Page, { distance, steps, timeout }) {
-  return page.evaluate(
+async function dragControlledToken(
+  page: Page | CdpPage,
+  { distance, steps, timeout }: { distance: number; steps: number; timeout: number }
+) {
+  return evaluateOn(
+    page,
     async ({ dragDistance, dragSteps, commitTimeout, panDuringDrag }) => {
       const api = game.modules.get('tongs-browser')?.api;
       if (api === undefined) {
@@ -413,7 +474,9 @@ async function dragControlledToken(page: Page, { distance, steps, timeout }) {
        */
       const token =
         canvas.tokens.controlled[0] ??
-        canvas.tokens.placeables.find((candidate) => candidate.name.startsWith('[probe]'));
+        canvas.tokens.placeables.find((candidate: { name: string }) =>
+          candidate.name.startsWith('[probe]')
+        );
       if (token === undefined) {
         throw new Error('no token to drag: none is controlled and no probe token exists.');
       }
@@ -631,9 +694,44 @@ async function dragControlledToken(page: Page, { distance, steps, timeout }) {
   );
 }
 
-const format = (point) => `(${String(point.x)}, ${String(point.y)})`;
+const format = (point: { x: number; y: number }) => `(${String(point.x)}, ${String(point.y)})`;
 
-function report(result) {
+/**
+ * Everything the check measured. Loose on purpose: the shape is built inside `page.evaluate` where
+ * Foundry's own untyped API supplies most of it, so a strict interface here would be a second,
+ * drifting description of a thing the page already decides.
+ */
+interface DragCheckResult {
+  before: { x: number; y: number };
+  after: { x: number; y: number };
+  moved: boolean;
+  travelled: number;
+  expected: number;
+  scale: number;
+  peakState: number;
+  peakClones: number;
+  centre: { x: number; y: number };
+  client: { x: number; y: number };
+  hitDescription: string;
+  controlledAtStart: number;
+  controlled: number;
+  activeTool: string;
+  locked: boolean;
+  pointerStillDragging: boolean;
+  layerMoves: number;
+  stageMoves: number;
+  originAliasesPointer: boolean | null;
+  trace: {
+    step: number;
+    ours: number;
+    origin: number | null;
+    destination: number | null;
+    clone: number | null;
+    state: number;
+  }[];
+}
+
+function report(result: DragCheckResult) {
   console.log(`Foundry at ${BASE}`);
   console.log(`  token position : ${format(result.before)} -> ${format(result.after)}`);
   console.log(`  moved          : ${result.moved ? 'YES' : 'NO'}`);

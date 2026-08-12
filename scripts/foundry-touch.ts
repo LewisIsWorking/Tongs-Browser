@@ -13,32 +13,53 @@
  * produces them would be testing a world where the hardest problem does not exist.
  */
 
+/**
+ * A CDP session, narrowed to the one method this needs.
+ *
+ * Structural rather than imported from Playwright, because the same driver is used against a session
+ * obtained from `context.newCDPSession` and against a raw socket, and naming the single method used
+ * says exactly what is required of either.
+ */
+/** A touch point in client coordinates. Ids are assigned by the Hand, one per finger. */
+export interface TouchPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface CdpSender {
+  send: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
+}
+
 /** A single finger. */
 export class Finger {
-  constructor(client) {
-    this.client = client;
-  }
+  public constructor(private readonly client: CdpSender) {}
 
-  async down(x, y) {
+  async down(x: number, y: number): Promise<void> {
     await this.client.send('Input.dispatchTouchEvent', {
       type: 'touchStart',
       touchPoints: [{ x, y, id: 1 }],
     });
   }
 
-  async moveTo(x, y) {
+  async moveTo(x: number, y: number): Promise<void> {
     await this.client.send('Input.dispatchTouchEvent', {
       type: 'touchMove',
       touchPoints: [{ x, y, id: 1 }],
     });
   }
 
-  async up() {
+  async up(): Promise<void> {
     await this.client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   }
 
   /** A drag in steps, because one large jump is not what a finger does and not what the machine sees. */
-  async drag(fromX, fromY, deltaX, deltaY, steps = 8) {
+  async drag(
+    fromX: number,
+    fromY: number,
+    deltaX: number,
+    deltaY: number,
+    steps = 8
+  ): Promise<void> {
     await this.down(fromX, fromY);
     for (let step = 1; step <= steps; step += 1) {
       await this.moveTo(fromX + (deltaX * step) / steps, fromY + (deltaY * step) / steps);
@@ -47,7 +68,7 @@ export class Finger {
   }
 
   /** A tap, deliberately brief so it can never be read as the start of a long press. */
-  async tap(x, y) {
+  async tap(x: number, y: number): Promise<void> {
     await this.down(x, y);
     await this.up();
   }
@@ -55,26 +76,24 @@ export class Finger {
 
 /** Two or more fingers, for pan and pinch. */
 export class Hand {
-  constructor(client) {
-    this.client = client;
-  }
+  public constructor(private readonly client: CdpSender) {}
 
-  send(type, points) {
+  send(type: string, points: readonly TouchPoint[]): Promise<unknown> {
     return this.client.send('Input.dispatchTouchEvent', {
       type,
       touchPoints: points.map((point, index) => ({ x: point.x, y: point.y, id: index + 1 })),
     });
   }
 
-  start(points) {
+  start(points: readonly TouchPoint[]): Promise<unknown> {
     return this.send('touchStart', points);
   }
 
-  move(points) {
+  move(points: readonly TouchPoint[]): Promise<unknown> {
     return this.send('touchMove', points);
   }
 
-  end() {
+  end(): Promise<unknown> {
     return this.send('touchEnd', []);
   }
 }
