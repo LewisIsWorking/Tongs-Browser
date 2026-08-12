@@ -37,10 +37,6 @@ describe('TOUCH_LISTENER_SPECS', () => {
       'touchmove',
       'touchend',
       'touchcancel',
-      'pointerdown',
-      'pointermove',
-      'pointerup',
-      'pointercancel',
       'contextmenu',
     ]);
   });
@@ -72,11 +68,6 @@ describe('TOUCH_LISTENER_SPECS', () => {
     for (const spec of TOUCH_LISTENER_SPECS) {
       expect(spec.because.length).toBeGreaterThan(20);
     }
-  });
-
-  /** The two that cost the most to find, named individually so a delete has to be deliberate. */
-  it('intercepts pointercancel, which Foundry treats as a drag ABORT', () => {
-    expect(find('pointercancel').handler).toBe('onNativePointer');
   });
 
   it('intercepts contextmenu, which Foundry maps straight to its drag cancel', () => {
@@ -112,7 +103,7 @@ describe('toListenerOptions', () => {
    * that promise: they stop propagation, and the default stays the browser's to decide.
    */
   it('leaves passive unset where the spec does not name it', () => {
-    expect(toListenerOptions(find('pointerdown'), signal)).toEqual({ capture: true, signal });
-    expect('passive' in toListenerOptions(find('pointerdown'), signal)).toBe(false);
+    expect(toListenerOptions(find('contextmenu'), signal)).toEqual({ capture: true, signal });
+    expect('passive' in toListenerOptions(find('contextmenu'), signal)).toBe(false);
   });
 });

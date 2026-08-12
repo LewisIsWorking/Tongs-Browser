@@ -91,58 +91,13 @@ export const TOUCH_LISTENER_SPECS: readonly TouchListenerSpec[] = [
   },
 
   /*
-   * The browser's own touch derived pointer events, stopped before they reach Foundry or PIXI rather
-   * than after. Anything arriving with our reserved pointer id is ours and passes through untouched.
+   * ⚠️ The pointer events are NOT here, and their absence is deliberate.
+   *
+   * They used to be, on the document, and it could never have worked: PIXI binds `pointerup` on the
+   * WINDOW in the capture phase, which fires before the document. Suppressing them is now
+   * gesture/NativePointerSuppressor.ts, bound on the window at Foundry's init so it is registered
+   * before PIXI exists.
    */
-  {
-    type: 'pointerdown',
-    handler: 'onNativePointer',
-    capture: true,
-    because: 'a touch derived pointerdown would drive Foundry a second time',
-  },
-  {
-    type: 'pointermove',
-    handler: 'onNativePointer',
-    capture: true,
-    because:
-      'a touch derived pointermove drags the cursor Foundry believes in over to the FINGER, which ' +
-      'is never where our pointer is, so hover and hit testing disagree with what is on screen',
-  },
-  {
-    type: 'pointerup',
-    handler: 'onNativePointer',
-    capture: true,
-    because:
-      'a touch derived pointerup releases at the finger, completing a click Foundry attributes to ' +
-      'whatever is under the finger rather than under the pointer',
-  },
-  {
-    /*
-     * ⚠️ pointercancel, and it is not symmetry for its own sake. Added 2026-08-11.
-     *
-     * A touchscreen fires `pointercancel` whenever the browser takes a gesture over: a scroll, an
-     * edge swipe, a second finger, a system gesture. A mouse never fires it at all, which is exactly
-     * why desktop has never once seen this and why it took a device to find.
-     *
-     * Foundry's MouseInteractionManager treats a cancel as an ABORT. It resets the interaction and
-     * discards `interactionData`, including the `screenOrigin` its 10px drag gate is measured from.
-     * One stray cancel from the real finger, mid grab, therefore ends the drag silently: the state
-     * sits at GRABBED forever, no preview is created, and the token does not move however far you
-     * drag.
-     *
-     * Measured on a OnePlus 13, Chrome 150, Foundry 14.365: 55 drag moves dispatched with Foundry's
-     * drag origin readable for only 2 of them, against desktop keeping its origin for every step of
-     * the same gesture. Two samples is the interaction being destroyed almost at once.
-     *
-     * The other three are suppressed because they would DRIVE Foundry twice. This one is suppressed
-     * because it would UNDO what we are driving, which is the worse failure of the two: a doubled
-     * action is visible, and this produces nothing at all.
-     */
-    type: 'pointercancel',
-    handler: 'onNativePointer',
-    capture: true,
-    because: 'Foundry treats a cancel as an ABORT and discards the drag origin it measures from',
-  },
   {
     /*
      * ⚠️ contextmenu, which is what has been CANCELLING every drag. Added 2026-08-11.

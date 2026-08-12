@@ -3,6 +3,8 @@ import '../styles/tongs-browser.css';
 import { TongsBrowser } from './TongsBrowser.js';
 import { MODULE_ID, MODULE_TITLE } from './constants.js';
 import { logger } from './core/Logger.js';
+import { ExclusionZones } from './gesture/ExclusionZones.js';
+import { NativePointerSuppressor } from './gesture/NativePointerSuppressor.js';
 import { SettingKey, type SettingKeyValue } from './settings/SettingDefinitions.js';
 import { SceneControlToggle } from './settings/SceneControlToggle.js';
 import { SettingsStore } from './settings/SettingsStore.js';
@@ -17,6 +19,8 @@ import { SettingsStore } from './settings/SettingsStore.js';
 
 let instance: TongsBrowser | null = null;
 let store: SettingsStore | null = null;
+let suppressor: NativePointerSuppressor | null = null;
+const exclusions = new ExclusionZones();
 
 /**
  * Applies one changed setting to the running module.
@@ -98,6 +102,23 @@ Hooks.once('init', () => {
     onChanged: applySetting,
   });
   store.registerAll();
+
+  /*
+   * ⚠️ Bound at INIT, before Foundry builds the canvas, and that is the whole point.
+   *
+   * PIXI registers `pointerup` on the WINDOW in the capture phase when its EventSystem is created,
+   * which happens with the canvas. Two capture listeners on one node fire in registration order, so
+   * anything bound at `ready` is already behind PIXI and cannot stop it. See
+   * gesture/NativePointerSuppressor.ts for the measurement that forced this.
+   */
+  suppressor = new NativePointerSuppressor({
+    window,
+    enabled: () =>
+      (store?.getBoolean(SettingKey.ENABLED) ?? false) &&
+      (store?.getBoolean(SettingKey.SUPPRESS_NATIVE_TOUCH) ?? true),
+    isExcluded: (target) => exclusions.isExcluded(target),
+  });
+  suppressor.bind();
 
   /*
    * Bound at init, NOT at ready, and that is load bearing.
