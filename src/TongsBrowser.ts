@@ -1,6 +1,4 @@
 import { logger } from './core/Logger.js';
-import { DragDiagnostics } from './debug/DragDiagnostics.js';
-import { FoundryAccess } from './foundry/FoundryAccess.js';
 import { FoundryActions } from './foundry/FoundryActions.js';
 import { DebugOverlay } from './debug/DebugOverlay.js';
 import { GestureController } from './gesture/GestureController.js';
@@ -41,11 +39,6 @@ export class TongsBrowser {
   /** What the tray buttons do to Foundry. See foundry/FoundryActions.ts. */
   private readonly actions: FoundryActions;
 
-  /** Reaching for Foundry's globals, in one place. See foundry/FoundryAccess.ts. */
-  private readonly access = new FoundryAccess();
-
-  /** Everything measured about a drag, and the report it whispers. See debug/DragDiagnostics.ts. */
-  private readonly diagnostics: DragDiagnostics;
   private enabled = false;
 
   public constructor(private readonly options: TongsBrowserOptions) {
@@ -56,19 +49,9 @@ export class TongsBrowser {
      * the relay needs the actions, the binder needs the gestures. Taken eagerly, each captures
      * `undefined` and fails at the first tap, long after the code that caused it has finished.
      */
-    const parts = buildModuleParts(options, {
-      pointer: () => this.pointer,
-      gestures: () => this.gestures,
-      synthesizer: () => this.synthesizer,
-      debug: () => this.debug,
-      diagnostics: () => this.diagnostics,
-      actions: () => this.actions,
-      access: () => this.access,
-      isEnabled: () => this.enabled,
-    });
+    const parts = buildModuleParts(options, { isEnabled: () => this.enabled });
 
     this.actions = parts.actions;
-    this.diagnostics = parts.diagnostics;
     this.debug = parts.debug;
     this.pointer = parts.pointer;
     this.cursor = parts.cursor;

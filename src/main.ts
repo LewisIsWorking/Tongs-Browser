@@ -137,6 +137,7 @@ Hooks.once('ready', () => {
   instance = new TongsBrowser({
     document,
     window,
+    eventView: window,
     gestureConfig: readGestureConfig(settings),
     cursorSize: settings.getNumber(SettingKey.CURSOR_SIZE),
     uiScale: settings.getNumber(SettingKey.UI_SCALE),

@@ -30,17 +30,20 @@ import type { TongsBrowserOptions } from './TongsBrowserOptions.js';
  * first tap, long after the code that caused it has finished running.
  */
 export interface ModuleSelf {
-  readonly pointer: () => VirtualPointer;
-  readonly gestures: () => GestureController;
-  readonly synthesizer: () => KeyboardSynthesizer;
-  readonly debug: () => DebugOverlay;
-  readonly diagnostics: () => DragDiagnostics;
-  readonly actions: () => FoundryActions;
-  readonly access: () => FoundryAccess;
+  /**
+   * Whether the module is switched on, which only the module itself knows.
+   *
+   * ⚠️ This is the ONLY thing the factory asks back for, and that is deliberate. Everything else it
+   * builds it holds as a local and uses directly. Reaching back through the module for a part the
+   * factory has not returned yet is exactly how a bar came to refresh a button against a pointer
+   * that did not exist: `new ModifierBar` calls `refreshActions` at the end of its constructor, the
+   * grab button asks whether a drag is in progress, and the field it read was still undefined.
+   */
   readonly isEnabled: () => boolean;
 }
 
 export interface ModuleParts {
+  readonly access: FoundryAccess;
   readonly debug: DebugOverlay;
   readonly pointer: VirtualPointer;
   readonly cursor: CursorOverlay;
@@ -56,6 +59,7 @@ export interface ModuleParts {
 }
 
 export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf): ModuleParts {
+  const access = new FoundryAccess();
   const doc = options.document;
   const win = options.window;
 
@@ -69,9 +73,9 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
   const diagnostics = new DragDiagnostics({
     document: doc,
     window: win,
-    isDragging: () => self.pointer().isDragging(),
-    pointerPosition: () => self.pointer().getPosition(),
-    keyboardStrategy: () => self.synthesizer().getStrategy(),
+    isDragging: () => stack.pointer.isDragging(),
+    pointerPosition: () => stack.pointer.getPosition(),
+    keyboardStrategy: () => synthesizer.getStrategy(),
     isEnabled: () => self.isEnabled(),
   });
 
@@ -80,19 +84,19 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
   const stack = createPointerStack({
     document: doc,
     window: win,
-    eventView: win,
+    ...(options.eventView === undefined ? {} : { eventView: options.eventView }),
     ...(options.cursorSize === undefined ? {} : { cursorSize: options.cursorSize }),
     onDispatch: (descriptor, target) => {
-      self.debug().onDispatch(descriptor, target);
-      self.diagnostics().recordDispatch(descriptor, target);
+      debug.onDispatch(descriptor, target);
+      diagnostics.recordDispatch(descriptor, target);
     },
   });
 
   const canvasController = new CanvasController({
-    getCanvas: () => self.access().resolveCanvas(),
-    getScale: () => self.access().resolveCanvasScale(),
-    getPivot: () => self.access().resolveCanvasPivot(),
-    getZoomLimits: () => self.access().resolveZoomLimits(),
+    getCanvas: () => access.resolveCanvas(),
+    getScale: () => access.resolveCanvasScale(),
+    getPivot: () => access.resolveCanvasPivot(),
+    getZoomLimits: () => access.resolveZoomLimits(),
     logger,
   });
 
@@ -108,7 +112,7 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
 
   const synthesizer = new KeyboardSynthesizer({
     document: doc,
-    getKeyboardManager: () => self.access().resolveKeyboardManager(),
+    getKeyboardManager: () => access.resolveKeyboardManager(),
     logger,
   });
 
@@ -118,7 +122,7 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
     // Held modifiers must reach the pointer too. Foundry reads its own keyboard state for some
     // decisions and the event flags for others, so both paths have to agree.
     onFlagsChanged: (flags) => {
-      self.pointer().setModifiers(flags);
+      stack.pointer.setModifiers(flags);
     },
     ...(options.initialBarPosition === undefined
       ? {}
@@ -126,12 +130,12 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
     ...(options.onBarPositionChanged === undefined
       ? {}
       : { onPositionChanged: options.onBarPositionChanged }),
-    getAvailableWidth: () => self.access().resolveAvailableWidth(),
+    getAvailableWidth: () => access.resolveAvailableWidth(),
     trayActions: wireTrayActions(canvasController, {
-      actions: self.actions(),
+      actions: actions,
       // A thunk, because the pointer field is not assigned until after the bar is built.
-      pointer: () => self.pointer(),
-      diagnostics: self.diagnostics(),
+      pointer: () => stack.pointer,
+      diagnostics: diagnostics,
     }),
   });
 
@@ -152,9 +156,9 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
       return (globalThis as { game?: { socket?: SocketLike } }).game?.socket ?? null;
     },
     channel: `module.${MODULE_ID}`,
-    isDesignatedGm: () => self.actions().isDesignatedGm(),
+    isDesignatedGm: () => actions.isDesignatedGm(),
     applyPause: (pause: boolean) => {
-      self.actions().applyPause(pause);
+      actions.applyPause(pause);
     },
     getPaused: () => (globalThis as { game?: { paused?: boolean } }).game?.paused === true,
     logger,
@@ -171,14 +175,15 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
        * gesture input, or it did and the gesture layer chose not to move the pointer. Counting
        * touchmoves separates them, and nothing else in the report can.
        */
-      self.diagnostics().countGestureInput(input.type);
-      self.gestures().handleInput(input);
+      diagnostics.countGestureInput(input.type);
+      gestures.handleInput(input);
     },
     suppressNativeTouch: options.suppressNativeTouch ?? ((): boolean => true),
     now: () => Date.now(),
   });
 
   return {
+    access,
     debug,
     pointer: stack.pointer,
     cursor: stack.cursor,
