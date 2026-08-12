@@ -34,7 +34,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "verify": "npm run lint && npm run typecheck && npm run typecheck:scripts && npm run check:scripts && npm run test && npm run build",
+    "verify": "npm run lint && npm run typecheck && npm run typecheck:scripts && npm run check:scripts && npm run check:sizes && npm run test && npm run build",
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:tag": "changeset tag",
@@ -42,7 +42,8 @@
     "test:all": "npm run test && npm run test:browser",
     "lint:docblocks": "node scripts/check-orphaned-docblocks.ts",
     "prune:imports": "node scripts/prune-unused-imports.ts",
-    "check:scripts": "node scripts/check-scripts-load.ts"
+    "check:scripts": "node scripts/check-scripts-load.ts",
+    "check:sizes": "node scripts/check-file-sizes.ts"
   },
   "devDependencies": {
     "@changesets/changelog-github": "0.7.0",
