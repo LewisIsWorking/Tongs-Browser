@@ -38,11 +38,12 @@ import {
   HOLD_MS,
   MOBILE_DPR,
   PAN_DURING_DRAG,
-  TRAVEL_TOLERANCE,
   USE_ANDROID,
   USE_MOBILE,
 } from './drag/Options.ts';
-import { createProbeToken, removeProbeToken } from './drag/ProbeToken.ts';
+import { takeSubjectToken } from './drag/SubjectToken.ts';
+import { findDragFailures } from './drag/Verdicts.ts';
+import { putTheTokenBack } from './drag/PutBack.ts';
 import { dragControlledToken } from './drag/DragToken.ts';
 import { format, report } from './drag/Report.ts';
 
@@ -127,39 +128,7 @@ async function main() {
       sceneId = await ensureActiveScene(playwrightPage, { label: 'drag check' });
     }
 
-    /*
-     * On a device, ADOPT a token that is already there rather than creating one.
-     *
-     * ⚠️ Creating a probe actor and token is four document writes, and every write to the phone is a
-     * Foundry socket round trip that has been measured in MINUTES over wireless adb. Two runs died
-     * that way having produced no output at all, and both left probe entities behind in a live world
-     * for someone else to clean up.
-     *
-     * None of it is needed. The check needs a token it may move, and the world already has one that
-     * the user has selected: that is what they were dragging when they hit the bug, which makes it a
-     * better subject than anything this could invent. The position is restored afterwards, so the
-     * only write is the drag itself, which is the thing under test.
-     */
-    if (USE_ANDROID) {
-      const adopted = await evaluateOn(page, () => {
-        const token = canvas.tokens.controlled[0] ?? canvas.tokens.placeables[0];
-        if (token === undefined) {
-          return null;
-        }
-        token.control({ releaseOthers: true });
-        return { name: token.name, x: token.document.x, y: token.document.y };
-      });
-      if (adopted === null) {
-        throw new Error('the scene on the device has no token to drag. Put one on the map first.');
-      }
-      console.log(
-        `Adopted the existing token '${String(adopted.name)}' at (${String(adopted.x)}, ${String(adopted.y)}). ` +
-          `Nothing is created and its position is restored afterwards.`
-      );
-      restore = adopted;
-    } else {
-      created = await createProbeToken(page);
-    }
+    ({ created, restore } = await takeSubjectToken(page, USE_ANDROID));
 
     const result = await dragControlledToken(page, {
       distance: DRAG_DISTANCE,
@@ -185,56 +154,12 @@ async function main() {
       );
     }
 
-    if (!result.moved) {
-      failures.push(
-        `the token did not move: ${format(result.before)} -> ${format(result.after)}. ` +
-          `Foundry peaked at interaction state ${result.peakState} with ${String(result.peakClones)} clone(s).`
-      );
-    } else if (Math.abs(result.travelled - result.expected) > TRAVEL_TOLERANCE) {
-      /*
-       * "It moved" is not the requirement. The requirement is that it followed the pointer.
-       *
-       * Measured 2026-08-11 on the first passing run: a 240px drag moved the token 17.64px, and the
-       * check said PASS. A token that lurches a fraction of the way is a bug a user would describe
-       * as "dragging barely works", and a check that cannot tell it apart from a correct drag is the
-       * same blind spot as the event-stream tests, just further along.
-       *
-       * The tolerance is one grid square, which is what snapping is allowed to take.
-       */
-      failures.push(
-        `the token moved ${result.travelled.toFixed(1)}px but the pointer travelled ${result.expected.toFixed(1)}px ` +
-          `at scale ${result.scale.toFixed(2)}. The drag is not following the pointer.`
-      );
-    }
-    if (result.pointerStillDragging) {
-      failures.push('the pointer still believes a button is held after endDrag.');
-    }
+    failures.push(...findDragFailures(result));
   } finally {
-    if (restore !== null) {
-      // Captured into a const so the arrow callbacks below keep the narrowing. A closure over the
-      // mutable binding would not.
-      const putBack = restore;
-      // Put the adopted token back. The drag is allowed to move it; the check is not allowed to
-      // leave it moved, because this is somebody's live game and not a fixture.
-      await evaluateOn(
-        page,
-        async (at: { name: string; x: number; y: number }) => {
-          const token = canvas.tokens.controlled[0] ?? canvas.tokens.placeables[0];
-          await token?.document.update({ x: at.x, y: at.y });
-        },
-        putBack
-      ).catch((error: Error) => {
-        console.error(
-          `could not put '${putBack.name}' back at (${String(putBack.x)}, ${String(putBack.y)}): ${String(error)}`
-        );
-      });
-    }
-    if (created !== null) {
-      await removeProbeToken(page, created).catch((error: Error) => {
-        console.error(`could not remove the probe token: ${String(error)}`);
-      });
-    }
+    await putTheTokenBack(page, { created, restore });
+
     await removeProbeScene(page as unknown as Page, sceneId);
+
     /*
      * Do NOT close a browser we merely attached to. On Android this is the user's own Chrome, with
      * their own tabs in it, and closing it to tidy up after a check would be a rude way to end a
