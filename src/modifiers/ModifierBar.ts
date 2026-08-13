@@ -3,6 +3,7 @@ import type { ModifierFlags } from '../pointer/ModifierFlags.js';
 import { ActionButtons } from './ActionButtons.js';
 import { clampBarPosition } from './BarClamp.js';
 import { DEFAULT_POSITION, type BarPosition } from './BarPosition.js';
+import { DEFAULT_COLLAPSED } from './BarDefaults.js';
 import { BarAttachment } from './BarAttachment.js';
 import { buildBarChrome } from './BarChrome.js';
 import { BarDragHandle } from './BarDragHandle.js';
@@ -60,7 +61,8 @@ export class ModifierBar {
       },
     });
     this.position = options.initialPosition ?? DEFAULT_POSITION;
-    this.collapsed = options.initialCollapsed ?? false;
+    // Collapsed on a first launch. See modifiers/BarDefaults.ts for why.
+    this.collapsed = options.initialCollapsed ?? DEFAULT_COLLAPSED;
 
     const doc = options.document;
     const chrome = buildBarChrome(doc, {

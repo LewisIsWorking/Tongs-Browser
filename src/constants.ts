@@ -22,3 +22,18 @@ export const IGNORE_ATTRIBUTE = 'data-tongs-browser';
 
 /** Attribute value on IGNORE_ATTRIBUTE that opts an element out of gesture handling. */
 export const IGNORE_ATTRIBUTE_VALUE = 'ignore';
+
+/**
+ * Marks a control inside our own interface that must still receive real pointer events.
+ * Added 2026-08-13.
+ *
+ * ⚠️ A THIRD question about an element, not a rephrasing of the other two. `IGNORE_ATTRIBUTE` says
+ * the gesture layer must not synthesise from this element; `isOwnInterface` says PIXI must never see
+ * its events. Both are true of the whole bar, and together they stopped the bar's own drag handle
+ * working at all: the suppressor calls `stopImmediatePropagation` on the WINDOW in the capture phase,
+ * which is upstream of every listener the handle owns.
+ *
+ * Only the drag handle carries this. The tray buttons must NOT: they work from `click`, and letting
+ * their `pointerup` reach PIXI is exactly the leak that cancels a held token drag when you tap DROP.
+ */
+export const NATIVE_POINTER_ATTRIBUTE = 'data-tongs-native-pointer';
