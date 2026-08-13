@@ -22,6 +22,10 @@ export interface TongsBrowserOptions {
   readonly modifierBarEnabled?: boolean;
   readonly initialBarPosition?: BarPosition;
   readonly onBarPositionChanged?: (position: BarPosition) => void;
+  /** Whether the bar opens collapsed. Absent means the default in modifiers/BarDefaults.ts. */
+  readonly initialBarCollapsed?: boolean;
+  /** Told when the `<` button is pressed, so the choice survives a reload. */
+  readonly onBarCollapsedChanged?: (collapsed: boolean) => void;
   readonly uiScale?: number;
   readonly cursorSize?: number;
   readonly debugOverlay?: boolean;
