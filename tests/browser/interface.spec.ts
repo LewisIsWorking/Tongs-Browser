@@ -113,11 +113,33 @@ test.describe('interface scaling', () => {
     expect(['none', 'matrix(1, 0, 0, 1, 0, 0)']).toContain(transform);
   });
 });
+/**
+ * The bar opens collapsed, so the modifier keys are not there until it is expanded.
+ *
+ * ⚠️ CLICKED, rather than booted with an override. These tests are about latching, and pressing the
+ * same button a user presses keeps them independent of what the default happens to be: the default
+ * is pinned on its own, immediately below.
+ */
+const expandBar = async (page: Page) => {
+  await page.locator('.tb-modifier-bar__collapse').click();
+};
+
 test.describe('modifier bar', () => {
+  /** Collapsing is PARTIAL, so the tray survives and only the keys go. See modifiers/BarDefaults.ts. */
+  test('opens collapsed, and the < button brings the keys back', async ({ page }) => {
+    await boot(page);
+    const shift = page.locator('.tb-modifier-bar [data-code="ShiftLeft"]');
+
+    await expect(shift).toBeHidden();
+    await expandBar(page);
+    await expect(shift).toBeVisible();
+  });
+
   test('renders and dispatches a code based keydown when a modifier is latched', async ({
     page,
   }) => {
     await boot(page);
+    await expandBar(page);
     await clearEvents(page);
 
     await page.locator('.tb-modifier-bar [data-code="ShiftLeft"]').click();
@@ -130,6 +152,7 @@ test.describe('modifier bar', () => {
     page,
   }) => {
     await boot(page);
+    await expandBar(page);
     await page.locator('.tb-modifier-bar [data-code="ShiftLeft"]').click();
     await clearEvents(page);
     await moveTo(page, 150, 350);
