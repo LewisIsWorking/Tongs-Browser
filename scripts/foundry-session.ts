@@ -18,6 +18,8 @@
  */
 import { type Page } from 'playwright';
 
+import { interpretJoinReply } from './foundry/joinReply.ts';
+
 /**
  * There are two addresses here, not one, and conflating them cost real time on 2026-08-10.
  *
@@ -32,6 +34,7 @@ import { type Page } from 'playwright';
  */
 export { boardBox, boardCentre, type BoardBox, type ClientPoint } from './foundry/geometry.ts';
 export { PROBE_PREFIX, ensureActiveScene, removeProbeScene } from './foundry/scenes.ts';
+export { interpretJoinReply } from './foundry/joinReply.ts';
 export { captureModuleLog, connectAndroidBrowser, launchBrowser } from './foundry/browsers.ts';
 
 export const HOST_BASE = process.env.FOUNDRY_HOST_URL ?? 'http://localhost:30000';
@@ -108,20 +111,26 @@ export async function joinWorld(page: Page): Promise<void> {
     throw new Error(`no user named '${USER}'. This world offers: ${available.join(', ')}`);
   }
 
-  const result = await page.evaluate(
+  /*
+   * ⚠️ Read as TEXT here and interpreted OUTSIDE the page, rather than `res.json()` inside it. See
+   * foundry/joinReply.ts for the failure that forced this: a refused join answers with a bare
+   * localization key, so the parse threw and took the server's actual complaint with it.
+   */
+  const reply = await page.evaluate(
     async ({ id, secret }) => {
       const res = await fetch('/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'join', userid: id, password: secret }),
       });
-      return res.json();
+      return { status: res.status, body: await res.text() };
     },
     { id: userId, secret: PASSWORD }
   );
 
-  if (result.status !== 'success') {
-    throw new Error(`join refused: ${result.message ?? JSON.stringify(result)}`);
+  const outcome = interpretJoinReply(reply);
+  if (outcome.kind === 'refused') {
+    throw new Error(`Could not join '${USER}'. ${outcome.message}`);
   }
 
   await page.goto(`${BASE}/game`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
