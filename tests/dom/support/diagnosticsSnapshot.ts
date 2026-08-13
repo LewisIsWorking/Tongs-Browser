@@ -8,6 +8,18 @@ import type { DiagnosticsSnapshot } from '../../../src/debug/DiagnosticsReport.j
  * the thing under test and a partial fixture would let a missing field read as a passing assertion.
  * A factory because each caller mutates through `overrides`, and a shared constant would carry one
  * test's override into the next.
+ *
+ * ⚠️ EXTRACTED AND THEN NOT ADOPTED, for a day, and only wired in on 2026-08-13. Both halves kept
+ * their own hand copy, so one fixture existed in three places and a field added to the snapshot had
+ * to be added three times by hand. That is not hypothetical: `tokenMovement` changed shape earlier
+ * the same day and every copy needed the identical edit.
+ *
+ * This is the SECOND time the pattern has bitten this repo. `DragObservers` records the first: a
+ * `PixiMoveProbe` extracted, covered, and never wired in, leaving the composition root running its
+ * own duplicate of the same counter with only one of the two tested. An extraction is not finished
+ * when the new file exists; it is finished when nothing else does the job. `npm run check:sizes`
+ * measures the first half of that and nothing measured the second, which is why
+ * scripts/check-support-adopted.ts now does.
  */
 export function snapshot(overrides: Partial<DiagnosticsSnapshot> = {}): DiagnosticsSnapshot {
   return {
