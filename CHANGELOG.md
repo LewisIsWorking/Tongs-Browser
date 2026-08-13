@@ -1,5 +1,23 @@
 # tongs-browser
 
+## 0.25.55
+
+### Patch Changes
+
+- [#223](https://github.com/LewisIsWorking/Tongs-Browser/pull/223) [`6c87561`](https://github.com/LewisIsWorking/Tongs-Browser/commit/6c87561aef69b3c017dbe1c0d34cc2236583937d) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Remember whether the modifier bar was left collapsed.
+
+  `ModifierBar` has fired `onCollapsedChanged` since it was written, and a test has asserted exactly
+  that all along. The matching option was declared on `TongsBrowserOptions`, correctly typed, and
+  forwarded by nobody: `BuildModifierBar` passed the position pair and omitted the collapsed pair. So
+  the bar announced every collapse to no one, and the state was discarded on every reload.
+
+  Every part correct, every part covered, and the seam between them empty. It stayed invisible for as
+  long as the bar opened expanded, and became a complaint within an hour of it opening collapsed.
+
+  The state now persists to a client setting, so expanding the bar survives a reload. The setting's
+  default is imported from `BarDefaults` rather than repeated, because a default that disagrees between
+  the register call and the read path is the classic settings bug.
+
 ## 0.25.54
 
 ### Patch Changes
