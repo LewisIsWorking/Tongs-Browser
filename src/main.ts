@@ -5,7 +5,8 @@ import { MODULE_ID, MODULE_TITLE } from './constants.js';
 import { logger } from './core/Logger.js';
 import { ExclusionZones } from './gesture/ExclusionZones.js';
 import { buildSuppressor } from './gesture/BuildSuppressor.js';
-import { SettingKey, type SettingKeyValue } from './settings/SettingDefinitions.js';
+import { SettingKey } from './settings/SettingDefinitions.js';
+import { applySetting, readGestureConfig } from './settings/ApplySetting.js';
 import { SceneControlToggle } from './settings/SceneControlToggle.js';
 import { SettingsStore } from './settings/SettingsStore.js';
 
@@ -21,71 +22,6 @@ let instance: TongsBrowser | null = null;
 let store: SettingsStore | null = null;
 const exclusions = new ExclusionZones();
 
-/**
- * Applies one changed setting to the running module.
- *
- * Settings that can be changed in place are, so a player adjusting sensitivity mid session sees it
- * immediately. The two that cannot, because they are read during construction, rebuild the module
- * instead. Rebuilding is heavier but honest: silently ignoring a change the user just made is worse.
- */
-function applySetting(key: SettingKeyValue): void {
-  if (instance === null || store === null) {
-    return;
-  }
-
-  switch (key) {
-    case SettingKey.ENABLED:
-      if (store.getBoolean(SettingKey.ENABLED)) {
-        instance.enable();
-      } else {
-        instance.disable();
-      }
-      return;
-
-    case SettingKey.POINTER_MODE:
-    case SettingKey.SENSITIVITY:
-    case SettingKey.OFFSET_DISTANCE:
-    case SettingKey.LONG_PRESS_MS:
-    case SettingKey.HAPTICS:
-      instance.updateGestureConfig(readGestureConfig(store));
-      return;
-
-    case SettingKey.CURSOR_SIZE:
-      instance.setCursorSize(store.getNumber(SettingKey.CURSOR_SIZE));
-      return;
-
-    case SettingKey.UI_SCALE:
-      instance.setUiScale(store.getNumber(SettingKey.UI_SCALE));
-      return;
-
-    case SettingKey.MODIFIER_BAR_ENABLED:
-      instance.setModifierBarVisible(store.getBoolean(SettingKey.MODIFIER_BAR_ENABLED));
-      return;
-
-    case SettingKey.DEBUG_OVERLAY:
-      instance.setDebugOverlay(store.getBoolean(SettingKey.DEBUG_OVERLAY));
-      return;
-
-    case SettingKey.SUPPRESS_NATIVE_TOUCH:
-      // Read through a getter on every event, so nothing needs applying here.
-      return;
-
-    case SettingKey.BAR_POSITION:
-      // Written by the bar itself. Reapplying would fight the drag in progress.
-      return;
-  }
-}
-
-function readGestureConfig(settings: SettingsStore) {
-  return {
-    pointerMode: settings.getPointerMode(),
-    sensitivity: settings.getNumber(SettingKey.SENSITIVITY),
-    offsetDistancePx: settings.getNumber(SettingKey.OFFSET_DISTANCE),
-    longPressMs: settings.getNumber(SettingKey.LONG_PRESS_MS),
-    haptics: settings.getBoolean(SettingKey.HAPTICS),
-  };
-}
-
 Hooks.once('init', () => {
   logger.info(`Initialising ${MODULE_TITLE} (${MODULE_ID}).`);
 
@@ -98,7 +34,10 @@ Hooks.once('init', () => {
   store = new SettingsStore({
     backend: settingsApi,
     logger,
-    onChanged: applySetting,
+    // Read when invoked rather than captured, since neither exists yet at init.
+    onChanged: (key) => {
+      applySetting(key, { instance, store });
+    },
   });
   store.registerAll();
 
@@ -164,6 +103,11 @@ Hooks.once('ready', () => {
     ...(barPosition === null ? {} : { initialBarPosition: barPosition }),
     onBarPositionChanged: (position) => {
       settings.setBarPosition(position);
+    },
+    // Unset reads as the definition's default, which is DEFAULT_COLLAPSED, so there is no null case.
+    initialBarCollapsed: settings.getBoolean(SettingKey.BAR_COLLAPSED),
+    onBarCollapsedChanged: (collapsed) => {
+      settings.set(SettingKey.BAR_COLLAPSED, collapsed);
     },
   });
 

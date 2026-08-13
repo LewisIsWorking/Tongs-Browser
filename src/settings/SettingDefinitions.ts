@@ -11,6 +11,9 @@
  * would force them to share.
  */
 
+import { DEFAULT_COLLAPSED } from '../modifiers/BarDefaults.js';
+import type { NumberRange, SettingDefinition } from './SettingShapes.js';
+
 export const SettingKey = {
   ENABLED: 'enabled',
   POINTER_MODE: 'pointerMode',
@@ -25,47 +28,21 @@ export const SettingKey = {
   DEBUG_OVERLAY: 'debugOverlay',
   /** Not shown in the settings form. Persisted so the bar reopens where it was left. */
   BAR_POSITION: 'barPosition',
+  /** Also not shown. Persisted so expanding the bar survives a reload. */
+  BAR_COLLAPSED: 'barCollapsed',
 } as const;
 
 export type SettingKeyValue = (typeof SettingKey)[keyof typeof SettingKey];
 
-export interface NumberRange {
-  readonly min: number;
-  readonly max: number;
-  readonly step: number;
-}
-
-interface BaseDefinition {
-  readonly key: SettingKeyValue;
-  readonly name: string;
-  readonly hint: string;
-  /** False keeps it out of the settings form, for values persisted but not user editable. */
-  readonly config: boolean;
-}
-
-export interface BooleanSetting extends BaseDefinition {
-  readonly kind: 'boolean';
-  readonly default: boolean;
-}
-
-export interface NumberSetting extends BaseDefinition {
-  readonly kind: 'number';
-  readonly default: number;
-  readonly range: NumberRange;
-}
-
-export interface ChoiceSetting extends BaseDefinition {
-  readonly kind: 'choice';
-  readonly default: string;
-  readonly choices: Readonly<Record<string, string>>;
-}
-
-export interface JsonSetting extends BaseDefinition {
-  readonly kind: 'json';
-  readonly default: string;
-}
-
-export type SettingDefinition = BooleanSetting | NumberSetting | ChoiceSetting | JsonSetting;
+/** The shapes live in settings/SettingShapes.ts, re-exported so importers keep one entry point. */
+export type {
+  BooleanSetting,
+  ChoiceSetting,
+  JsonSetting,
+  NumberRange,
+  NumberSetting,
+  SettingDefinition,
+} from './SettingShapes.js';
 
 export const SETTING_DEFINITIONS: readonly SettingDefinition[] = Object.freeze([
   {
@@ -169,6 +146,20 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = Object.freeze([
     hint: 'Remembered automatically.',
     config: false,
     default: '',
+  },
+  {
+    key: SettingKey.BAR_COLLAPSED,
+    kind: 'boolean',
+    name: 'Modifier bar collapsed',
+    hint: 'Remembered automatically.',
+    config: false,
+    /*
+     * ⚠️ IMPORTED, not repeated. This file's own opening line is that a default disagreeing between
+     * the register call and the read path is the classic settings bug; a default repeated between a
+     * setting and the component it configures is the same bug with a longer fuse, because the two
+     * only disagree once somebody edits one of them.
+     */
+    default: DEFAULT_COLLAPSED,
   },
 ]);
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { TongsBrowser } from '../../src/TongsBrowser.js';
+import { buildModule as build, stubFoundryEnvironment } from './support/moduleUnderTest.js';
 
 /**
  * The module is CONSTRUCTED and ENABLED, exactly as `main.ts` does it on Foundry's ready hook.
@@ -15,63 +15,9 @@ import { TongsBrowser } from '../../src/TongsBrowser.js';
  * behaviour that a focused suite does not already own. What it asserts is that the pieces can be put
  * together at all.
  */
-let host: HTMLElement;
-
 beforeEach(() => {
-  document.body.innerHTML = '';
-  host = document.createElement('div');
-  document.body.append(host);
-
-  /*
-   * ⚠️ jsdom does not implement `elementFromPoint` AT ALL, and the grab button hit tests the moment
-   * it is tapped. Without this the suite fails on the environment rather than on the module, which
-   * is the least useful kind of red.
-   */
-  Object.defineProperty(document, 'elementFromPoint', {
-    configurable: true,
-    value: () => host,
-  });
-
-  /*
-   * ⚠️ The Foundry globals the enable path reaches for, stubbed to the SHAPE it uses and nothing
-   * more. `enable` binds Foundry hooks and a socket, so without these the suite fails on the absent
-   * environment rather than on the module.
-   *
-   * Deliberately minimal: a fuller fake would start describing Foundry, and a partial description of
-   * somebody else's API that claims to be complete is worse than an obvious stub.
-   */
-  Object.assign(globalThis, {
-    Hooks: { on: () => 1, off: () => undefined, once: () => 1 },
-    game: {
-      user: { id: 'u1', isGM: true },
-      paused: false,
-      socket: null,
-      settings: { get: () => undefined, set: () => undefined },
-    },
-    ui: { notifications: { info: () => undefined } },
-    CONFIG: { Canvas: { minZoom: 0.1, maxZoom: 10 } },
-    ChatMessage: { create: () => undefined },
-    /*
-     * ⚠️ Vite `define`s this at build time, so it simply does not exist under test. The diagnose
-     * button reads it, and an undefined global there throws where a missing STRING would not.
-     */
-    __TB_BUILD_VERSION__: '0.0.0-test',
-  });
+  stubFoundryEnvironment();
 });
-
-/** The options main.ts passes, with the settings it reads already resolved. */
-const build = (overrides: Record<string, unknown> = {}) =>
-  new TongsBrowser({
-    document,
-    window,
-    /*
-     * ⚠️ No `eventView`, deliberately. vitest's jsdom window is not a BRANDED Window, so
-     * `new PointerEvent({ view })` rejects it. Event attribution is covered by the pointer suites;
-     * what this one asks is whether the pieces can be assembled and switched on at all.
-     */
-    suppressNativeTouch: () => true,
-    ...overrides,
-  });
 
 describe('constructing the module', () => {
   it('builds every part without throwing', () => {

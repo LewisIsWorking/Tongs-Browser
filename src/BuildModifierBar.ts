@@ -44,6 +44,18 @@ export function buildModifierBar(deps: ModifierBarDeps): ModifierBar {
     ...(deps.options.onBarPositionChanged === undefined
       ? {}
       : { onPositionChanged: deps.options.onBarPositionChanged }),
+    /*
+     * ⚠️ Both halves, and the pair is the point. `onCollapsedChanged` was declared and typed on the
+     * bar from the start and NOTHING EVER PASSED IT, so the bar dutifully announced every collapse
+     * to nobody. That is invisible while the default is expanded and immediately annoying once it is
+     * collapsed: every reload throws away the expansion the user just performed.
+     */
+    ...(deps.options.initialBarCollapsed === undefined
+      ? {}
+      : { initialCollapsed: deps.options.initialBarCollapsed }),
+    ...(deps.options.onBarCollapsedChanged === undefined
+      ? {}
+      : { onCollapsedChanged: deps.options.onBarCollapsedChanged }),
     getAvailableWidth: () => deps.access.resolveAvailableWidth(),
     /*
      * ⚠️ The single most useful line in a device report, and it took four rounds to add. The user
