@@ -12,7 +12,7 @@ import type { DiagnosticsSnapshot } from '../../../src/debug/DiagnosticsReport.j
 export function snapshot(overrides: Partial<DiagnosticsSnapshot> = {}): DiagnosticsSnapshot {
   return {
     build: '0.24.3',
-    tokenMovement: 'NO (100,100 -> 100,100)',
+    tokenMovement: { verdict: 'unmoved', sentence: 'NO (100,100 -> 100,100)' },
     releasedDuringDrag: true,
     grabbedOnToken: 'YES, on Anthony',
     pointerTravel: { recorded: true, peak: 120 },

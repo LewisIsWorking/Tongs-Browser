@@ -17,6 +17,22 @@ import type { ScenePoint } from './TokenHitTest.js';
 export type GrabbedPosition = ScenePoint | null;
 
 /**
+ * The four distinct answers, as a value rather than as prose. Added 2026-08-13.
+ *
+ * ⚠️ Named `verdict` rather than `result` or `status`, and returned ALONGSIDE the sentence rather
+ * than instead of it, because the alternative is what this file just cost us: a caller that needed
+ * the answer had only the sentence, and the reachable move was to match `YES` out of it. A second
+ * computation of the same fact is a competitor to this one, and competitors disagree.
+ */
+export type MovementVerdict = 'moved' | 'unmoved' | 'no-grab' | 'no-token';
+
+/** One computation, two shapes: the verdict for logic, the sentence for the reader. */
+export interface TokenMovement {
+  readonly verdict: MovementVerdict;
+  readonly sentence: string;
+}
+
+/**
  * Describe the movement, or say why it cannot be described.
  *
  * ⚠️ The two "cannot say" answers are deliberately DIFFERENT strings, and neither is a NO. "No grab
@@ -28,12 +44,12 @@ export type GrabbedPosition = ScenePoint | null;
 export function describeTokenMovement(
   atGrab: GrabbedPosition,
   now: { readonly x?: number; readonly y?: number } | undefined
-): string {
+): TokenMovement {
   if (atGrab === null) {
-    return 'no grab recorded yet';
+    return { verdict: 'no-grab', sentence: 'no grab recorded yet' };
   }
   if (now?.x === undefined || now.y === undefined) {
-    return 'no token selected now';
+    return { verdict: 'no-token', sentence: 'no token selected now' };
   }
 
   /*
@@ -48,5 +64,8 @@ export function describeTokenMovement(
    * "NO (3000,1900 -> 3000,1900)" says the token was found and did not move; a bare NO leaves open
    * whether it was even the same token.
    */
-  return `${moved ? 'YES' : 'NO'} (${String(atGrab.x)},${String(atGrab.y)} -> ${String(now.x)},${String(now.y)})`;
+  return {
+    verdict: moved ? 'moved' : 'unmoved',
+    sentence: `${moved ? 'YES' : 'NO'} (${String(atGrab.x)},${String(atGrab.y)} -> ${String(now.x)},${String(now.y)})`,
+  };
 }

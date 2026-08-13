@@ -12,9 +12,10 @@ import { describeTokenMovement } from '../../src/debug/TokenMovement.js';
  */
 describe('describeTokenMovement', () => {
   it('says YES with both positions when the token moved', () => {
-    expect(describeTokenMovement({ x: 100, y: 200 }, { x: 300, y: 400 })).toBe(
-      'YES (100,200 -> 300,400)'
-    );
+    expect(describeTokenMovement({ x: 100, y: 200 }, { x: 300, y: 400 })).toEqual({
+      verdict: 'moved',
+      sentence: 'YES (100,200 -> 300,400)',
+    });
   });
 
   /**
@@ -23,14 +24,15 @@ describe('describeTokenMovement', () => {
    * whether it was even the same token.
    */
   it('says NO with both positions when it did not', () => {
-    expect(describeTokenMovement({ x: 3000, y: 1900 }, { x: 3000, y: 1900 })).toBe(
-      'NO (3000,1900 -> 3000,1900)'
-    );
+    expect(describeTokenMovement({ x: 3000, y: 1900 }, { x: 3000, y: 1900 })).toEqual({
+      verdict: 'unmoved',
+      sentence: 'NO (3000,1900 -> 3000,1900)',
+    });
   });
 
   it('counts movement on either axis alone', () => {
-    expect(describeTokenMovement({ x: 100, y: 200 }, { x: 101, y: 200 })).toContain('YES');
-    expect(describeTokenMovement({ x: 100, y: 200 }, { x: 100, y: 201 })).toContain('YES');
+    expect(describeTokenMovement({ x: 100, y: 200 }, { x: 101, y: 200 }).verdict).toBe('moved');
+    expect(describeTokenMovement({ x: 100, y: 200 }, { x: 100, y: 201 }).verdict).toBe('moved');
   });
 
   /**
@@ -39,11 +41,11 @@ describe('describeTokenMovement', () => {
    * the case where the token moved a little and should not have.
    */
   it('reports even a one pixel difference, with no tolerance', () => {
-    expect(describeTokenMovement({ x: 0, y: 0 }, { x: 0.5, y: 0 })).toContain('YES');
+    expect(describeTokenMovement({ x: 0, y: 0 }, { x: 0.5, y: 0 }).verdict).toBe('moved');
   });
 
   /**
-   * ⚠️ The two "cannot say" answers are DIFFERENT strings and neither is a NO.
+   * ⚠️ The two "cannot say" answers are DIFFERENT and neither is a NO.
    *
    * "No grab recorded" means the button was never pressed, so the report is about nothing. "No token
    * selected now" means the selection was lost between the grab and the report, which is itself a
@@ -54,21 +56,46 @@ describe('describeTokenMovement', () => {
     const neverGrabbed = describeTokenMovement(null, { x: 1, y: 2 });
     const lostSelection = describeTokenMovement({ x: 1, y: 2 }, undefined);
 
-    expect(neverGrabbed).toBe('no grab recorded yet');
-    expect(lostSelection).toBe('no token selected now');
-    expect(neverGrabbed).not.toBe(lostSelection);
-    expect(neverGrabbed).not.toContain('NO (');
-    expect(lostSelection).not.toContain('NO (');
+    expect(neverGrabbed).toEqual({ verdict: 'no-grab', sentence: 'no grab recorded yet' });
+    expect(lostSelection).toEqual({ verdict: 'no-token', sentence: 'no token selected now' });
+    expect(neverGrabbed.verdict).not.toBe(lostSelection.verdict);
+    expect(neverGrabbed.sentence).not.toContain('NO (');
+    expect(lostSelection.sentence).not.toContain('NO (');
   });
 
   it('treats a half read position as no token rather than as the origin', () => {
-    expect(describeTokenMovement({ x: 1, y: 2 }, { x: 5 })).toBe('no token selected now');
-    expect(describeTokenMovement({ x: 1, y: 2 }, { y: 5 })).toBe('no token selected now');
-    expect(describeTokenMovement({ x: 1, y: 2 }, {})).toBe('no token selected now');
+    expect(describeTokenMovement({ x: 1, y: 2 }, { x: 5 }).verdict).toBe('no-token');
+    expect(describeTokenMovement({ x: 1, y: 2 }, { y: 5 }).verdict).toBe('no-token');
+    expect(describeTokenMovement({ x: 1, y: 2 }, {}).verdict).toBe('no-token');
   });
 
   /** Zero is a real coordinate, not a missing one, and a token at the origin must still report. */
   it('reads a coordinate of zero as a position', () => {
-    expect(describeTokenMovement({ x: 0, y: 0 }, { x: 0, y: 0 })).toBe('NO (0,0 -> 0,0)');
+    expect(describeTokenMovement({ x: 0, y: 0 }, { x: 0, y: 0 }).sentence).toBe('NO (0,0 -> 0,0)');
+  });
+});
+
+/**
+ * ⚠️ The verdict and the sentence come from ONE computation, and this is the test that keeps them
+ * that way. The verdict exists because a caller needed the answer and had only the sentence, and the
+ * reachable move was to match `YES` out of it. A second derivation of the same fact is a competitor
+ * to the first, and competitors disagree - usually long after anyone remembers there are two.
+ */
+describe('the verdict and the sentence agree, always', () => {
+  const cases: {
+    atGrab: { x: number; y: number } | null;
+    now: { x?: number; y?: number } | undefined;
+  }[] = [
+    { atGrab: { x: 1, y: 1 }, now: { x: 2, y: 2 } },
+    { atGrab: { x: 1, y: 1 }, now: { x: 1, y: 1 } },
+    { atGrab: null, now: { x: 1, y: 1 } },
+    { atGrab: { x: 1, y: 1 }, now: undefined },
+  ];
+
+  it.each(cases)('agrees for %j', ({ atGrab, now }) => {
+    const movement = describeTokenMovement(atGrab, now);
+
+    expect(movement.sentence.startsWith('YES')).toBe(movement.verdict === 'moved');
+    expect(movement.sentence.startsWith('NO (')).toBe(movement.verdict === 'unmoved');
   });
 });
