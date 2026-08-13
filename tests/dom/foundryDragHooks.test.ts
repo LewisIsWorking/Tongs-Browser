@@ -87,16 +87,40 @@ describe('installFoundryDragHooks', () => {
     expect(observations[0]).toContain('at 99');
   });
 
-  /** Redrawing a token cancels its interaction, so a redraw mid drag is the finding. */
-  it('records a redraw that lands during a drag', () => {
+  /**
+   * ⚠️ Foundry cancels on `state > HOVER`, and the note now READS that state rather than asserting
+   * the consequence. It used to say "this cancels the interaction" on EVERY draw, which is false for
+   * every redraw at or below HOVER - and those are the ordinary ones, so the report accused the
+   * commonest event in the canvas of destroying drags it never touched.
+   */
+  it('says a redraw above HOVER cancelled the interaction', () => {
+    const { observations, token } = install();
+
+    call(token.prototype, 'draw', { mouseInteractionManager: { state: 4 } });
+
+    expect(observations).toEqual(['token.draw at DRAG, which CANCELLED THE INTERACTION']);
+  });
+
+  it('says a redraw at or below HOVER did not cancel anything', () => {
+    const { observations, token } = install();
+
+    call(token.prototype, 'draw', { mouseInteractionManager: { state: 1 } });
+    call(token.prototype, 'destroy', { mouseInteractionManager: { state: 0 } });
+
+    expect(observations).toEqual([
+      'token.draw at HOVER, at or below HOVER, so it did not cancel anything',
+      'token.destroy at NONE, at or below HOVER, so it did not cancel anything',
+    ]);
+  });
+
+  /** No manager to read is a third answer, and must not be reported as either of the other two. */
+  it('says the effect is unknown when there is no manager to read', () => {
     const { observations, token } = install();
 
     call(token.prototype, 'draw', {});
-    call(token.prototype, 'destroy', {});
 
     expect(observations).toEqual([
-      'token.draw DURING THE DRAG (this cancels the interaction)',
-      'token.destroy DURING THE DRAG (this cancels the interaction)',
+      'token.draw DURING THE DRAG, with no interaction manager to read (effect unknown)',
     ]);
   });
 

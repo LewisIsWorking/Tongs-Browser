@@ -1,4 +1,5 @@
 import { STATE_NAMES, describeCallSite, describeCause } from './DragCallSite.js';
+import { describeRedrawEffect } from './RedrawEffect.js';
 
 /**
  * Watches how Foundry ends a token drag. Extracted from TongsBrowser 2026-08-12.
@@ -13,6 +14,20 @@ import { STATE_NAMES, describeCallSite, describeCause } from './DragCallSite.js'
 
 /** The shape of a wrappable prototype: a bag of methods, which is all this needs. */
 type Prototype = Record<string, unknown>;
+
+/**
+ * The marker a wrapper carries so it is never wrapped again. Added 2026-08-13.
+ *
+ * ⚠️ `Symbol.for`, not a fresh symbol, and not a string property. Registry symbols are shared across
+ * module instances, so a second copy of this bundle recognises the first one's wrappers - which is
+ * not hypothetical here, since a stale module install sitting beside a live one is a state this
+ * project has already been in.
+ *
+ * COVERS: the same prototype method wrapped twice, from any number of module instances.
+ * MISSES: a wrapper installed by some OTHER module, which we cannot and should not recognise.
+ * PROVEN: tests/dom/foundryDragHooks.test.ts installs the hooks twice and asserts ONE observation.
+ */
+const OBSERVED = Symbol.for('tongs-browser.drag-observer');
 
 export interface FoundryDragHookOptions {
   /** Foundry's Token object class prototype, or undefined before the canvas exists. */
@@ -42,6 +57,13 @@ export interface InstalledHooks {
  * The manager prototype is reached through a live controlled token, so it can genuinely be missing
  * while the token class is present. That is a normal state, not an error, and it has to be visible
  * rather than inferred.
+ *
+ * ⚠️ SAFE TO CALL REPEATEDLY, and it has to be, because the caller retries until the manager appears.
+ * Until 2026-08-13 it was not: each call re-wrapped the token prototype over the previous wrapper, so
+ * after N calls ONE real `_onDragLeftStart` announced itself N times. `DragRecorder` calls this on
+ * every dispatched event, so a device reached ~150 layers deep and reported ~150 drag starts and
+ * ~150 redraws for a single drag that had exactly one of each. Every Foundry token redraw in that
+ * session then ran through 150 stack frames of diagnostics that promised not to change anything.
  */
 export function installFoundryDragHooks(options: FoundryDragHookOptions): InstalledHooks {
   const tokenPrototype = options.getTokenPrototype();
@@ -53,6 +75,33 @@ export function installFoundryDragHooks(options: FoundryDragHookOptions): Instal
   hookRedraws(tokenPrototype, options);
   hookEndings(tokenPrototype, options);
   return { token: true, manager };
+}
+
+/**
+ * Replace a prototype method with a wrapper, at most once per method.
+ *
+ * ⚠️ `prototype[name] = wrap(prototype[name])` is a read-modify-write, so running it twice COMPOSES
+ * rather than replaces. Nothing at the call site looks wrong; the damage is entirely in the
+ * arithmetic of repetition. Idempotence has to be carried by the wrapper itself, because the callers
+ * that retry are correct to retry.
+ */
+function wrapOnce(
+  prototype: Prototype,
+  name: string,
+  build: (
+    original: (...args: unknown[]) => unknown
+  ) => (this: unknown, ...args: unknown[]) => unknown
+): void {
+  const original = prototype[name];
+  if (typeof original !== 'function') {
+    return;
+  }
+  if ((original as unknown as Record<symbol, unknown>)[OBSERVED] === true) {
+    return;
+  }
+  const wrapper = build(original as (...args: unknown[]) => unknown);
+  (wrapper as unknown as Record<symbol, unknown>)[OBSERVED] = true;
+  prototype[name] = wrapper;
 }
 
 /**
@@ -75,44 +124,37 @@ function hookManager(options: FoundryDragHookOptions): boolean {
   }
 
   for (const name of ['cancel', 'reset']) {
-    const original = managerPrototype[name];
-    if (typeof original !== 'function') {
-      continue;
-    }
-    managerPrototype[name] = function wrapped(this: { state?: unknown }, ...args: unknown[]) {
-      const state = STATE_NAMES[this.state as number] ?? String(this.state);
-      const via = name === 'cancel' ? ` via ${describeCallSite()}` : '';
-      options.onObservation(`manager.${name} at ${state}${via} [${describeCause(args[0])}]`);
-      return (original as (...inner: unknown[]) => unknown).apply(this, args);
-    };
+    wrapOnce(managerPrototype, name, (original) => {
+      return function wrapped(this: unknown, ...args: unknown[]) {
+        // Read through a local rather than annotating `this`: a narrower `this` on the wrapper makes
+        // it unassignable to the generic wrapper shape, since `this` types are contravariant.
+        const { state: current } = (this ?? {}) as { state?: unknown };
+        const state = STATE_NAMES[current as number] ?? String(current);
+        const via = name === 'cancel' ? ` via ${describeCallSite()}` : '';
+        options.onObservation(`manager.${name} at ${state}${via} [${describeCause(args[0])}]`);
+        return original.apply(this, args);
+      };
+    });
   }
   return true;
 }
 
 /**
- * ⚠️ REDRAWING A TOKEN CANCELS ITS INTERACTION. From Foundry's PlaceableObject, in both methods:
+ * Redraws, which destroy the interaction underneath them. See debug/RedrawEffect.ts for the rule.
  *
- *     if ( this.mouseInteractionManager?.state > INTERACTION_STATES.HOVER ) {
- *       this.mouseInteractionManager.interactionData.cancelled = true;
- *       this.mouseInteractionManager.cancel();
- *     }
- *
- * So anything redrawing the token mid gesture destroys the drag, at GRABBED, silently. A phone has
- * redraw causes a desktop does not: Foundry redraws on canvas resize, and on Android the URL bar
- * sliding in and out during a gesture resizes the viewport.
+ * The effect is READ rather than asserted, and read BEFORE delegating, because the original redraw
+ * is what performs the cancel and resets the state.
  */
 function hookRedraws(prototype: Prototype, options: FoundryDragHookOptions): void {
   for (const name of ['draw', 'destroy']) {
-    const original = prototype[name];
-    if (typeof original !== 'function') {
-      continue;
-    }
-    prototype[name] = function wrapped(this: unknown, ...args: unknown[]) {
-      if (options.isRecording()) {
-        options.onObservation(`token.${name} DURING THE DRAG (this cancels the interaction)`);
-      }
-      return (original as (...inner: unknown[]) => unknown).apply(this, args);
-    };
+    wrapOnce(prototype, name, (original) => {
+      return function wrapped(this: unknown, ...args: unknown[]) {
+        if (options.isRecording()) {
+          options.onObservation(`token.${name} ${describeRedrawEffect(this)}`);
+        }
+        return original.apply(this, args);
+      };
+    });
   }
 }
 
@@ -125,39 +167,11 @@ function hookRedraws(prototype: Prototype, options: FoundryDragHookOptions): voi
  */
 function hookEndings(prototype: Prototype, options: FoundryDragHookOptions): void {
   for (const name of ['_onDragLeftStart', '_onDragLeftDrop', '_onDragLeftCancel']) {
-    const original = prototype[name];
-    if (typeof original !== 'function') {
-      continue;
-    }
-    prototype[name] = function wrapped(this: unknown, ...args: unknown[]) {
-      options.onObservation(`${name} [${describeCause(args[0])}]`);
-      return (original as (...inner: unknown[]) => unknown).apply(this, args);
-    };
+    wrapOnce(prototype, name, (original) => {
+      return function wrapped(this: unknown, ...args: unknown[]) {
+        options.onObservation(`${name} [${describeCause(args[0])}]`);
+        return original.apply(this, args);
+      };
+    });
   }
-}
-
-/** Turn the observations into the one line the report prints, verdict included. */
-export function summariseDragEndings(
-  observations: readonly string[],
-  installed: InstalledHooks = { token: true, manager: true }
-): string {
-  if (!installed.token) {
-    return 'NOT WATCHING. The observers never installed, so this line says nothing about the drag.';
-  }
-  if (observations.length === 0) {
-    return installed.manager
-      ? 'NOTHING observed, and the observers ARE installed, so Foundry genuinely did none of these.'
-      : 'nothing observed, but the MANAGER hook never installed, so a cancel at GRABBED would be invisible.';
-  }
-  const joined = observations.join(' then ');
-  if (observations.some((note) => note.includes('DURING THE DRAG'))) {
-    return `${joined} <em>(a REDRAW cancelled the interaction, which is why nothing was written)</em>`;
-  }
-  if (observations.some((note) => note.includes('_onDragLeftDrop'))) {
-    return `${joined} <em>(dropped, so Foundry tried to commit and the write itself refused)</em>`;
-  }
-  if (observations.some((note) => note.includes('Cancel') || note.includes('cancel'))) {
-    return `${joined} <em>(CANCELLED, which writes nothing)</em>`;
-  }
-  return joined;
 }

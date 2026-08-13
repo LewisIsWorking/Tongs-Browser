@@ -3,7 +3,7 @@ import { DragCaptureWindow } from './DragCaptureWindow.js';
 import { DragSampler } from './DragSampler.js';
 import { readInteractionSample, type InteractionGlobals } from './InteractionSample.js';
 import { describeGrabTarget } from './FoundryProbes.js';
-import { describeTokenMovement as describeMovement } from './TokenMovement.js';
+import { describeTokenMovement as describeMovement, type TokenMovement } from './TokenMovement.js';
 import type { DragObservers } from './DragObservers.js';
 
 /**
@@ -157,7 +157,7 @@ export class DragRecorder {
   }
 
   /** Where the token was at the grab, against where it is now. See debug/TokenMovement.ts. */
-  public describeTokenMovement(): string {
+  public describeTokenMovement(): TokenMovement {
     const now = (
       globalThis as {
         canvas?: { tokens?: { controlled?: { document?: { x?: number; y?: number } }[] } };

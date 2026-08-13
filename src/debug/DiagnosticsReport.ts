@@ -1,6 +1,8 @@
 import { buildJournalSection } from './JournalSection.js';
 import type { JournalEntry } from './DebugJournal.js';
-import { summariseDragEndings, type InstalledHooks } from './FoundryDragHooks.js';
+import { summariseDragEndings } from './DragEndingSummary.js';
+import type { InstalledHooks } from './FoundryDragHooks.js';
+import type { TokenMovement } from './TokenMovement.js';
 
 /**
  * Turns a snapshot of the drag into the lines the report prints. Extracted 2026-08-12.
@@ -30,7 +32,7 @@ export interface SampledPeak {
 
 export interface DiagnosticsSnapshot {
   readonly build: string;
-  readonly tokenMovement: string;
+  readonly tokenMovement: TokenMovement;
   readonly releasedDuringDrag: boolean;
   readonly grabbedOnToken: string | null;
   readonly pointerTravel: { readonly recorded: boolean; readonly peak: number };
@@ -96,7 +98,7 @@ export function describeThinly(reading: SampledPeak, moves: number): string {
 function buildHeadline(snapshot: DiagnosticsSnapshot): string[] {
   return [
     `<strong>Tongs Browser BUILD ${snapshot.build}</strong>`,
-    `<strong>DID IT MOVE: ${snapshot.tokenMovement}</strong>`,
+    `<strong>DID IT MOVE: ${snapshot.tokenMovement.sentence}</strong>`,
     `<strong>released during drag: ${String(snapshot.releasedDuringDrag)}${
       snapshot.releasedDuringDrag ? '' : ' <em>(tap the hand OFF before tapping this)</em>'
     }</strong>`,
@@ -136,7 +138,7 @@ function buildFoundryView(snapshot: DiagnosticsSnapshot): string[] {
         ? ' <em>(a resize redraws the canvas, and redrawing a token CANCELS its interaction)</em>'
         : ''
     }</strong>`,
-    `<strong>FOUNDRY'S DRAG ENDING: ${summariseDragEndings(snapshot.dragEndings, snapshot.hooksInstalled)}</strong>`,
+    `<strong>FOUNDRY'S DRAG ENDING: ${summariseDragEndings(snapshot.dragEndings, snapshot.hooksInstalled, snapshot.tokenMovement.verdict)}</strong>`,
     ...buildJournalSection(snapshot.journal),
     // TOKEN first: Foundry checks its drag gate in a handler on the object, so a zero here means the
     // gate was never evaluated after the press and no amount of travel could have opened it.
