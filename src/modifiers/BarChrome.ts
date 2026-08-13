@@ -1,3 +1,5 @@
+import { NATIVE_POINTER_ATTRIBUTE } from '../constants.js';
+
 /**
  * The bar's own furniture: its root, its drag handle and its collapse button. Extracted from
  * ModifierBar 2026-08-12.
@@ -36,6 +38,17 @@ export function buildBarChrome(doc: Document, handlers: BarChromeHandlers): BarC
   const handle = doc.createElement('div');
   handle.className = 'tb-modifier-bar__handle';
   handle.title = 'Drag to move';
+
+  /*
+   * ⚠️ Without this the handle receives NOTHING, and the bar cannot be moved at all.
+   *
+   * The native pointer suppressor stops our own interface's pointer events by calling
+   * `stopImmediatePropagation` on the WINDOW in the capture phase, which is upstream of every
+   * listener below. That is right for the tray buttons, which work from `click` and whose `pointerup`
+   * would otherwise reach PIXI and cancel a held token drag. It is wrong for this element, which is
+   * built entirely out of the four pointer events bound just below.
+   */
+  handle.setAttribute(NATIVE_POINTER_ATTRIBUTE, '');
   handle.addEventListener('pointerdown', handlers.onHandlePointerDown);
   handle.addEventListener('pointermove', handlers.onHandlePointerMove);
   handle.addEventListener('pointerup', handlers.onHandlePointerUp);

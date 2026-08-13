@@ -24,6 +24,8 @@ const make = (enabled = true) => {
     enabled: () => enabled,
     isExcluded: (target) => target === excluded,
     isOwnInterface: (target) => target === ownUi,
+    // Covered in ownInterfaceSuppression.test.ts, where the carve-out is the subject.
+    needsNativePointerEvents: () => false,
   });
   suppressor.bind();
   return suppressor;
@@ -162,6 +164,7 @@ describe('binding', () => {
         enabled: () => true,
         isExcluded: () => false,
         isOwnInterface: () => false,
+        needsNativePointerEvents: () => false,
       }).unbind();
     }).not.toThrow();
   });

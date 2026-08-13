@@ -12,6 +12,8 @@ import { NativePointerSuppressor } from '../../src/gesture/NativePointerSuppress
 let suppressor: NativePointerSuppressor | null = null;
 let excluded: EventTarget | null = null;
 let ownUi: EventTarget | null = null;
+/** A control inside our own bar that still needs real pointer events, i.e. the drag handle. */
+let nativePointer: EventTarget | null = null;
 
 const make = (enabled = true) => {
   suppressor?.unbind();
@@ -20,6 +22,7 @@ const make = (enabled = true) => {
     enabled: () => enabled,
     isExcluded: (target) => target === excluded,
     isOwnInterface: (target) => target === ownUi,
+    needsNativePointerEvents: (target) => target === nativePointer,
   });
   suppressor.bind();
   return suppressor;
@@ -39,8 +42,67 @@ beforeEach(() => {
   document.body.innerHTML = '';
   excluded = null;
   ownUi = null;
+  nativePointer = null;
   suppressor?.unbind();
   suppressor = null;
+});
+
+/**
+ * ⚠️ THE REGRESSION THIS BLOCK PINS, reported from a device 2026-08-13: "I can't move the tongs
+ * toolbox now."
+ *
+ * Suppressing our own interface's pointer events is done with `stopImmediatePropagation` on the
+ * WINDOW in the capture phase, which is upstream of every listener in the document. "PIXI must not
+ * see this" was therefore implemented as "nothing may see this", and it took the bar's own drag
+ * handle with it: the handle is built entirely out of pointerdown, pointermove, pointerup and
+ * pointercancel bound on itself, and capture never reached any of them.
+ *
+ * The carve-out has to stay NARROW, which is why the second test here matters as much as the first.
+ */
+describe('a control of ours that still needs real pointer events', () => {
+  const handleInsideOurBar = () => {
+    const bar = document.createElement('div');
+    const handle = document.createElement('div');
+    bar.append(handle);
+    document.body.append(bar);
+    ownUi = handle;
+    nativePointer = handle;
+    return handle;
+  };
+
+  it.each(['pointerdown', 'pointermove', 'pointerup', 'pointercancel'])(
+    'lets a finger’s %s reach the drag handle',
+    (type) => {
+      const handle = handleInsideOurBar();
+      make();
+      const ownListener = vi.fn();
+      handle.addEventListener(type, ownListener);
+
+      handle.dispatchEvent(finger(type));
+
+      expect(ownListener).toHaveBeenCalled();
+    }
+  );
+
+  /**
+   * ⚠️ The whole point of keeping it narrow. A tray button's pointerup reaching PIXI runs
+   * `#handlePointerUp`, which ends in `#handleDragCancel` and throws away a held token drag. That is
+   * what would break tapping DROP at the end of a drag, which is the workflow that finally works.
+   */
+  it('still suppresses a tray button beside it, so DROP does not cancel a held drag', () => {
+    const bar = document.createElement('div');
+    const button = document.createElement('button');
+    bar.append(button);
+    document.body.append(bar);
+    ownUi = button;
+    nativePointer = null;
+    make();
+    const pixi = pixiListener('pointerup');
+
+    button.dispatchEvent(finger('pointerup'));
+
+    expect(pixi).not.toHaveBeenCalled();
+  });
 });
 
 describe('the module’s own interface', () => {

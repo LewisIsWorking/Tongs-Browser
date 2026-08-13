@@ -1,4 +1,5 @@
 import { VIRTUAL_POINTER_ID } from '../constants.js';
+import { OWN_UI_SUPPRESSED_MOUSE_EVENTS, SUPPRESSED_POINTER_EVENTS } from './SuppressedEvents.js';
 
 /**
  * Keeping the browser's own touch derived pointer events away from PIXI. Added 2026-08-12.
@@ -7,62 +8,12 @@ import { VIRTUAL_POINTER_ID } from '../constants.js';
  * written after a device report showed roughly two hundred `_onDragLeftCancel` calls, each triggered
  * by an event with `pointerType: 'touch'`, while `TouchBinder` was already suppressing exactly those.
  *
- * PIXI's own registration, read out of `@pixi/events/lib/EventSystem.mjs` in Foundry 14.365:
- *
- *     globalThis.document.addEventListener('pointermove', this.onPointerMove, true)
- *     this.domElement.addEventListener('pointerdown', this.onPointerDown, true)
- *     this.domElement.addEventListener('pointerover', this.onPointerOverOut, true)
- *     this.domElement.addEventListener('pointerleave', this.onPointerOverOut, true)
- *     globalThis.addEventListener('pointerup', this.onPointerUp, true)
- *
- * Three things follow, and missing any one of them makes the suppression useless:
- *
- * 1. **`pointerup` is on the WINDOW.** In the capture phase the window fires BEFORE the document, so
- *    a document listener cannot stop it however early it is registered. This binds to the window.
- * 2. **Two listeners on the SAME node fire in registration order**, and `stopPropagation` does not
- *    stop them. Being on the window is not enough on its own: this must also be registered before
- *    PIXI, and it must use `stopImmediatePropagation`.
- * 3. **`pointerover` and `pointerout` were never suppressed at all.** Foundry's
- *    `MouseInteractionManager` binds both, and the same device report opens with
- *    `manager.cancel at GRABBED [pointerover ... touch]`.
- *
- * Why it matters: `#handlePointerUp` ends with `this.#handleDragCancel(event)`. ANY pointerup that
- * reaches the manager cancels the drag, and `_onDragLeftCancel` writes nothing, so the token returns
- * to where it started while every other measurement looks healthy.
+ * WHICH events are suppressed, and the reading of PIXI's own listener registration that decides both
+ * the list and the binding target, live in gesture/SuppressedEvents.ts.
  */
 
-/**
- * Every pointer event PIXI listens for, so none of them reaches it from a real finger.
- *
- * ⚠️ `pointerout` is included although PIXI itself binds `pointerleave`: Foundry's manager binds
- * `pointerout` on its own objects, and PIXI delivers a federated `pointerout` derived from the same
- * native stream. Suppressing one and not the other leaves half the door open.
- */
-export const SUPPRESSED_POINTER_EVENTS = [
-  'pointerdown',
-  'pointermove',
-  'pointerup',
-  'pointercancel',
-  'pointerover',
-  'pointerout',
-  'pointerenter',
-  'pointerleave',
-] as const;
-
-/**
- * Mouse events the browser SYNTHESISES from a touch, suppressed only over the module's own bar.
- *
- * ⚠️ Only over our own interface, never globally. On a desktop these are a real mouse and Foundry
- * needs every one of them; blanket suppression would make the module unusable with a mouse. Over our
- * bar they carry no information at all, because the buttons work from `click`, which is deliberately
- * not in this list.
- *
- * Measured 2026-08-12: one finger tap on the grab button emitted a trusted `mousedown` and `mouseup`
- * at the button's coordinates, roughly 300ms after touchend, and both reached the window capture
- * phase where PIXI listens. PIXI maps by coordinate rather than by DOM target, and the bar sits over
- * the canvas.
- */
-export const OWN_UI_SUPPRESSED_MOUSE_EVENTS = ['mousedown', 'mouseup', 'mousemove'] as const;
+/** Re-exported so callers and tests keep one import for the suppressor and its event lists. */
+export { OWN_UI_SUPPRESSED_MOUSE_EVENTS, SUPPRESSED_POINTER_EVENTS };
 
 export interface NativePointerSuppressorOptions {
   /**
@@ -84,6 +35,14 @@ export interface NativePointerSuppressorOptions {
    * that from a runtime nothing to a compile error.
    */
   readonly isOwnInterface: (target: EventTarget | null) => boolean;
+  /**
+   * Controls inside our own interface that must still receive the browser's real pointer events.
+   *
+   * ⚠️ REQUIRED, for the same reason `isOwnInterface` is: an optional predicate defaulting to "no"
+   * fails silently, and the failure here is a control nobody can use. Making it required means a
+   * caller that forgets it does not compile.
+   */
+  readonly needsNativePointerEvents: (target: EventTarget | null) => boolean;
 }
 
 export class NativePointerSuppressor {
@@ -141,12 +100,25 @@ export class NativePointerSuppressor {
       return;
     }
     /*
-     * ⚠️ OUR OWN interface is checked FIRST, and it beats the exclusion. The two rules genuinely
-     * disagree here and the order is the whole fix: the bar is an excluded region, because the
-     * gesture layer must keep away from it, and it is also ours, so its events must never reach the
-     * canvas. Deciding this inside the class rather than by composing predicates at the call site is
-     * deliberate: the first version put the rule in main.ts, one edit silently failed to apply, and
-     * the leak stayed open with everything still building and passing.
+     * ⚠️ FIRST of the three, because the stop below happens on the WINDOW in the capture phase and is
+     * therefore upstream of every listener in the document. "PIXI must not see this" was implemented
+     * as "nothing may see this", and it took the bar's own drag handle with it: the handle binds
+     * pointerdown, pointermove, pointerup and pointercancel on itself, and capture never reached any
+     * of them. Reported from a device 2026-08-13, "I can't move the tongs toolbox now."
+     *
+     * Deliberately narrow. Only the drag handle is marked, so a tap on a tray button still falls
+     * through to the stop below, which is what keeps a held token drag alive when DROP is tapped.
+     */
+    if (this.options.needsNativePointerEvents(event.target)) {
+      return;
+    }
+    /*
+     * ⚠️ OUR OWN interface beats the exclusion. The two rules genuinely disagree here and the order
+     * is the whole fix: the bar is an excluded region, because the gesture layer must keep away from
+     * it, and it is also ours, so its events must never reach the canvas. Deciding this inside the
+     * class rather than by composing predicates at the call site is deliberate: the first version put
+     * the rule in main.ts, one edit silently failed to apply, and the leak stayed open with everything
+     * still building and passing.
      */
     if (this.options.isOwnInterface(event.target)) {
       event.stopImmediatePropagation();

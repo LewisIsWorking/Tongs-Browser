@@ -28,6 +28,7 @@ export function buildSuppressor(deps: SuppressorDeps): NativePointerSuppressor {
     enabled: deps.enabled,
     isExcluded: (target) => deps.exclusions.isExcluded(target),
     isOwnInterface: (target) => deps.exclusions.isOwnInterface(target),
+    needsNativePointerEvents: (target) => deps.exclusions.needsNativePointerEvents(target),
   });
   suppressor.bind();
   return suppressor;

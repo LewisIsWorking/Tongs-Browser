@@ -1,4 +1,8 @@
-import { IGNORE_ATTRIBUTE, IGNORE_ATTRIBUTE_VALUE } from '../constants.js';
+import {
+  IGNORE_ATTRIBUTE,
+  IGNORE_ATTRIBUTE_VALUE,
+  NATIVE_POINTER_ATTRIBUTE,
+} from '../constants.js';
 
 /**
  * Places the gesture layer must keep its hands off.
@@ -87,6 +91,30 @@ export class ExclusionZones {
       return false;
     }
     return target.closest(`[${IGNORE_ATTRIBUTE}="${IGNORE_ATTRIBUTE_VALUE}"]`) !== null;
+  }
+
+  /**
+   * True when this control needs the browser's real pointer events, despite being ours.
+   *
+   * ⚠️ A NARROW hole in `isOwnInterface`, and it has to be narrow. Suppression over our own bar is
+   * measured and load bearing: a finger's `pointerup` reaching PIXI runs `#handlePointerUp`, which
+   * ends in `#handleDragCancel` and throws away a held token drag. That is what makes tapping DROP
+   * work at all.
+   *
+   * But the suppressor stops events at the WINDOW in the capture phase, upstream of everything, so
+   * "PIXI must not see it" was implemented as "nobody sees it" and the bar's own drag handle stopped
+   * receiving the `pointerdown` it is built on. Reported 2026-08-13: "I can't move the tongs toolbox
+   * now."
+   *
+   * Only the drag handle is marked, so a tap on a tray button is still suppressed. The residual risk
+   * is dragging the BAR while a token drag is held, which would let that gesture's pointerup through;
+   * that is a narrower and stranger case than being unable to move the bar at all.
+   */
+  public needsNativePointerEvents(target: EventTarget | null): boolean {
+    if (target === null || !(target instanceof Element)) {
+      return false;
+    }
+    return target.closest(`[${NATIVE_POINTER_ATTRIBUTE}]`) !== null;
   }
 
   /** Exposed for tests and diagnostics. */
