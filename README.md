@@ -24,7 +24,8 @@ Paste this into Foundry's **Install Module** box:
 https://raw.githubusercontent.com/LewisIsWorking/Tongs-Browser/main/module.json
 ```
 
-Compatible with Foundry **v14** (verified against 14.365).
+Compatible with Foundry **v14**. The manifest declares 14.366; the measurements recorded in this
+repo were taken against 14.365.
 
 ## How it works
 
