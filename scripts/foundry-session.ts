@@ -19,6 +19,12 @@
 import { type Page } from 'playwright';
 
 import { interpretJoinReply } from './foundry/joinReply.ts';
+import {
+  buildJoinBody,
+  describeMissingUser,
+  resolveUserId,
+  type JoinUser,
+} from './foundry/joinUsers.ts';
 
 /**
  * There are two addresses here, not one, and conflating them cost real time on 2026-08-10.
@@ -69,6 +75,31 @@ export async function waitForReady(page: Page): Promise<void> {
   });
 }
 
+/**
+ * The world's users, from wherever this Foundry keeps them.
+ *
+ * ⚠️ `game.users` FIRST, because 14.366 has no user list in the DOM at all - the username field is
+ * free text with custom autocompletion, so the `<select>` this used to read simply does not exist.
+ * The select is kept as a fallback for 14.365 and earlier rather than removed, since the harness has
+ * to work either side of an upgrade.
+ */
+async function readJoinUsers(page: Page): Promise<JoinUser[]> {
+  return page.evaluate(() => {
+    const listed = globalThis.game?.users;
+    if (listed) {
+      return [...listed]
+        .map((user: { id?: string; _id?: string; name?: string }) => ({
+          id: user.id ?? user._id ?? '',
+          name: user.name ?? '',
+        }))
+        .filter((user) => user.id !== '' && user.name !== '');
+    }
+    return [...document.querySelectorAll<HTMLOptionElement>("select[name='userid'] option")]
+      .map((option) => ({ id: option.value, name: (option.textContent ?? '').trim() }))
+      .filter((user) => user.id !== '' && user.name !== '');
+  });
+}
+
 /** Resolve the user id from the name, post the join directly, then wait for the world. */
 export async function joinWorld(page: Page): Promise<void> {
   await page.goto(`${BASE}/join`, { waitUntil: 'networkidle', timeout: 60_000 });
@@ -84,31 +115,16 @@ export async function joinWorld(page: Page): Promise<void> {
    * move the flake somewhere quieter, and the failure it produces accuses the world of having no
    * users, which sends you looking in entirely the wrong place.
    */
-  await page.waitForFunction(
-    () =>
-      [...document.querySelectorAll<HTMLOptionElement>("select[name='userid'] option")].some(
-        (option) => option.value !== ''
-      ),
-    undefined,
-    { timeout: 30_000 }
-  );
+  const deadline = Date.now() + 30_000;
+  let users = await readJoinUsers(page);
+  while (users.length === 0 && Date.now() < deadline) {
+    await page.waitForTimeout(500);
+    users = await readJoinUsers(page);
+  }
 
-  const userId = await page.evaluate((name) => {
-    const options = [
-      ...document.querySelectorAll<HTMLOptionElement>("select[name='userid'] option"),
-    ];
-    return (
-      options.find((o: HTMLOptionElement) => (o.textContent ?? '').trim() === name)?.value ?? null
-    );
-  }, USER);
-
+  const userId = resolveUserId(users, USER);
   if (userId === null) {
-    const available = await page.evaluate(() =>
-      [...document.querySelectorAll<HTMLOptionElement>("select[name='userid'] option")]
-        .map((o: HTMLOptionElement) => (o.textContent ?? '').trim())
-        .filter(Boolean)
-    );
-    throw new Error(`no user named '${USER}'. This world offers: ${available.join(', ')}`);
+    throw new Error(describeMissingUser(users, USER));
   }
 
   /*
@@ -117,15 +133,15 @@ export async function joinWorld(page: Page): Promise<void> {
    * localization key, so the parse threw and took the server's actual complaint with it.
    */
   const reply = await page.evaluate(
-    async ({ id, secret }) => {
+    async (body) => {
       const res = await fetch('/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'join', userid: id, password: secret }),
+        body: JSON.stringify(body),
       });
       return { status: res.status, body: await res.text() };
     },
-    { id: userId, secret: PASSWORD }
+    buildJoinBody(userId, USER, PASSWORD)
   );
 
   const outcome = interpretJoinReply(reply);
