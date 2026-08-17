@@ -1,5 +1,46 @@
 # tongs-browser
 
+## 0.25.57
+
+### Patch Changes
+
+- [#232](https://github.com/LewisIsWorking/Tongs-Browser/pull/232) [`1c73fdd`](https://github.com/LewisIsWorking/Tongs-Browser/commit/1c73fdd9dee3dff67c11422a90f68b704f74ffea) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Harness: say why nothing is answering, instead of only that nothing is.
+
+  `requireActiveWorld` reported `nothing is answering on http://localhost:30000. Start Foundry and
+launch a world.` for every kind of silence. On 2026-08-15 that sentence was true and sent the reader
+  somewhere useless twice: a stale `Config/options.json.lock` directory left by a server that exited
+  without unwinding, which makes the next launch die with "already locked by another process" about a
+  process that does not exist; and a perfectly healthy Foundry answering one port over on a separate
+  dataPath, which the message let read as "Foundry is down".
+
+  It now checks both and names them, with a third answer for a lock it could not check rather than
+  implying a clean check it never ran. Proven against the live fault, which found the real lock path
+  and the real neighbouring world unaided.
+
+  Also documents the 14.366 entry point rename (`main.mjs` to `main.js`), and `--noupnp`: `upnp`
+  defaults to true, so a world left up overnight collected join-page sessions from five external
+  addresses.
+
+- [#234](https://github.com/LewisIsWorking/Tongs-Browser/pull/234) [`7996909`](https://github.com/LewisIsWorking/Tongs-Browser/commit/7996909940aca2e53d067ac4138317b3f4c346bf) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Fix: a finger resting in the sidebar counted as half of a two finger gesture.
+
+  `TouchEvent.touches` holds every finger on the screen, not the fingers on the event's target.
+  `TouchBinder` correctly ignores an event whose target is excluded, so a finger landing in the sidebar
+  reported nothing to the state machine - and then the next canvas `touchmove` carried that finger in
+  its own `touches` list, where `SingleFingerStates` counted it, because two-fingerness is decided by
+  `input.touches.length >= 2`.
+
+  So the machine never heard the finger arrive and counted it regardless. One finger dragging a token
+  became a pan or a pinch because the other hand was holding the tablet with a thumb over the sidebar,
+  which is how a tablet is held.
+
+  Fixed at the single boundary where events become gesture input, in the new `ActionableTouches`, so the
+  four `>= 2` checks across three downstream files did not each have to learn about exclusion zones. Two
+  fingers on the board still pan, and a touch whose `target` cannot be read is kept rather than dropped,
+  since silently disabling pan and zoom on an engine that omits it would be the worse bug.
+
+  Also collapses three byte-identical touch handlers that sat beside a fourth quietly omitting
+  `preventDefault`, with nothing saying whether that was a decision. It is one, and now says so.
+
 ## 0.25.56
 
 ### Patch Changes
