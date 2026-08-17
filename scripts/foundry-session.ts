@@ -25,6 +25,10 @@ import {
   resolveUserId,
   type JoinUser,
 } from './foundry/joinUsers.ts';
+import {
+  requireActiveWorld as requireActiveWorldAt,
+  waitForReady,
+} from './foundry/serverStatus.ts';
 
 /**
  * There are two addresses here, not one, and conflating them cost real time on 2026-08-10.
@@ -42,6 +46,7 @@ export { boardBox, boardCentre, type BoardBox, type ClientPoint } from './foundr
 export { PROBE_PREFIX, ensureActiveScene, removeProbeScene } from './foundry/scenes.ts';
 export { interpretJoinReply } from './foundry/joinReply.ts';
 export { captureModuleLog, connectAndroidBrowser, launchBrowser } from './foundry/browsers.ts';
+export { waitForReady };
 
 export const HOST_BASE = process.env.FOUNDRY_HOST_URL ?? 'http://localhost:30000';
 export const BASE = process.env.FOUNDRY_URL ?? HOST_BASE;
@@ -50,29 +55,15 @@ export const PASSWORD = process.env.FOUNDRY_PASSWORD ?? '';
 export const MODULE_ID = 'tongs-browser';
 
 /**
- * A server answering is not a world being loaded, and only /api/status distinguishes them. Both
- * /join and /game return 200 either way, so probing those reports a healthy world when there is none.
+ * Require a launched world at HOST_BASE.
+ *
+ * The check itself lives in foundry/serverStatus.ts and takes the address as an argument, so it can
+ * be exercised against a URL of the test's choosing. This is the seam that binds it to the address
+ * *this* Node process can reach, which is the one piece of knowledge that belongs here beside the
+ * constants rather than in a helper. Nine check scripts call it with no arguments.
  */
 export async function requireActiveWorld() {
-  let status;
-  try {
-    const res = await fetch(`${HOST_BASE}/api/status`, { signal: AbortSignal.timeout(5000) });
-    status = await res.json();
-  } catch {
-    throw new Error(`nothing is answering on ${HOST_BASE}. Start Foundry and launch a world.`);
-  }
-  if (status.active !== true) {
-    throw new Error(
-      `${HOST_BASE} is up but no world is launched. Launch one, then run this again.`
-    );
-  }
-  return status;
-}
-
-export async function waitForReady(page: Page): Promise<void> {
-  await page.waitForFunction(() => globalThis.game?.ready === true, undefined, {
-    timeout: 120_000,
-  });
+  return requireActiveWorldAt(HOST_BASE);
 }
 
 /**

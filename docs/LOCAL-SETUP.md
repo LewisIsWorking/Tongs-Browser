@@ -33,8 +33,9 @@ Confirm the checkout is healthy before wiring anything up:
 npm run verify
 ```
 
-Lint, typecheck, 281 node and jsdom tests, and a build. If that passes you have exactly what the
-cloud session had.
+Lint, typecheck, the node and jsdom suites, and a build. If that passes you have exactly what the
+cloud session had. (Counting the tests here was a mistake: the number said 281 long after it had
+become 917, and a doc that states a figure nothing checks will eventually state a wrong one.)
 
 ## Link it into Foundry
 
@@ -110,12 +111,41 @@ use the installed Chrome instead of a downloaded Chromium.
 It needs a world already launched. The quickest way to get one, with no Electron window in the way:
 
 ```powershell
-node "C:\Program Files\Foundry Virtual Tabletop\resources\app\main.mjs" `
-  --dataPath="C:/Users/Lewis/AppData/Local/FoundryVTT" --world=<world-id>
+node "C:\Program Files\Foundry Virtual Tabletop\resources\app\main.js" `
+  --dataPath="C:/Users/Lewis/AppData/Local/FoundryVTT" --world=<world-id> --noupnp
 ```
 
 Launching a world runs any pending system data migration on it, so point that at a world you are
 willing to migrate.
+
+Two details, both learned the hard way on 2026-08-15:
+
+**`main.js`, not `main.mjs`.** Foundry 14.366 renamed the entry point. The old path fails with a
+module-not-found that says nothing about a version change.
+
+**`--noupnp`, unless you want the world on the internet.** `upnp` defaults to true, so Foundry asks
+your router to forward its port outward. A world left up overnight collected join-page sessions from
+five external addresses. The flag suppresses it per run; unticking _Enable UPnP_ in
+Setup → Configuration is the permanent fix.
+
+### When it refuses to start and nothing is running
+
+```
+A fatal error occurred ...: Foundry VTT cannot start in this directory
+which is already locked by another process.
+```
+
+Foundry claims its data directory by creating `Config/options.json.lock` as a **directory**, which
+makes the claim atomic and also makes it survive a server that dies without unwinding. The message
+names a process that no longer exists. Remove the directory and launch again:
+
+```powershell
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\FoundryVTT\Config\options.json.lock"
+```
+
+Only when nothing is listening on the port. During a healthy run that directory is supposed to be
+there. `requireActiveWorld` in the harness checks for this and says so, so any `check:` script will
+tell you rather than leaving you to find it here.
 
 ## Running the browser tests locally
 
