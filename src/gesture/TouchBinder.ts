@@ -1,6 +1,7 @@
 import { VIRTUAL_POINTER_ID } from '../constants.js';
+import { actionableTouches } from './ActionableTouches.js';
 import type { ExclusionZones } from './ExclusionZones.js';
-import type { GestureInput, TouchPoint } from './GestureTypes.js';
+import type { GestureInput } from './GestureTypes.js';
 import {
   TOUCH_LISTENER_SPECS,
   toListenerOptions,
@@ -14,17 +15,6 @@ export interface TouchBinderOptions {
   /** Reject real touch derived pointer events so Foundry never sees both them and ours. */
   readonly suppressNativeTouch: () => boolean;
   readonly now: () => number;
-}
-
-function toTouchPoints(touchList: TouchList): TouchPoint[] {
-  const points: TouchPoint[] = [];
-  for (let index = 0; index < touchList.length; index += 1) {
-    const touch = touchList.item(index);
-    if (touch !== null) {
-      points.push({ id: touch.identifier, clientX: touch.clientX, clientY: touch.clientY });
-    }
-  }
-  return points;
 }
 
 /**
@@ -122,67 +112,53 @@ export class TouchBinder {
     event.stopPropagation();
   };
 
-  private readonly onTouchStart = (event: Event): void => {
-    const touchEvent = event as TouchEvent;
-    if (this.options.exclusions.isExcluded(touchEvent.target)) {
-      return;
+  /**
+   * The part every touch handler shares: ignore excluded regions, stop the browser and PIXI from
+   * also acting, and report.
+   *
+   * ⚠️ Returns whether the event was ours to act on, so `touchcancel` can share all of this and
+   * still differ in the one way it genuinely differs. Three byte-identical handlers previously sat
+   * beside a fourth that quietly omitted `preventDefault`, with nothing saying whether that was a
+   * decision or an oversight. It is a decision, asserted in tests/dom/touchBinder.test.ts: a cancel
+   * has no default left to prevent.
+   */
+  private claim(event: Event, prevent: boolean): boolean {
+    if (this.options.exclusions.isExcluded(event.target)) {
+      return false;
     }
-    event.preventDefault();
+    if (prevent) {
+      event.preventDefault();
+    }
     // Keep the raw touch away from PIXI, which would otherwise turn it into a second pointer.
     // See bind() for why preventDefault alone was not enough.
     if (this.options.suppressNativeTouch()) {
       event.stopPropagation();
     }
-    this.options.onInput({
-      type: 'touchstart',
-      touches: toTouchPoints(touchEvent.touches),
-      at: this.options.now(),
-    });
+    return true;
+  }
+
+  /** touchstart, touchmove and touchend differ only in the name they report under. */
+  private readonly report = (type: 'touchstart' | 'touchmove' | 'touchend') => {
+    return (event: Event): void => {
+      if (!this.claim(event, true)) {
+        return;
+      }
+      this.options.onInput({
+        type,
+        touches: actionableTouches((event as TouchEvent).touches, this.options.exclusions),
+        at: this.options.now(),
+      });
+    };
   };
 
-  private readonly onTouchMove = (event: Event): void => {
-    const touchEvent = event as TouchEvent;
-    if (this.options.exclusions.isExcluded(touchEvent.target)) {
-      return;
-    }
-    event.preventDefault();
-    // Keep the raw touch away from PIXI, which would otherwise turn it into a second pointer.
-    // See bind() for why preventDefault alone was not enough.
-    if (this.options.suppressNativeTouch()) {
-      event.stopPropagation();
-    }
-    this.options.onInput({
-      type: 'touchmove',
-      touches: toTouchPoints(touchEvent.touches),
-      at: this.options.now(),
-    });
-  };
+  private readonly onTouchStart = this.report('touchstart');
+  private readonly onTouchMove = this.report('touchmove');
+  private readonly onTouchEnd = this.report('touchend');
 
-  private readonly onTouchEnd = (event: Event): void => {
-    const touchEvent = event as TouchEvent;
-    if (this.options.exclusions.isExcluded(touchEvent.target)) {
-      return;
-    }
-    event.preventDefault();
-    // Keep the raw touch away from PIXI, which would otherwise turn it into a second pointer.
-    // See bind() for why preventDefault alone was not enough.
-    if (this.options.suppressNativeTouch()) {
-      event.stopPropagation();
-    }
-    this.options.onInput({
-      type: 'touchend',
-      touches: toTouchPoints(touchEvent.touches),
-      at: this.options.now(),
-    });
-  };
-
+  /** No `preventDefault`: a cancelled touch has no default action left to prevent. */
   private readonly onTouchCancel = (event: Event): void => {
-    const touchEvent = event as TouchEvent;
-    if (this.options.exclusions.isExcluded(touchEvent.target)) {
+    if (!this.claim(event, false)) {
       return;
-    }
-    if (this.options.suppressNativeTouch()) {
-      event.stopPropagation();
     }
     this.options.onInput({ type: 'touchcancel', at: this.options.now() });
   };

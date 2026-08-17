@@ -61,9 +61,15 @@ export class ExclusionZones {
    * Uses closest rather than matches, so a tap on a span inside a contenteditable, or on a message
    * inside the chat log, is excluded along with its container. Checking only the exact element hit
    * would leak every nested child.
+   *
+   * ⚠️ Accepts `undefined` as well as `null`, widened 2026-08-17. Callers pass `Touch.target`, which
+   * the DOM lib types as always present and which a tablet engine is under no obligation to actually
+   * provide. The runtime check already covered it, since `undefined instanceof Element` is false, so
+   * this only makes the signature honest about what it is handed. An unattributable target is NOT
+   * excluded, so the caller keeps that finger rather than silently dropping it.
    */
-  public isExcluded(target: EventTarget | null): boolean {
-    if (target === null || !(target instanceof Element)) {
+  public isExcluded(target: EventTarget | null | undefined): boolean {
+    if (!(target instanceof Element)) {
       return false;
     }
     return target.closest(this.selector) !== null;
