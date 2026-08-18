@@ -1,10 +1,6 @@
 [
   "scripts",
   "src",
-  "src/debug",
-  "src/pointer/sequences",
-  "src/relay",
-  "src/ui",
   "tests/browser",
   "tests/dom",
   "tests/dom/support",
