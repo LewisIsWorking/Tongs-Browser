@@ -1,0 +1,22 @@
+[
+  "scripts",
+  "scripts/android",
+  "scripts/live",
+  "scripts/touch",
+  "src",
+  "src/core",
+  "src/debug",
+  "src/foundry",
+  "src/modifiers",
+  "src/pointer",
+  "src/pointer/sequences",
+  "src/relay",
+  "src/scaling",
+  "src/settings",
+  "src/ui",
+  "tests/browser",
+  "tests/dom",
+  "tests/dom/support",
+  "tests/unit",
+  "tests/unit/support"
+]
