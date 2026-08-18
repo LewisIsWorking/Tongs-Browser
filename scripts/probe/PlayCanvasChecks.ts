@@ -54,8 +54,22 @@ export async function installCanvasChecks(page: Page): Promise<void> {
           }
           view.dispatchEvent(mouseEvent('dblclick', at, { button: 0, detail: 2 }));
         },
+        /*
+         * ⚠️ `token.actor`, NOT the actor this trial created, and they are different objects.
+         *
+         * `Token#_onClickLeft2` renders `this.actor`, and for an UNLINKED token that is a SYNTHETIC
+         * delegate with its own sheet instance. Asking the base actor gives `rendered: false` about a
+         * sheet that is open on screen. Measured on a live 14.366 (issue #243): `sameActorObject`
+         * false, `baseActorSheetRendered` false, `tokenActorSheetRendered` true, and a visible
+         * "Diver: [probe] synth" window in the DOM.
+         *
+         * This reported a working capability as broken for weeks. It is the fourth false negative in
+         * this probe's history and the same shape as the other three: the instrument was wrong and
+         * the module was fine. `?? actor` keeps a linked token, where the two ARE the same object,
+         * working exactly as before.
+         */
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        async ({ actor }: any) => actor.sheet?.rendered === true
+        async ({ actor, token }: any) => (token?.actor ?? actor).sheet?.rendered === true
       );
 
       await capability(
