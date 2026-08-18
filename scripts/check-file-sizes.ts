@@ -12,13 +12,30 @@
  * rewrites the list, and it can only ever be run to record a REDUCTION, because an increase fails the
  * check before it can be recorded.
  *
- * Run: npm run check:sizes
- *      npm run check:sizes -- --update     (after shrinking something)
- *      npm run check:sizes -- --self-test
+ * ⚠️ SLACK FAILS THE CHECK, since 2026-08-18. The paragraph above was the intent from the start and
+ * the code only ever enforced half of it: `lines > ceiling` failed, and a file that SHRANK kept its
+ * old ceiling silently until somebody remembered `--update`. So the margin this warns about could
+ * open up on its own, exactly as described, while the check reported green. It now fails and prints
+ * the one command that fixes it.
+ *
+ * ⚠️ `--self-test` RUNS as part of `check:sizes`, since 2026-08-18. It was reachable only by hand and
+ * appeared in no npm script and no workflow, so the guard's own proof had never once executed in CI.
+ * The same rules are also covered by tests/unit/sizeRatchet.test.ts.
+ *
+ * Run: npm run check:sizes                  (self test, then the repository)
+ *      npm run check:sizes -- --update      (after shrinking something)
+ *      npm run check:sizes -- --self-test   (the rules alone)
  */
 import { execFileSync } from 'node:child_process';
 
-import { LIMIT, countLines, findProblems, selfTest, tightened } from './sizes/ratchet.ts';
+import {
+  LIMIT,
+  countLines,
+  findProblems,
+  onlySlack,
+  selfTest,
+  tightened,
+} from './sizes/ratchet.ts';
 
 /** Where the backlog's ceilings live, one entry per file still over the limit. */
 const RATCHET_FILE = 'scripts/file-size-ratchet.json';
@@ -100,7 +117,15 @@ if (raised.length > 0) {
 }
 
 if (process.argv.includes('--update')) {
-  const problems = findProblems(sizes, ratchet);
+  /*
+   * ⚠️ Slack is filtered out HERE and nowhere else. Recording a reduction is the whole purpose of
+   * `--update`, so refusing to run while a reduction is outstanding would make the command refuse
+   * exactly when it is needed. Growth still blocks it, which is the rule that matters: a ratchet
+   * records reductions only.
+   */
+  const problems = findProblems(sizes, ratchet).filter(
+    (problem) => problem.reason !== 'has slack below its ratchet'
+  );
   if (problems.length > 0) {
     console.error('Refusing to update: fix these first, a ratchet records reductions only.\n');
     for (const problem of problems) {
@@ -116,13 +141,24 @@ if (process.argv.includes('--update')) {
 
 const problems = findProblems(sizes, ratchet);
 if (problems.length > 0) {
-  console.error(`${String(problems.length)} file(s) over their ceiling:\n`);
+  const slackOnly = onlySlack(problems);
+  console.error(
+    `${String(problems.length)} file(s) ${slackOnly ? 'below their ceiling' : 'over their ceiling'}:\n`
+  );
   for (const problem of problems) {
     console.error(
       `  ${problem.file}: ${String(problem.lines)} lines, ceiling ${String(problem.ceiling)}, ${problem.reason}`
     );
   }
-  console.error('\nExtract a responsibility into its own file. Do not trim to fit.');
+  /*
+   * ⚠️ Two different instructions, because they are two different situations and the wrong advice
+   * here is worse than none. A file that shrank needs its ceiling recorded, not extracting.
+   */
+  console.error(
+    slackOnly
+      ? '\nGood news: record it. Run `npm run check:sizes -- --update` and commit the ratchet.'
+      : '\nExtract a responsibility into its own file. Do not trim to fit.'
+  );
   process.exit(1);
 }
 

@@ -44,7 +44,7 @@
     "lint:docblocks": "node scripts/check-orphaned-docblocks.ts",
     "prune:imports": "node scripts/prune-unused-imports.ts",
     "check:scripts": "node scripts/check-scripts-load.ts",
-    "check:sizes": "node scripts/check-file-sizes.ts",
+    "check:sizes": "node scripts/check-file-sizes.ts --self-test && node scripts/check-file-sizes.ts",
     "check:grab": "node scripts/foundry-grab-button-check.ts"
   },
   "devDependencies": {
