@@ -17,13 +17,23 @@ export interface SizeProblem {
   readonly file: string;
   readonly lines: number;
   readonly ceiling: number;
-  readonly reason: 'over the hard limit' | 'grew past its ratchet';
+  readonly reason: 'over the hard limit' | 'grew past its ratchet' | 'has slack below its ratchet';
 }
 
 /**
  * ⚠️ `src/` is judged against the LIMIT, everything else against its recorded ceiling. A file with
  * no entry is judged against the limit too, so a new test file cannot be born over 200 and quietly
  * inherit backlog treatment.
+ *
+ * ⚠️ SLACK IS A PROBLEM TOO, added 2026-08-18. This checked only `lines > ceiling`, which meant a file
+ * that SHRANK kept its old ceiling until somebody remembered to run `--update`. That is exactly the
+ * high water mark this file's own docblock warns against: shrink DragToken.ts from 284 to 230, the
+ * check reports green, the ceiling stays 284, and the file may silently regrow every one of those 54
+ * lines. A ratchet that only tightens when asked is a ratchet that does not tighten.
+ *
+ * Reporting it as a failure rather than a note is deliberate. The fix is one command, printed with
+ * the message, and a warning nobody is forced to act on is how the slack accumulated in the first
+ * place.
  */
 export function findProblems(
   sizes: ReadonlyMap<string, number>,
@@ -40,9 +50,27 @@ export function findProblems(
         ceiling,
         reason: recorded === undefined ? 'over the hard limit' : 'grew past its ratchet',
       });
+      continue;
+    }
+    if (recorded !== undefined && lines < recorded) {
+      problems.push({ file, lines, ceiling, reason: 'has slack below its ratchet' });
     }
   }
   return problems;
+}
+
+/**
+ * Whether every problem is slack, meaning the tree is smaller than recorded and nothing has grown.
+ *
+ * Kept separate so the caller can print a different instruction. "Extract a responsibility into its
+ * own file" is the right advice for a file that grew and precisely the wrong advice for one that
+ * shrank, and a guard that answers a success with the remedy for a failure teaches people to stop
+ * reading it.
+ */
+export function onlySlack(problems: readonly SizeProblem[]): boolean {
+  return (
+    problems.length > 0 && problems.every((one) => one.reason === 'has slack below its ratchet')
+  );
 }
 
 /** Entries whose file has been deleted or has dropped below the limit are dropped from the list. */
@@ -101,7 +129,23 @@ export function selfTest(): void {
     process.exit(1);
   }
 
+  /*
+   * ⚠️ Slack is a FAILURE, not a pass. Added 2026-08-18 with the rule itself, and proved by feeding
+   * the guard the exact bug: a file recorded at 300 now measuring 250 used to report nothing at all.
+   */
+  const slack = findProblems(new Map([['tests/b.test.ts', 250]]), { 'tests/b.test.ts': 300 });
+  if (slack[0]?.reason !== 'has slack below its ratchet') {
+    console.error(
+      `SELF TEST FAILED: a shrunken file was not reported, got ${slack[0]?.reason ?? 'nothing'}`
+    );
+    process.exit(1);
+  }
+  if (!onlySlack(slack) || onlySlack([])) {
+    console.error('SELF TEST FAILED: slack was not distinguishable from growth');
+    process.exit(1);
+  }
+
   console.log(
-    'Self test passed: the limit is strict for src/, and the ratchet only ever tightens.'
+    'Self test passed: the limit is strict for src/, and the ratchet tightens in both directions.'
   );
 }
