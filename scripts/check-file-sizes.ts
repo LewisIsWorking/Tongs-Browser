@@ -22,9 +22,13 @@
  * appeared in no npm script and no workflow, so the guard's own proof had never once executed in CI.
  * The same rules are also covered by tests/unit/sizeRatchet.test.ts.
  *
- * Run: npm run check:sizes                  (self test, then the repository)
- *      npm run check:sizes -- --update      (after shrinking something)
- *      npm run check:sizes -- --self-test   (the rules alone)
+ * ⚠️ FLAGS GO THROUGH `node`, NOT `npm run ... --`. npm 12 parses unknown flags itself even after the
+ * `--` separator, so `npm run check:sizes -- --update` dies with `Invalid abbreviated flag
+ * "--update"` before this file runs. Measured 2026-08-18. The same applies to `check:drag --hold=`.
+ *
+ * Run: npm run check:sizes                        (self test, then the repository)
+ *      node scripts/check-file-sizes.ts --update  (after shrinking something)
+ *      node scripts/check-file-sizes.ts --self-test
  */
 import { execFileSync } from 'node:child_process';
 
@@ -154,9 +158,16 @@ if (problems.length > 0) {
    * ⚠️ Two different instructions, because they are two different situations and the wrong advice
    * here is worse than none. A file that shrank needs its ceiling recorded, not extracting.
    */
+  /*
+   * ⚠️ `node scripts/...`, NOT `npm run check:sizes -- --update`. npm 12 parses unknown flags ITSELF
+   * even after the `--` separator and exits with `Invalid abbreviated flag "--update". Did you mean
+   * "--update-notifier"?` before the script ever runs. Measured 2026-08-18, on the first real use of
+   * this message: the remedy it printed could not be executed, which is worse than printing none.
+   * The same npm behaviour eats `--hold=` on check:drag.
+   */
   console.error(
     slackOnly
-      ? '\nGood news: record it. Run `npm run check:sizes -- --update` and commit the ratchet.'
+      ? '\nGood news: record it. Run `node scripts/check-file-sizes.ts --update` and commit the ratchet.'
       : '\nExtract a responsibility into its own file. Do not trim to fit.'
   );
   process.exit(1);

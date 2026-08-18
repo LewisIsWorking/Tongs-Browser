@@ -64,10 +64,21 @@ export function neighbourPorts(base: string): number[] {
   return [...new Set(candidates)].filter((one) => one !== port && one > 0 && one < 65536);
 }
 
-/** Any Foundry answering on a neighbouring port, with the world it has open. */
-export async function findNeighbourServers(base: string): Promise<NeighbourServer[]> {
+/**
+ * Any Foundry answering on a neighbouring port, with the world it has open.
+ *
+ * ⚠️ `ports` is a parameter, and that is not gratuitous. It defaults to `neighbourPorts(base)`, which
+ * ALWAYS includes Foundry's default 30000, so with the list implicit there was no argument that could
+ * make this function probe a set of closed ports. The test asserting "reports nothing when nothing is
+ * listening" therefore passed only while Foundry happened to be down, and failed the moment a real
+ * server came up on 2026-08-18 - a test that was measuring the machine rather than the code.
+ */
+export async function findNeighbourServers(
+  base: string,
+  ports: readonly number[] = neighbourPorts(base)
+): Promise<NeighbourServer[]> {
   const found: NeighbourServer[] = [];
-  for (const port of neighbourPorts(base)) {
+  for (const port of ports) {
     let candidate: URL;
     try {
       candidate = new URL(base);

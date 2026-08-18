@@ -85,14 +85,23 @@ describe('choosing ports to try', () => {
 /**
  * ⚠️ Silence must be the empty result, not an error. This code only ever runs while already
  * reporting a failure, and a diagnostic that throws mid-diagnosis leaves no message at all.
+ *
+ * ⚠️ THE PORTS ARE PASSED IN, and this test is why. `neighbourPorts` always includes Foundry's
+ * default 30000, so the default-argument version of this test passed only while no Foundry was
+ * running and failed the instant one started on 2026-08-18. It was measuring the machine, not the
+ * code. Naming a closed set makes the assertion true regardless of what is up.
  */
 describe('probing neighbours', () => {
-  it('reports nothing when nothing is listening next door', async () => {
-    // Ports in the 1-2 range need privileges and are reliably not Foundry.
-    expect(await findNeighbourServers('http://127.0.0.1:1')).toEqual([]);
+  it('reports nothing when nothing is listening on the ports it is given', async () => {
+    // Ports in the 1-3 range need privileges and are reliably not Foundry.
+    expect(await findNeighbourServers('http://127.0.0.1:1', [2, 3])).toEqual([]);
+  });
+
+  it('reports nothing when given no ports at all', async () => {
+    expect(await findNeighbourServers('http://127.0.0.1:1', [])).toEqual([]);
   });
 
   it('returns empty for an unparseable address instead of throwing', async () => {
-    await expect(findNeighbourServers('not a url')).resolves.toEqual([]);
+    await expect(findNeighbourServers('not a url', [30000])).resolves.toEqual([]);
   });
 });
