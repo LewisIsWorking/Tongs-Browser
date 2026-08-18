@@ -1,12 +1,7 @@
 [
   "scripts",
-  "scripts/android",
-  "scripts/live",
-  "scripts/touch",
   "src",
-  "src/core",
   "src/debug",
-  "src/foundry",
   "src/pointer/sequences",
   "src/relay",
   "src/ui",
