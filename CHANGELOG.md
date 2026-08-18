@@ -1,5 +1,82 @@
 # tongs-browser
 
+## 0.25.60
+
+### Patch Changes
+
+- [#247](https://github.com/LewisIsWorking/Tongs-Browser/pull/247) [`61ca1c4`](https://github.com/LewisIsWorking/Tongs-Browser/commit/61ca1c4e08393774bcc8b51f31033cecfc549914) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Every source folder is now documented: 26 of 26, backlog empty.
+
+  The last seven are `src`, `scripts`, `tests/unit`, `tests/dom`, `tests/browser`, and the two
+  `support/` folders. Each names its own files, so the guard accepts them, and each records why the
+  folder is arranged the way it is rather than listing what is in it: why the composition root is
+  separate from the parts, why flags go through `node` rather than `npm run ... --`, what jsdom can and
+  cannot tell you, and why shared fixtures have their adoption enforced.
+
+  The backlog mechanism stays in place. It can only shrink, so a new folder cannot be born onto it, and
+  `node scripts/check-folder-readmes.ts` now reports `0 still on the backlog` rather than a count that
+  needed working through.
+
+- [#241](https://github.com/LewisIsWorking/Tongs-Browser/pull/241) [`2083b06`](https://github.com/LewisIsWorking/Tongs-Browser/commit/2083b069c130e21115488642bb38a3c3cbf30d60) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Every folder holding source has to say what it is for, and boilerplate does not count.
+
+  `check:readmes` requires each source folder to carry a README that **names at least one file that
+  genuinely lives in it**. Existence alone was deliberately not the rule: a guard that checks only for
+  the file asks twenty-six folders for one and gets twenty-six files saying "This folder contains
+  helpers", after which the check is green forever and nobody has learned anything. Naming a file is
+  cheap to satisfy honestly and impossible to satisfy with boilerplate, because the filenames differ per
+  folder.
+
+  Proved by feeding it the bug: a filler README replacing `scripts/probe`'s is rejected by name, and the
+  same rule is covered by unit tests and by a self test wired into the command so it actually runs.
+
+  Folders not yet documented sit in a backlog that can only shrink, the same discipline as the file size
+  ratchet and for the same reason: the rule arrived long after the code, and demanding twenty-five
+  READMEs in one commit is how filler gets written. Six of twenty-six are done, starting with the ones
+  whose lessons were expensive: `scripts/foundry`, `scripts/probe`, `scripts/sizes`, `scripts/readmes`,
+  `scripts/drag` and `src/gesture`.
+
+  Seeding it found a bug in the guard itself. A root level file has no `/`, and `slice(0, -1)` shaves a
+  character off rather than returning an empty string, so the first backlog listed three folders named
+  `playwright.config.t`, `vite.config.t` and `vitest.config.t`.
+
+- [#244](https://github.com/LewisIsWorking/Tongs-Browser/pull/244) [`860a7a5`](https://github.com/LewisIsWorking/Tongs-Browser/commit/860a7a5550d6b1564f66cd3ff4b636deb0db8bd4) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Five more folders documented: `src/foundry`, `src/core`, `scripts/touch`, `scripts/live`,
+  `scripts/android`. Fifteen of twenty-six now carry a README that names its own files.
+
+  Each records why the folder is shaped as it is: why the Foundry dependency surface is a folder rather
+  than scattered `game.` references, why the long press guard must be armed after the sequence rather
+  than before, why the touch checks and the drag check deliberately cover different halves, why the
+  scene control is asserted as registered, rendered and reachable separately, and why the device path
+  is a different surface rather than a smaller one.
+
+- [#246](https://github.com/LewisIsWorking/Tongs-Browser/pull/246) [`3627365`](https://github.com/LewisIsWorking/Tongs-Browser/commit/36273659b9a5970cc93e7b13e3b54fe131af6082) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Four more folders documented: `src/debug`, `src/pointer/sequences`, `src/ui`, `src/relay`. Nineteen
+  of twenty-six now carry a README that names its own files; seven remain.
+
+  `src/debug` is the largest folder in the module and its README says why: most failures there are
+  silent, so everything in it exists to turn a silence into a sentence. It records the four rules that
+  suite runs on, including the one it keeps having to relearn - that when this folder reports a
+  capability broken, the instrument is usually the thing that is wrong.
+
+- [#242](https://github.com/LewisIsWorking/Tongs-Browser/pull/242) [`354ab9a`](https://github.com/LewisIsWorking/Tongs-Browser/commit/354ab9ab13f9963aaff1839b722e2d1e2ae5c978) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Four more folders documented: `src/pointer`, `src/modifiers`, `src/settings`, `src/scaling`. Ten of
+  twenty-six now carry a README that names its own files; sixteen remain on the backlog.
+
+  These record the measurements rather than indexing the files: why `button` and `buttons` are
+  different fields and getting it wrong produces events Foundry quietly ignores, why the keyboard
+  strategy probe decides whether the modifier bar works at all, why the exhaustive switch in
+  `ApplySetting.ts` has no default branch, and why scaling the whole document would move the one thing
+  that must not move.
+
+- [#245](https://github.com/LewisIsWorking/Tongs-Browser/pull/245) [`dcffe0a`](https://github.com/LewisIsWorking/Tongs-Browser/commit/dcffe0a181d5a2c7cc7b3067af2c66f902396b5b) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The play probe asked the wrong actor, and reported a working capability as broken.
+
+  "Open the character sheet by double click" had been failing on 14.366. It is not broken. `Token#_onClickLeft2`
+  renders `this.actor`, and for an **unlinked** token that is a synthetic delegate with its own sheet
+  instance, so asking the base actor returns `rendered: false` about a sheet that is open on screen.
+
+  Measured live: `sameActorObject` false, `baseActorSheetRendered` false, `tokenActorSheetRendered`
+  true, with a visible "Diver: [probe] synth" window in the DOM. `can("clickLeft2")` was allowed all
+  along, so the double click had always been recognised.
+
+  The probe now reads `token.actor ?? actor`, which keeps a linked token working unchanged. All nine
+  capabilities pass on a live 14.366.
+
 ## 0.25.59
 
 ### Patch Changes
