@@ -1,5 +1,49 @@
 # tongs-browser
 
+## 0.25.61
+
+### Patch Changes
+
+- [#248](https://github.com/LewisIsWorking/Tongs-Browser/pull/248) [`8766fba`](https://github.com/LewisIsWorking/Tongs-Browser/commit/8766fba56218375e19cff7838a7fea8d4d93a451) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The play probe's native control could not select a token, and nothing could have noticed.
+
+  The control is what decides whether a pointer failure reads as "the module is broken" or "cannot
+  tell". It only runs when a pointer path is unreliable, so with every pointer path passing it had not
+  executed in months. Exercised by hand it failed outright: it pressed with Foundry's interaction
+  manager still at `NONE`, because it never moved the pointer first, and
+  `MouseInteractionManager#handleLeftDown` returns unless the state is at least `HOVER`.
+
+  A broken control turns every real regression into `inconclusive`. The safety net had a hole in exactly
+  the place it would be needed.
+
+  Measured by bisection on a live 14.366: click alone leaves state 0 and selects nothing; one plain
+  `pointermove` first takes state to 1 and selects. `pressure`, `width`, `height` and a reserved
+  `pointerId` make no difference, though they were the obvious suspects.
+
+  `PROBE_FORCE_CONTROL=1` now runs both paths every time, so the control is observable on demand rather
+  than only in the moment it is being relied upon. Using it immediately exposed a second defect:
+  `describeControl` announced `reliable -> OUR GAP` from the control alone, assuming a control had only
+  run because the pointer failed, so five rows with a working pointer and a working control were all
+  labelled our gap. `findGaps` checks both halves and was always right, so the exit code never lied.
+
+  A test had been pinning that behaviour: its name said "the pointer was not reliable" while it handed
+  over three passing pointer trials.
+
+- [#250](https://github.com/LewisIsWorking/Tongs-Browser/pull/250) [`3b53dc5`](https://github.com/LewisIsWorking/Tongs-Browser/commit/3b53dc5f2e30e98b9e05f5c886049f5ace3d7c51) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The entry point had no tests at all.
+
+  `src/main.ts` was at 0% coverage, and it is the file that decides whether the module loads. Every
+  failure it can have is silent and total: no settings, no scene control, no API, and a console that
+  says nothing unusual. Nothing short of a live run would have caught one.
+
+  Nine tests now cover it, asserting outcomes a regression would break rather than that particular
+  functions were called. The most valuable is a regression test for a bug that shipped: the scene
+  control must be bound at `init`, not `ready`, because Foundry builds its controls exactly once and a
+  listener added later has already missed it. Measured on 14.365, the button simply never existed and
+  nothing logged.
+
+  Every test was mutation checked. Moving `toggle.bind()` to `ready`, dropping `moduleEntry.api`,
+  inverting the enabled check, and cutting the settings change off from the instance each turn a test
+  red. `main.ts` goes from 0% to 80.6%, `src/` from 65% to 84%, the project from 89.7% to 91.3%.
+
 ## 0.25.60
 
 ### Patch Changes
