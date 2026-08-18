@@ -1,9 +1,1 @@
-[
-  "scripts",
-  "src",
-  "tests/browser",
-  "tests/dom",
-  "tests/dom/support",
-  "tests/unit",
-  "tests/unit/support"
-]
+[]
