@@ -27,7 +27,7 @@ export async function installPlayKit(page: Page): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const namespace: any = ((window as PlayWindow)[globalName as '__tongsPlay'] ??= {});
 
-    namespace.makeKit = (trials: number) => {
+    namespace.makeKit = (trials: number, forceControl = false) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const results: any[] = [];
       const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -139,6 +139,22 @@ export async function installPlayKit(page: Page): Promise<void> {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const reliable = (outcomes: any[]) => outcomes.every((outcome) => outcome === 'yes');
 
+      /**
+       * Both paths, with the control run only to explain a failure.
+       *
+       * ⚠️ `forceControl` exists because a control that only runs on failure is a control NOBODY EVER
+       * SEES WORK. Every pointer path passes today, so the controls had not executed in months, and
+       * when one was finally exercised by hand it could not even select a token: it pressed with
+       * Foundry's interaction manager still at NONE, because it never moved the pointer first.
+       *
+       * That is the worst possible state for this particular piece of code. The control is what
+       * decides whether a pointer failure reads as "the module is broken" or "cannot tell", so a
+       * broken control turns every real regression into `inconclusive`. The safety net had a hole in
+       * exactly the place it would be needed, and nothing could have noticed.
+       *
+       * `PROBE_FORCE_CONTROL=1` runs both paths every time, so the control is observable on demand
+       * rather than only in the moment it is being relied upon.
+       */
       async function capability(
         name: string,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -151,7 +167,7 @@ export async function installPlayKit(page: Page): Promise<void> {
       ) {
         const pointerTrials = await run(viaPointer, read, needsToken);
         let controlTrials = null;
-        if (!reliable(pointerTrials) && viaNative !== null) {
+        if ((forceControl || !reliable(pointerTrials)) && viaNative !== null) {
           controlTrials = await run(viaNative, read, needsToken);
         }
         results.push({ name, pointerTrials, controlTrials });
@@ -170,7 +186,7 @@ export async function installPlayKit(page: Page): Promise<void> {
         openTab,
         run,
         capability,
-        ...namespace.makeEvents(),
+        ...namespace.makeEvents(view, wait),
       };
     };
   }, PLAY_GLOBAL);
