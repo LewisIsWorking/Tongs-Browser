@@ -30,16 +30,28 @@ export function verdict(trials: readonly TrialOutcome[]): string {
 /**
  * What the control column says.
  *
- * ⚠️ A null control is "not needed", never "not measured". The control is only run when the pointer
- * path was unreliable, because a control that agrees with a working pointer proves nothing and costs
- * a full set of trials against a live world.
+ * ⚠️ A null control is "not needed", never "not measured". The control is normally only run when the
+ * pointer path was unreliable, because a control that agrees with a working pointer proves nothing
+ * and costs a full set of trials against a live world.
+ *
+ * ⚠️ THE POINTER COLUMN IS READ HERE TOO, and it has to be. This function used to announce
+ * `reliable -> OUR GAP` from the control alone, on the assumption that a control had only run because
+ * the pointer failed. `PROBE_FORCE_CONTROL=1` broke that assumption the first time it was used: every
+ * row showed a working pointer AND a working control, and the table called all five of them our gap.
+ *
+ * A fix that wakes code nobody had run is exactly where this class of bug lives. `findGaps` was
+ * always right, because it checks both halves, so the exit code never lied - only the words did.
  */
 export function describeControl(row: CapabilityRow): string {
   if (row.controlTrials === null) {
     return 'not needed';
   }
-  if (row.controlTrials.every((outcome) => outcome === 'yes')) {
-    return 'reliable -> OUR GAP';
+  const controlWorks = row.controlTrials.every((outcome) => outcome === 'yes');
+  const pointerWorks =
+    row.pointerTrials.length > 0 && row.pointerTrials.every((outcome) => outcome === 'yes');
+
+  if (controlWorks) {
+    return pointerWorks ? 'also works -> agrees' : 'reliable -> OUR GAP';
   }
   if (row.controlTrials.some((outcome) => outcome === 'yes')) {
     return 'flaky -> inconclusive';

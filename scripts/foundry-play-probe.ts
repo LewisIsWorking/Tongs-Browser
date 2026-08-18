@@ -42,6 +42,7 @@ import {
 } from './foundry-session.ts';
 import { installCanvasChecks } from './probe/PlayCanvasChecks.ts';
 import { installCreateActorCheck } from './probe/PlayCreateActorCheck.ts';
+import { installDragCheck } from './probe/PlayDragCheck.ts';
 import { installPlayEvents } from './probe/PlayEvents.ts';
 import { installPlayFixture } from './probe/PlayFixture.ts';
 import { installPlayKit } from './probe/PlayKit.ts';
@@ -51,6 +52,16 @@ import { reportCapabilities } from './probe/Report.ts';
 import type { CapabilityRow } from './probe/Trials.ts';
 
 const TRIALS = Number(process.env.PROBE_TRIALS ?? '3');
+
+/**
+ * Run the native control even when the pointer path was reliable.
+ *
+ * ⚠️ Off by default because a control is only worth running to explain a failure. On by request
+ * because a control that ONLY runs on failure is one nobody ever sees work: every pointer path passes
+ * today, so the controls had not executed in months, and when finally exercised by hand not one of
+ * them could select a token. A broken control turns every real regression into `inconclusive`.
+ */
+const FORCE_CONTROL = process.env.PROBE_FORCE_CONTROL === '1';
 
 const status = await requireActiveWorld();
 const { browser, page } = await launchBrowser({ hasTouch: true });
@@ -67,6 +78,7 @@ try {
   await installPlayFixture(page);
   await installPlayKit(page);
   await installCanvasChecks(page);
+  await installDragCheck(page);
   await installCreateActorCheck(page);
   await installSidebarChecks(page);
 
@@ -75,20 +87,21 @@ try {
   scene = await ensureActiveScene(page, { width: 3000, height: 3000, label: 'play probe' });
 
   const rows: CapabilityRow[] = await page.evaluate(
-    async ([globalName, trials]) => {
+    async ([globalName, trials, force]) => {
       const namespace = (window as PlayWindow)[globalName as '__tongsPlay'];
       if (namespace?.makeKit === undefined) {
         throw new Error(
           `the probe toolkit is not on window.${globalName}, so addInitScript did not survive to this page.`
         );
       }
-      const kit = namespace.makeKit(Number(trials));
+      const kit = namespace.makeKit(Number(trials), force === '1');
       await namespace.canvasChecks?.(kit);
+      await namespace.dragCheck?.(kit);
       await namespace.createActorCheck?.(kit);
       await namespace.sidebarChecks?.(kit);
       return kit.results;
     },
-    [PLAY_GLOBAL, String(TRIALS)] as const
+    [PLAY_GLOBAL, String(TRIALS), FORCE_CONTROL ? '1' : '0'] as const
   );
 
   console.log(

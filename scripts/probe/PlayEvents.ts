@@ -17,7 +17,7 @@ export async function installPlayEvents(page: Page): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const namespace: any = ((window as PlayWindow)[globalName as '__tongsPlay'] ??= {});
 
-    namespace.makeEvents = () => {
+    namespace.makeEvents = (view: Element, wait: (ms: number) => Promise<void>) => {
       /*
        * ⚠️ The undefined guard is here, once, rather than at each of the twenty call sites.
        *
@@ -61,7 +61,38 @@ export async function installPlayEvents(page: Page): Promise<void> {
           ...extra,
         });
 
-      return { requireAt, pointerEvent, mouseEvent };
+      /**
+       * A move BEFORE the press, which every native control path needs.
+       *
+       * ⚠️ WITHOUT THIS THE CONTROL CANNOT SELECT A TOKEN AT ALL, and that is not a detail. The
+       * control is what decides whether a pointer failure reads as "the module is broken" or "cannot
+       * tell", so a control that always fails turns every real regression into `inconclusive`, which
+       * is the most comfortable way to hide one.
+       *
+       * `MouseInteractionManager#handleLeftDown` opens with
+       * `if ( !this.state.between(this.states.HOVER, this.states.DRAG) ) return;` and HOVER is only
+       * entered from a move. The control used to press with the manager still at NONE, so Foundry
+       * discarded the whole burst before looking at it.
+       *
+       * Measured on a live 14.366, 2026-08-18, by bisection:
+       *
+       *   click only ..................... state 0 -> 0, controlled FALSE
+       *   pointermove, then click ........ state 0 -> 1, controlled true
+       *   pointerover + move, then click . state 1 -> 1, controlled true
+       *   move with rich pointer fields .. state 1 -> 1, controlled true
+       *
+       * So one plain `pointermove` is the whole fix. `pressure`, `width`, `height` and a reserved
+       * `pointerId` make no difference, which is worth recording because they were the obvious
+       * suspects: the module's own dispatcher sends all of them and the control does not.
+       */
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const hover = async (at: any) => {
+        view.dispatchEvent(pointerEvent('pointermove', at, { buttons: 0 }));
+        view.dispatchEvent(mouseEvent('mousemove', at, { buttons: 0 }));
+        await wait(120);
+      };
+
+      return { requireAt, pointerEvent, mouseEvent, hover };
     };
   }, PLAY_GLOBAL);
 }

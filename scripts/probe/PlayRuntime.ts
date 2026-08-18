@@ -74,6 +74,7 @@ export interface PlayEvents {
   requireAt(at: ClientAt | undefined, type: string): ClientAt;
   pointerEvent(type: string, at: ClientAt | undefined, extra?: PointerEventInit): PointerEvent;
   mouseEvent(type: string, at: ClientAt | undefined, extra?: MouseEventInit): MouseEvent;
+  hover(at: ClientAt): Promise<void>;
 }
 
 /**
@@ -85,8 +86,9 @@ export interface PlayEvents {
  */
 export interface PlayNamespace {
   makeEvents?: () => PlayEvents;
-  makeKit?: (trials: number) => PlayKit;
+  makeKit?: (trials: number, forceControl?: boolean) => PlayKit;
   canvasChecks?: (kit: PlayKit) => Promise<void>;
+  dragCheck?: (kit: PlayKit) => Promise<void>;
   createActorCheck?: (kit: PlayKit) => Promise<void>;
   sidebarChecks?: (kit: PlayKit) => Promise<void>;
 }

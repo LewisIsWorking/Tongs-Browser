@@ -18,7 +18,7 @@ export async function installCanvasChecks(page: Page): Promise<void> {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     namespace.canvasChecks = async (kit: any) => {
-      const { capability, pointerEvent, mouseEvent, requireAt, view, pointer, wait, home } = kit;
+      const { capability, pointerEvent, mouseEvent, requireAt, view, pointer, wait, hover } = kit;
 
       await capability(
         'select a token',
@@ -27,6 +27,7 @@ export async function installCanvasChecks(page: Page): Promise<void> {
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         async ({ at }: any) => {
+          await hover(at);
           view.dispatchEvent(pointerEvent('pointerdown', at, { button: 0, buttons: 1 }));
           view.dispatchEvent(mouseEvent('mousedown', at, { button: 0, buttons: 1, detail: 1 }));
           view.dispatchEvent(pointerEvent('pointerup', at, { button: 0, buttons: 0 }));
@@ -44,6 +45,7 @@ export async function installCanvasChecks(page: Page): Promise<void> {
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         async ({ at }: any) => {
+          await hover(at);
           for (const detail of [1, 2]) {
             view.dispatchEvent(pointerEvent('pointerdown', at, { button: 0, buttons: 1 }));
             view.dispatchEvent(mouseEvent('mousedown', at, { button: 0, buttons: 1, detail }));
@@ -79,6 +81,7 @@ export async function installCanvasChecks(page: Page): Promise<void> {
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         async ({ at }: any) => {
+          await hover(at);
           view.dispatchEvent(pointerEvent('pointerdown', at, { button: 2, buttons: 2 }));
           view.dispatchEvent(mouseEvent('mousedown', at, { button: 2, buttons: 2, detail: 1 }));
           view.dispatchEvent(pointerEvent('pointerup', at, { button: 2, buttons: 0 }));
@@ -86,35 +89,6 @@ export async function installCanvasChecks(page: Page): Promise<void> {
           view.dispatchEvent(mouseEvent('contextmenu', at, { button: 2, detail: 0 }));
         },
         async () => canvas.hud.token?.rendered === true
-      );
-
-      await capability(
-        'drag a token to a new square',
-        async () => {
-          pointer.beginDrag();
-          for (let step = 0; step < 10; step += 1) {
-            pointer.dragBy(15, 0);
-            await wait(50);
-          }
-          pointer.endDrag();
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        async (context: any) => {
-          const at = requireAt(context.at, 'native drag');
-          view.dispatchEvent(pointerEvent('pointerdown', at, { button: 0, buttons: 1 }));
-          view.dispatchEvent(mouseEvent('mousedown', at, { button: 0, buttons: 1 }));
-          for (let step = 1; step <= 10; step += 1) {
-            const to = { clientX: at.clientX + step * 15, clientY: at.clientY };
-            view.dispatchEvent(pointerEvent('pointermove', to, { buttons: 1 }));
-            view.dispatchEvent(mouseEvent('mousemove', to, { buttons: 1 }));
-            await wait(50);
-          }
-          const end = { clientX: at.clientX + 150, clientY: at.clientY };
-          view.dispatchEvent(pointerEvent('pointerup', end, { button: 0, buttons: 0 }));
-          view.dispatchEvent(mouseEvent('mouseup', end, { button: 0, buttons: 0 }));
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        async ({ doc }: any) => canvas.scene.tokens.get(doc.id).x !== home.x
       );
 
       let zoomBefore = 0;
