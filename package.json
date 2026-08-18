@@ -35,7 +35,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check:support": "node scripts/check-support-adopted.ts",
-    "verify": "npm run lint && npm run typecheck && npm run typecheck:scripts && npm run check:scripts && npm run check:sizes && npm run check:support && npm run test && npm run build",
+    "verify": "npm run lint && npm run typecheck && npm run typecheck:scripts && npm run check:scripts && npm run check:sizes && npm run check:readmes && npm run check:support && npm run test && npm run build",
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:tag": "changeset tag",
@@ -45,6 +45,7 @@
     "prune:imports": "node scripts/prune-unused-imports.ts",
     "check:scripts": "node scripts/check-scripts-load.ts",
     "check:sizes": "node scripts/check-file-sizes.ts --self-test && node scripts/check-file-sizes.ts",
+    "check:readmes": "node scripts/check-folder-readmes.ts --self-test && node scripts/check-folder-readmes.ts",
     "check:grab": "node scripts/foundry-grab-button-check.ts"
   },
   "devDependencies": {
