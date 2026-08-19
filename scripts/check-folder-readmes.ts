@@ -19,7 +19,6 @@
  *      node scripts/check-folder-readmes.ts --update  (after documenting a folder)
  *      node scripts/check-folder-readmes.ts --self-test
  */
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 import {
@@ -29,6 +28,7 @@ import {
   tightenedBacklog,
   type FolderDoc,
 } from './readmes/rules.ts';
+import { listSourceFiles } from './sizes/listing.ts';
 
 const BACKLOG_FILE = 'scripts/folder-readme-backlog.json';
 
@@ -37,9 +37,16 @@ if (process.argv.includes('--self-test')) {
   process.exit(0);
 }
 
-const tracked = execFileSync('git', ['ls-files', '*.ts'], { encoding: 'utf8' })
-  .split('\n')
-  .filter((file) => file !== '' && !file.endsWith('.d.ts'));
+/*
+ * ⚠️ The SAME listing the size guard uses, which includes UNTRACKED files. Changed 2026-08-19 after
+ * this guard passed locally and failed in CI on a folder created moments earlier: `git ls-files`
+ * reports tracked files only, so a brand new folder is invisible until it is staged. A guard about
+ * new folders that cannot see new folders is the wrong way round.
+ *
+ * The size guard had this fixed one day earlier and this one was left behind, which is its own
+ * lesson: a blind spot found in one guard is worth looking for in every guard sharing the technique.
+ */
+const tracked = listSourceFiles();
 
 /*
  * Grouped by the folder each file sits in DIRECTLY, not recursively. A parent's README saying "see the

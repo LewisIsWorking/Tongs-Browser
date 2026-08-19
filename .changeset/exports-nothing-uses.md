@@ -20,3 +20,7 @@ all 10 were real.
 
 Proved by feeding it the bug: putting `isButtonHeld` back is reported by name with the right remedy.
 The module bundle is 0.4 kB smaller.
+
+Also: `check:readmes` now sees untracked folders. The size guard had this blind spot fixed a day
+earlier and this one was left behind, so a folder created moments before passed locally and failed in
+CI. A blind spot found in one guard is worth looking for in every guard that shares the technique.
