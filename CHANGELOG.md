@@ -1,5 +1,96 @@
 # tongs-browser
 
+## 0.25.63
+
+### Patch Changes
+
+- [#257](https://github.com/LewisIsWorking/Tongs-Browser/pull/257) [`a7f90e3`](https://github.com/LewisIsWorking/Tongs-Browser/commit/a7f90e310bb8388d8f0ee19f04edd5eaf5a84443) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - `DebugOverlay` was 40% covered, and it is a probe, so the untested half mattered more than usual.
+
+  It draws an outline around whatever the pointer resolved to, because when a tap does nothing there is
+  no way to tell from the screen whether the pointer resolved the wrong element, resolved the right one
+  and the event was ignored, or never dispatched at all.
+
+  The tests are about it not changing what it measures. It must not be hit testable, or it becomes the
+  answer to every hit test the moment it is drawn and the thing being diagnosed stops working while
+  being diagnosed. It must draw and log nothing while switched off. And it must never leave a stale
+  rectangle pointing at an element the pointer has since left, which quietly contradicts the pointer
+  during exactly the investigation it exists to help.
+
+  Each of those turns a test red when broken.
+
+  ⚠️ A fourth test was written and then deleted. Mutation checking showed "enabling twice does not
+  attach two outlines" passed with the guard removed, because `append` moves an element already in the
+  document rather than duplicating it, so a second outline is impossible either way. A test that cannot
+  fail still counts, still runs and still reads like protection, so its absence is now recorded in the
+  file instead.
+
+  `DebugOverlay.ts` 40% to 97.6%, `src/debug` to 95.7%, the project 93.1% to 94.6%.
+
+- [#256](https://github.com/LewisIsWorking/Tongs-Browser/pull/256) [`3a9fd24`](https://github.com/LewisIsWorking/Tongs-Browser/commit/3a9fd2418e9beab7b3e9908e2af0af282b50d3f3) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Six dead exports removed, and a guard so they cannot accumulate again.
+
+  Three files in a row were opened because coverage was low, and each time the uncovered part was an
+  exported value nothing called. Coverage was the only thing pointing at any of it, and it answers the
+  wrong question: "untested" and "unreachable" need completely different work.
+
+  A sweep found ten. Six were unreachable and are gone (`findKey`, `hasAnyModifier`, `withButtons`,
+  `isButtonHeld`, `withButtonHeld`, and `ALL_KEYS`, which the typechecker exposed as dead by cascade
+  once `findKey` went). Four were live but over-exported and simply lost the `export` keyword.
+
+  `check:exports` now fails on an exported value nothing outside its file mentions, and distinguishes
+  the two cases, because "delete it" and "drop the export" are different fixes. It judges `src/` only,
+  and values only: including types produced 64 findings of which most were correct code, since an
+  `Options` interface is normally named only in its own file. Restricting to values produced 10, and
+  all 10 were real.
+
+  Proved by feeding it the bug: putting `isButtonHeld` back is reported by name with the right remedy.
+  The module bundle is 0.4 kB smaller.
+
+  Also: `check:readmes` now sees untracked folders. The size guard had this blind spot fixed a day
+  earlier and this one was left behind, so a folder created moments before passed locally and failed in
+  CI. A blind spot found in one guard is worth looking for in every guard that shares the technique.
+
+- [#253](https://github.com/LewisIsWorking/Tongs-Browser/pull/253) [`e7301e4`](https://github.com/LewisIsWorking/Tongs-Browser/commit/e7301e470dd2691d329d6328da56d09627e0a880) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - `FoundryAccess` was 54% covered, and the uncovered half was the whole point of the file.
+
+  Every method opens with `typeof x === 'undefined'`, and its docblock claims that is not redundant with
+  the declared type: a global Foundry has never defined throws a **ReferenceError** on plain access, and
+  an optional chain does not help, because the reference itself is what throws.
+
+  That claim is now proven rather than asserted. Replacing the guard with the tidier-looking
+  `game?.keyboard ?? null` turns a test red with exactly the predicted
+  `ReferenceError: game is not defined`. Without that, the guards read as defensive clutter and the
+  obvious tidy-up compiles, looks cleaner, and throws anywhere Foundry has not booted.
+
+  The tests `delete` the globals rather than setting them to undefined, because those are different
+  states: a declared-but-undefined global is safe to reference, an undeclared one throws, and only the
+  second reproduces what the guards exist for.
+
+  `FoundryAccess.ts` 54% to 100% statements, `src/foundry` to 90.3%, the project 92.3% to 92.6%.
+
+- [#255](https://github.com/LewisIsWorking/Tongs-Browser/pull/255) [`1f34640`](https://github.com/LewisIsWorking/Tongs-Browser/commit/1f34640a0f7d4fc5460fafd65f106d9c172a8654) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - `FoundryActions` was 60% covered, and the untested part was the wiring rather than the decisions.
+
+  Every decision the tray buttons make already lives in its own tested module. What nothing covered was
+  whether each decision reaches the effect it names, which is exactly where a regression is silent: the
+  decision modules stay green while the button does nothing, or does the wrong thing.
+
+  Three mutations, each a plausible edit, now turn a test red:
+
+  - dropping the relay branch, which makes a player's pause button do nothing at all. Foundry's
+    `Game#togglePause` only emits `if (options.broadcast && game.user.isGM)`, so a player toggling
+    locally changes nobody else's client, and macro ownership cannot fix it because the check is on the
+    emit path.
+  - letting `closeMenu` fall through to `openMenu`, which leaves a picker that cannot be dismissed. On a
+    phone there is no click elsewhere to close it.
+  - replacing the designated-GM check with "am I a GM", which has every connected GM act on one relayed
+    request, flipping the pause once per GM and landing wherever the race ends.
+
+  `src/foundry` goes to 95.8% statements and 97.1% branches; the project 92.6% to 93.1%.
+
+  Also: the size guard could not see the file that broke it. It listed tracked files only, so a newly
+  written file was invisible until staged, and `npm run verify` gave a false green on precisely the
+  case the limit exists for. It now includes untracked, non-ignored files, proven by feeding it a 210
+  line file that had never been added to git. That change immediately caught the guard itself at 203
+  lines, so its file listing is now its own module.
+
 ## 0.25.62
 
 ### Patch Changes
