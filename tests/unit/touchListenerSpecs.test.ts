@@ -107,3 +107,39 @@ describe('toListenerOptions', () => {
     expect('passive' in toListenerOptions(find('contextmenu'), signal)).toBe(false);
   });
 });
+
+/**
+ * ⚠️ A HANDLER NAME THAT NO SPEC USES IS A HANDLER THAT NEVER RUNS.
+ *
+ * `TouchHandlerName` had an `onNativePointer` member, `TouchBinder` held a matching method, and
+ * `bind()` wired it into its lookup table. No spec named it, so it was never registered and could not
+ * fire. It looked live from every angle: typed, implemented, referenced, and dead.
+ *
+ * The suppression it appeared to perform genuinely moved to `gesture/NativePointerSuppressor.ts`,
+ * bound on the WINDOW at Foundry's init, because PIXI binds `pointerup` there in the capture phase
+ * and fires before the document. So the behaviour was never lost. What remained was a decoy: anyone
+ * changing the suppression rules would have edited it and seen no effect.
+ *
+ * Asserted in BOTH directions, because each direction is a different bug. A spec naming a handler
+ * that does not exist fails at the type level and is loud; a handler no spec names is silent, and
+ * that is the one that happened.
+ */
+describe('the handler names and the specs', () => {
+  it('has a spec for every handler name, so none of them is a decoy', () => {
+    const namedByASpec = new Set(TOUCH_LISTENER_SPECS.map((spec) => spec.handler));
+
+    /*
+     * Listed literally rather than derived from the type, because the type is erased at runtime and
+     * a test that read the specs to check the specs would agree with itself no matter what.
+     */
+    const handlerNames = [
+      'onTouchStart',
+      'onTouchMove',
+      'onTouchEnd',
+      'onTouchCancel',
+      'onNativeContextMenu',
+    ];
+
+    expect([...namedByASpec].sort()).toEqual([...handlerNames].sort());
+  });
+});

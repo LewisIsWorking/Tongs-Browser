@@ -10,12 +10,7 @@
 
 /** The handlers a binder supplies, named so the table can refer to them without holding them. */
 export type TouchHandlerName =
-  | 'onTouchStart'
-  | 'onTouchMove'
-  | 'onTouchEnd'
-  | 'onTouchCancel'
-  | 'onNativePointer'
-  | 'onNativeContextMenu';
+  'onTouchStart' | 'onTouchMove' | 'onTouchEnd' | 'onTouchCancel' | 'onNativeContextMenu';
 
 export interface TouchListenerSpec {
   readonly type: string;
