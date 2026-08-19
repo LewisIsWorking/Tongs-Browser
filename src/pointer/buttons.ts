@@ -47,14 +47,6 @@ export function maskForButton(button: MouseButtonValue): ButtonsMaskValue {
   }
 }
 
-export function isButtonHeld(buttons: number, button: MouseButtonValue): boolean {
-  return (buttons & maskForButton(button)) !== 0;
-}
-
-export function withButtonHeld(buttons: number, button: MouseButtonValue): number {
-  return buttons | maskForButton(button);
-}
-
 export function withButtonReleased(buttons: number, button: MouseButtonValue): number {
   return buttons & ~maskForButton(button);
 }

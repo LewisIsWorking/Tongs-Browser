@@ -31,12 +31,3 @@ export const MOMENTARY_KEYS: readonly KeyDefinition[] = Object.freeze([
   { code: 'Enter', key: 'Enter', keyCode: 13, label: 'Enter', sticky: false },
   { code: 'Tab', key: 'Tab', keyCode: 9, label: 'Tab', sticky: false },
 ]);
-
-export const ALL_KEYS: readonly KeyDefinition[] = Object.freeze([
-  ...MODIFIER_KEYS,
-  ...MOMENTARY_KEYS,
-]);
-
-export function findKey(code: string): KeyDefinition | undefined {
-  return ALL_KEYS.find((definition) => definition.code === code);
-}

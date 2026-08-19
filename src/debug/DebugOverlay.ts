@@ -96,7 +96,7 @@ export class DebugOverlay {
 }
 
 /** Short, readable identification of an element for a log line. */
-export function describeElement(element: Element): string {
+function describeElement(element: Element): string {
   const tag = element.tagName.toLowerCase();
   const id = element.id.length > 0 ? `#${element.id}` : '';
   const firstClass = element.classList.item(0);
