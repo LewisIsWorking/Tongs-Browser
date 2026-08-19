@@ -30,8 +30,6 @@
  *      node scripts/check-file-sizes.ts --update  (after shrinking something)
  *      node scripts/check-file-sizes.ts --self-test
  */
-import { execFileSync } from 'node:child_process';
-
 import {
   LIMIT,
   countLines,
@@ -40,6 +38,7 @@ import {
   selfTest,
   tightened,
 } from './sizes/ratchet.ts';
+import { listSourceFiles } from './sizes/listing.ts';
 
 /** Where the backlog's ceilings live, one entry per file still over the limit. */
 const RATCHET_FILE = 'scripts/file-size-ratchet.json';
@@ -50,11 +49,9 @@ if (process.argv.includes('--self-test')) {
   process.exit(0);
 }
 
-const tracked = execFileSync('git', ['ls-files', '*.ts'], { encoding: 'utf8' })
-  .split('\n')
-  .filter((file) => file !== '' && !file.endsWith('.d.ts'));
-
-const sizes = new Map(tracked.map((file) => [file, countLines(readFileSync(file, 'utf8'))]));
+const sizes = new Map(
+  listSourceFiles().map((file) => [file, countLines(readFileSync(file, 'utf8'))])
+);
 const ratchet: Record<string, number> = existsSync(RATCHET_FILE)
   ? (JSON.parse(readFileSync(RATCHET_FILE, 'utf8')) as Record<string, number>)
   : {};

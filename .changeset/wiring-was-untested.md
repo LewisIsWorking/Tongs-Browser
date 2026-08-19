@@ -20,3 +20,9 @@ Three mutations, each a plausible edit, now turn a test red:
   request, flipping the pause once per GM and landing wherever the race ends.
 
 `src/foundry` goes to 95.8% statements and 97.1% branches; the project 92.6% to 93.1%.
+
+Also: the size guard could not see the file that broke it. It listed tracked files only, so a newly
+written file was invisible until staged, and `npm run verify` gave a false green on precisely the
+case the limit exists for. It now includes untracked, non-ignored files, proven by feeding it a 210
+line file that had never been added to git. That change immediately caught the guard itself at 203
+lines, so its file listing is now its own module.
