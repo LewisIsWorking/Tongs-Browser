@@ -13,7 +13,7 @@ import { formatJournal, type JournalEntry } from './DebugJournal.js';
  * the most recent sixty; this trims further for the chat card, and what is being diagnosed is always
  * how a gesture ENDED. Showing the head would reliably cut off the cancel.
  */
-export const TIMELINE_SHOWN = 24;
+const TIMELINE_SHOWN = 24;
 
 export function buildJournalSection(entries: readonly JournalEntry[]): string[] {
   const shown = entries.slice(-TIMELINE_SHOWN);

@@ -28,10 +28,6 @@ export function withPosition(state: PointerState, position: PointerPosition): Po
   return createPointerState(position, state.buttons, state.modifiers);
 }
 
-export function withButtons(state: PointerState, buttons: number): PointerState {
-  return createPointerState(state.position, buttons, state.modifiers);
-}
-
 export function withModifiers(state: PointerState, modifiers: ModifierFlags): PointerState {
   return createPointerState(state.position, state.buttons, modifiers);
 }

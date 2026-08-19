@@ -23,7 +23,3 @@ export const NO_MODIFIERS: ModifierFlags = Object.freeze({
 export function createModifierFlags(overrides: Partial<ModifierFlags> = {}): ModifierFlags {
   return Object.freeze({ ...NO_MODIFIERS, ...overrides });
 }
-
-export function hasAnyModifier(flags: ModifierFlags): boolean {
-  return flags.ctrlKey || flags.shiftKey || flags.altKey || flags.metaKey;
-}

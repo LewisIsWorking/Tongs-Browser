@@ -18,7 +18,7 @@ export interface HoverInputs {
   readonly hasCurrentTarget: boolean;
 }
 
-export function buildHoverSequence(
+function buildHoverSequence(
   state: PointerState,
   previous: Element | null,
   current: Element | null

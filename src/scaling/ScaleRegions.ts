@@ -42,7 +42,7 @@ export const SCALE_REGIONS: readonly ScaleRegion[] = Object.freeze([
 
 export const MIN_UI_SCALE = 0.5;
 export const MAX_UI_SCALE = 1;
-export const UI_SCALE_STEP = 0.05;
+const UI_SCALE_STEP = 0.05;
 export const DEFAULT_UI_SCALE = 0.75;
 
 /**
