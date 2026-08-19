@@ -43,6 +43,30 @@ Run `npm run probe:foundry` against any running Foundry to get this answer witho
 the world, enables the module if needed, and takes its own independent measurement rather than
 trusting the module's own report.
 
+## Last full run against a live Foundry
+
+**v0.25.65 on Foundry 14.366, 2026-08-20.** World `cootestworld`, system `coo` 0.76.0, desktop
+Chrome. Every harness green:
+
+| Harness                 | Result                                                    |
+| ----------------------- | --------------------------------------------------------- |
+| `check:foundry`         | 10 pass, no page errors                                   |
+| `check:touch`           | 7 pass                                                    |
+| `check:multitouch`      | pan, pinch and pinch back at 0.0% error                   |
+| `check:grab`            | token moved (600,600) to (800,600) after a 700ms hold     |
+| `check:drag --hold=700` | pass, `screenOrigin` pinned at 800 across 12 samples      |
+| `probe:play`            | 9 of 9 capabilities, controls forced and agreeing, 0 gaps |
+
+⚠️ Run because four releases had shipped since the module was last loaded into a real Foundry, and
+those releases deleted six exports from `src/` and changed the gesture path. A green unit suite says
+nothing about whether Foundry still accepts what the module sends. Only this does.
+
+⚠️ Run the play probe with `PROBE_FORCE_CONTROL=1`. Without it the native controls execute only when a
+pointer path has already failed, so they can sit broken for months and nobody finds out until the one
+moment they are relied on. That is not hypothetical: the controls could not select a token at all on
+14.366, because they pressed without moving the pointer first, and Foundry's `#handleLeftDown` returns
+unless its state has reached HOVER.
+
 ## What is already verified against a real Foundry
 
 `npm run check:foundry` covers these on desktop, so a failure on the tablet is a **device specific**
