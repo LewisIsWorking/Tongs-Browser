@@ -26,17 +26,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test
-        run: npm run test
-
-      - name: Build
-        run: npm run build
+      # ⚠️ `verify`, not the four steps it used to list.
+      #
+      # This job ran lint, typecheck, test and build. `npm run verify` runs those AND five guards that
+      # were therefore enforced nowhere except a developer's memory:
+      #
+      #   check:sizes         the 200 line limit, the project's headline rule
+      #   check:readmes       every source folder documented
+      #   check:scripts       every script still loads
+      #   check:support       no shared fixture that nothing imports
+      #   typecheck:scripts   the harness typechecks too
+      #
+      # A 232 line test file merged green on 2026-08-18 because of this, which is how it was noticed.
+      # Naming the composite script rather than re-listing its parts means a guard added to `verify`
+      # is a guard CI runs, instead of one somebody has to remember to add here as well.
+      - name: Verify
+        run: npm run verify
 
       # module.json names these files explicitly. If the build ever emits different names, Foundry
       # loads nothing at all and does so silently, so this is checked rather than assumed.

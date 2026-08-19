@@ -1,4 +1,3 @@
-import { VIRTUAL_POINTER_ID } from '../constants.js';
 import { actionableTouches } from './ActionableTouches.js';
 import type { ExclusionZones } from './ExclusionZones.js';
 import type { GestureInput } from './GestureTypes.js';
@@ -46,7 +45,6 @@ export class TouchBinder {
       onTouchMove: this.onTouchMove,
       onTouchEnd: this.onTouchEnd,
       onTouchCancel: this.onTouchCancel,
-      onNativePointer: this.onNativePointer,
       onNativeContextMenu: this.onNativeContextMenu,
     };
 
@@ -76,20 +74,6 @@ export class TouchBinder {
   public isBound(): boolean {
     return this.bound;
   }
-
-  private readonly onNativePointer = (event: Event): void => {
-    if (!this.options.suppressNativeTouch()) {
-      return;
-    }
-    const pointerEvent = event as PointerEvent;
-    if (pointerEvent.pointerType !== 'touch' || pointerEvent.pointerId === VIRTUAL_POINTER_ID) {
-      return;
-    }
-    if (this.options.exclusions.isExcluded(event.target)) {
-      return;
-    }
-    event.stopPropagation();
-  };
 
   /**
    * Swallow the browser's own contextmenu, which Foundry treats as "cancel the drag".
