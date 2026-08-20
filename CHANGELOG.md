@@ -1,5 +1,40 @@
 # tongs-browser
 
+## 0.25.67
+
+### Patch Changes
+
+- [#265](https://github.com/LewisIsWorking/Tongs-Browser/pull/265) [`f831f42`](https://github.com/LewisIsWorking/Tongs-Browser/commit/f831f423095bda1a702e2c50bf32c3856a01e892) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - `ExclusionZones` answers three questions about an element, and only one of them had tests.
+
+  `isExcluded` says "not ours to touch". `isOwnInterface` says "this is our own furniture".
+  `needsNativePointerEvents` says "ours, and it still needs the browser's real events". They are not
+  opposites and they do not nest in the obvious way: chat is excluded and is not ours, the bar is ours
+  and is also excluded, and the drag handle is all three.
+
+  Treating any two as one has produced a real bug each time, and both edges of the narrowest one
+  shipped. Suppression over our own bar is what makes tapping DROP work at all, because a finger's
+  `pointerup` reaching PIXI ends in `#handleDragCancel` and throws away a held drag. But the suppressor
+  stops events at the window, so "PIXI must not see it" became "nobody sees it" and the bar's own drag
+  handle stopped receiving the `pointerdown` it is built on, reported as "I can't move the tongs toolbox
+  now".
+
+  So the carve-out has to be exactly the handle: any wider and DROP breaks, any narrower and the bar
+  cannot be moved. Both directions now fail a test, along with collapsing "ours" into "excluded".
+
+  `ExclusionZones.ts` 78.6% to 92.9% statements and 100% branches; the project reaches 95.5%.
+
+- [#267](https://github.com/LewisIsWorking/Tongs-Browser/pull/267) [`f0db3a8`](https://github.com/LewisIsWorking/Tongs-Browser/commit/f0db3a8f309b94b5949287311227bb56fbc79e6d) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The bar's collapsed state is written back to settings and read at startup, and now a test says so.
+
+  `onCollapsedChanged` was once typed on the options with nothing joining it to the settings store, so
+  the state was applied at startup and then silently forgotten. Changing a default is not finished when
+  the value changes; it is finished when the value survives a reload.
+
+  The bar reporting a change was already covered. What was not covered is `main.ts` writing that report
+  to the store and reading it back on the next launch, which is exactly the half that went missing.
+  Deleting either direction now fails a test.
+
+  `main.ts` 83.3% to 86.1% statements and 40% to 50% of functions; the project reaches 95.6%.
+
 ## 0.25.66
 
 ### Patch Changes
