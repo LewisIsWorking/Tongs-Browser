@@ -100,3 +100,47 @@ describe('at ready', () => {
     expect(moduleEntry.api).toBeUndefined();
   });
 });
+
+/**
+ * ⚠️ THE WIRING THAT WAS ONCE TYPED AND NEVER CONNECTED.
+ *
+ * `onCollapsedChanged` existed on the options and nothing joined it to the settings store, so the
+ * bar's collapsed state was applied at startup and then silently forgotten. Changing a default is
+ * not finished when the value changes; it is finished when the value survives a reload.
+ *
+ * `barStatePersistence.test.ts` covers the bar REPORTING a change. This covers `main.ts` writing
+ * that report to the store, and reading it back at startup, which is the half that went missing.
+ */
+describe('remembering the bar between sessions', () => {
+  it('opens the bar as the stored setting says', async () => {
+    const { hooks, moduleEntry } = await bootMain({
+      [SettingKey.ENABLED]: true,
+      [SettingKey.BAR_COLLAPSED]: false,
+    });
+
+    hooks.once.get('init')?.();
+    hooks.once.get('ready')?.();
+
+    const bar = (
+      moduleEntry.api as { getModifierBar: () => { isCollapsed: () => boolean } }
+    ).getModifierBar();
+    expect(bar.isCollapsed()).toBe(false);
+  });
+
+  it('writes a collapse back to the store, so it survives a reload', async () => {
+    const { hooks, settings, moduleEntry } = await bootMain({
+      [SettingKey.ENABLED]: true,
+      [SettingKey.BAR_COLLAPSED]: false,
+    });
+
+    hooks.once.get('init')?.();
+    hooks.once.get('ready')?.();
+
+    const bar = (
+      moduleEntry.api as { getModifierBar: () => { setCollapsed: (value: boolean) => void } }
+    ).getModifierBar();
+    bar.setCollapsed(true);
+
+    expect(settings.stored.get(SettingKey.BAR_COLLAPSED)).toBe(true);
+  });
+});
