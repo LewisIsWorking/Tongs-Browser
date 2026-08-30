@@ -8,7 +8,11 @@
  * documentation and cannot be told apart mechanically.
  * ANCHORED: found by hand 2026-08-12 in TongsBrowser, where five blocks describing DragSampler's
  * fields, and three more describing PixiMoveProbe and DispatchTrace, had been left behind.
- * PROVEN: `npm run lint:docblocks -- --self-test` feeds it the exact shape and requires a failure.
+ * PROVEN: the self-test feeds it the exact shape and requires a failure, and `npm run lint:docblocks`
+ *   RUNS it before the real check. Wired in 2026-08-22; until then the flag existed and nothing ever
+ *   passed it, so this line claimed a proof only a hand-typed command could produce. Measured with
+ *   the predicate stubbed to `return []`: unwired it printed "No orphaned docblocks across 319 files"
+ *   and exited 0, wired it exits 1 on "SELF TEST FAILED".
  *
  * A comment is anchored to the declaration BELOW it. Move the declaration during a refactor and the
  * comment does not move with it: it silently re-anchors to whatever is next, so it goes on reading

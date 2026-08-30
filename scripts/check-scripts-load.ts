@@ -18,8 +18,12 @@
  * browsers and write to a live world. It uses `module.stripTypeScriptTypes`, which is the exact
  * transform Node applies, and resolves the specifiers itself.
  *
+ * PROVEN: `npm run check:scripts` RUNS the self-test before the real check, wired in 2026-08-22.
+ *   Until then the flag existed and nothing passed it. Measured with `relativeSpecifiers` stubbed to
+ *   `return []`: the self-test now fails with "a .js specifier was not reported" and exits 1, where
+ *   the real check alone had nothing left to find and went green.
+ *
  * Run: npm run check:scripts
- *      npm run check:scripts -- --self-test
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { globSync } from 'node:fs';
