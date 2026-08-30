@@ -24,13 +24,26 @@
  *
  * Run: npm run check:support
  */
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 
-const tracked = execFileSync('git', ['ls-files', 'tests/**/*.ts'], { encoding: 'utf8' })
-  .split('\n')
-  .filter((file) => file !== '');
+import { listSourceFiles } from './sizes/listing.ts';
+
+/*
+ * ⚠️ The SAME listing every other guard uses, which includes UNTRACKED files. Changed 2026-08-22
+ * after an audit: this guard still called `git ls-files`, which reports tracked files only, so a
+ * fixture written moments ago was invisible until staged.
+ *
+ * That is precisely the case this guard exists for. An extraction is finished when nothing else does
+ * the job, and the moment somebody is most likely to extract a fixture and forget to adopt it is the
+ * moment they have just written it. Demonstrated before fixing: an unadopted `zzOrphan.ts` sitting in
+ * `tests/dom/support/` produced "All 9 shared test fixture(s) are imported somewhere".
+ *
+ * The untracked blind spot was found in `check:sizes` on 2026-08-18 and fixed in two guards. This one
+ * was missed, which is the lesson repeating: when a technique is shared, audit EVERY user of it, not
+ * the ones that happen to be in front of you.
+ */
+const tracked = listSourceFiles().filter((file) => file.startsWith('tests/'));
 
 const supportModules = tracked.filter((file) => file.includes('/support/'));
 const consumers = tracked.filter((file) => !file.includes('/support/'));
