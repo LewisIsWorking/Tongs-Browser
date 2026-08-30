@@ -1,5 +1,77 @@
 # tongs-browser
 
+## 0.25.68
+
+### Patch Changes
+
+- [#270](https://github.com/LewisIsWorking/Tongs-Browser/pull/270) [`c2c3e24`](https://github.com/LewisIsWorking/Tongs-Browser/commit/c2c3e24c4650443235da2cfecb8ed2b58161c9e5) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - `check:support` could not see a fixture that had just been written, and now no guard can regress that
+  way unnoticed.
+
+  `git ls-files` reports tracked files only, so a file created moments ago is invisible until staged.
+  That is exactly the case this guard exists for: the moment somebody is most likely to extract a
+  fixture and forget to adopt it is the moment they have just written it. Demonstrated before fixing,
+  an unadopted fixture sitting in `tests/dom/support/` produced "All 9 shared test fixture(s) are
+  imported somewhere".
+
+  The blind spot was found in `check:sizes` on 2026-08-18 and fixed in two guards, and the lesson was
+  written down as "a blind spot found in one guard is worth looking for in every guard that shares the
+  technique". It was not acted on, and `check:support` still had it four days later. A lesson recorded
+  in prose did not survive, so it is now a test: every guard must be able to see an unstaged file, and
+  one that calls `git ls-files` directly has to ask for `--others --exclude-standard`.
+
+  ⚠️ That test failed on its first run against two guards which only MENTION `ls-files` in a comment
+  about this very blind spot. A comment is not a caller, which is also already written down. It strips
+  comments first now.
+
+- [#271](https://github.com/LewisIsWorking/Tongs-Browser/pull/271) [`55811d0`](https://github.com/LewisIsWorking/Tongs-Browser/commit/55811d0b267a9dc8db66d8e603eac9de997c65c5) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Run the self-tests that two guards had implemented but nothing invoked.
+
+  `check-orphaned-docblocks.ts` and `check-scripts-load.ts` both shipped a `--self-test`, and neither
+  `npm run verify` nor CI ever passed the flag. The docblock guard went further and claimed
+  "PROVEN: `npm run lint:docblocks -- --self-test`", a proof that only existed in the commit that
+  wrote it.
+
+  Measured with the docblock predicate stubbed to `return []`: unwired it printed "No orphaned
+  docblocks across 319 files" and exited 0. Wired, it exits 1.
+
+  `tests/unit/guardSelfTests.test.ts` now requires that a guard implementing a self-test has an npm
+  script that runs it, and that the script still runs the guard against the repo afterwards - the
+  self-test exits 0 on its own, so wiring it in alone would be worse than not wiring it at all.
+
+- [#272](https://github.com/LewisIsWorking/Tongs-Browser/pull/272) [`f5f0e32`](https://github.com/LewisIsWorking/Tongs-Browser/commit/f5f0e323f7d1512f8037750217dde09c0a85364c) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Fix the update path, which could never have fired.
+
+  The manifest's `manifest` field pointed at `raw.githubusercontent.com/.../main/module.json`. Foundry
+  polls that URL and compares its `version` against the installed one, and the copy on `main` is
+  deliberately left at the `0.1.0` placeholder because only the copy inside `module.zip` is stamped.
+  Every install since v0.2.1 has therefore polled a file that says `0.1.0` and concluded there was
+  nothing newer.
+
+  Measured 2026-08-22 against the live URLs: the shipped zip reported `0.25.67`, its own manifest URL
+  reported `0.1.0`.
+
+  - `manifest` now points at `releases/latest/download/module.json`.
+  - The release workflow attaches the stamped `module.json` as an asset, in both the release job and
+    the manual attach job. Without that asset the new URL would 404.
+  - `stamp-manifest.ts` refuses to stamp a manifest whose poll URL points at an unstamped source.
+  - The README's install URL pointed at the same placeholder file, and its status line claimed the
+    module had never been run against a real Foundry instance, which stopped being true on 2026-08-20.
+
+- [#268](https://github.com/LewisIsWorking/Tongs-Browser/pull/268) [`03f75c1`](https://github.com/LewisIsWorking/Tongs-Browser/commit/03f75c1e88e2b9be194a7ca8407cd40a39b14c8c) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Switching the module off has ordering rules, and now they are asserted.
+
+  Disabling is not "stop listening". Foundry keeps whatever state the module put it in, so a drag in
+  progress, a latched modifier and a scaled interface all outlive the module unless teardown deals with
+  them. Each is invisible afterwards, because the module is off and there is nothing left to blame.
+
+  Now covered: a drag in progress is abandoned rather than left with Foundry believing a button is
+  still held, and the interface is given back by removing the scale property rather than overriding it
+  with a 1 that merely looks the same. Both fail when broken.
+
+  ⚠️ Removing `disable`'s early return fails nothing, and that is recorded in the test rather than
+  chased. Every teardown step is already idempotent, so the guard changes nothing observable: an
+  equivalent mutant rather than a hole. The test beside it still earns its place, because it fails if
+  `disable` stops clearing its own flag, which would leave the module unable to be switched back on.
+
+  `TongsBrowser.ts` 82.5% to 84.2% statements and 75% to 83.3% of branches; the project reaches 95.7%.
+
 ## 0.25.67
 
 ### Patch Changes
