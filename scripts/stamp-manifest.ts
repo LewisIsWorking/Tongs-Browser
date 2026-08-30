@@ -30,7 +30,31 @@ const manifest = JSON.parse(readFileSync('module.json', 'utf8'));
 manifest.version = version;
 manifest.download = `https://github.com/${repo}/releases/download/v${version}/module.zip`;
 
+/*
+ * ⚠️ `manifest` MUST NOT point at a source this script never stamps, and for 25 releases it did.
+ *
+ * Foundry polls the installed module's `manifest` URL and compares the `version` it finds there
+ * against the installed one. That field pointed at `raw.githubusercontent.com/.../main/module.json`,
+ * and the copy on main is deliberately left at the `0.1.0` placeholder because only the copy inside
+ * module.zip is stamped. So every install polled a file that said 0.1.0 forever and concluded there
+ * was nothing newer. Measured 2026-08-22 against the live URLs: the shipped zip said 0.25.67 and its
+ * own manifest URL said 0.1.0.
+ *
+ * The release now uploads a stamped module.json as an asset, so `releases/latest/download` serves
+ * the newest one. Anything under `/main/` or `raw.githubusercontent.com` is unstamped by definition
+ * and is rejected here rather than discovered as a module that silently never updates.
+ */
+const pollable = String(manifest.manifest);
+if (pollable.includes('raw.githubusercontent.com') || pollable.includes('/main/')) {
+  console.error(`The 'manifest' URL points at an unstamped source: ${pollable}`);
+  console.error('Foundry polls this URL for updates. A source that is never stamped reports the');
+  console.error('placeholder version forever, so no install can ever see an update.');
+  console.error('Point it at releases/latest/download/module.json.');
+  process.exit(1);
+}
+
 writeFileSync('module.json', `${JSON.stringify(manifest, null, 2)}\n`);
 
 console.log(`module.json stamped to ${version}`);
 console.log(`  download: ${manifest.download}`);
+console.log(`  update poll: ${pollable}`);

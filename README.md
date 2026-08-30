@@ -28,19 +28,26 @@ Foundry assumes a mouse. Touch devices do not have one, and the gap is wider tha
 Tongs Browser fixes all three by synthesising a persistent virtual mouse pointer driven by your
 finger, adding a sticky modifier key bar, and scaling the interface for small screens.
 
-Status: **early development.** The code is complete and tested, but it has not yet been run against a
-real Foundry instance on a real device. See [docs/MANUAL-TESTING.md](docs/MANUAL-TESTING.md).
+Status as of **2026-08-22**: **pre-release.** The module has been exercised against a live Foundry
+**14.366** server, driving a real world through a headless browser: pointer movement, click, drag,
+double click to open a sheet, and the sidebar. It has **not** been run on a physical Android device,
+which is the gap that still matters most. See [docs/MANUAL-TESTING.md](docs/MANUAL-TESTING.md) for
+what was measured and when.
 
 ## Installation
 
 Paste this into Foundry's **Install Module** box:
 
 ```
-https://raw.githubusercontent.com/LewisIsWorking/Tongs-Browser/main/module.json
+https://github.com/LewisIsWorking/Tongs-Browser/releases/latest/download/module.json
 ```
 
-Compatible with Foundry **v14**. The manifest declares 14.366; the measurements recorded in this
-repo were taken against 14.365.
+Foundry re-reads that URL to decide whether an update exists, so it must be the release asset and not
+the copy on `main`. The copy on `main` deliberately stays at the `0.1.0` placeholder, and pointing
+users at it meant no install could ever see a new version. Corrected 2026-08-22.
+
+Compatible with Foundry **v14**. The manifest declares 14.366, which is also the build the live
+measurements were taken against.
 
 ## How it works
 
