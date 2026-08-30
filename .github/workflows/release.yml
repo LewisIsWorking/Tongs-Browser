@@ -80,8 +80,13 @@ jobs:
           npm run build
           node scripts/stamp-manifest.ts
           zip -r module.zip module.json dist LICENSE README.md
-          gh release upload "v${VERSION}" module.zip --clobber
-          echo "Attached module.zip to v${VERSION}."
+          # module.json is attached ALONGSIDE the zip, not only sealed inside it. Foundry polls the
+          # installed manifest's `manifest` URL for updates, which now points at
+          # releases/latest/download/module.json; without this asset that URL 404s and no install can
+          # ever see an update. The Foundry package submission form also asks for the manifest asset
+          # URL of a SPECIFIC release, which does not exist unless it is attached here.
+          gh release upload "v${VERSION}" module.zip module.json --clobber
+          echo "Attached module.zip and module.json to v${VERSION}."
 
   attach:
     name: Attach module.zip to an existing tag
@@ -113,5 +118,7 @@ jobs:
           npm run build
           node scripts/stamp-manifest.ts
           zip -r module.zip module.json dist LICENSE README.md
-          gh release upload "$TAG" module.zip --clobber
-          echo "Attached module.zip to ${TAG}."
+          # Both assets, for the same reason as the version job above: the manifest URL Foundry polls
+          # for updates resolves to this asset, and the submission form needs its per-release URL.
+          gh release upload "$TAG" module.zip module.json --clobber
+          echo "Attached module.zip and module.json to ${TAG}."
