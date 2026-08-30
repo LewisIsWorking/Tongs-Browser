@@ -5,16 +5,58 @@ covered by the automated tests: jsdom has no layout engine, no touch hardware an
 test suite verifies event ordering and state transitions but can say nothing about whether Foundry
 responds to them.
 
+⚠️ **`npm run check:android` now covers a large part of this automatically.** See the run recorded
+below. Work the checklist for what a harness cannot judge: how it FEELS, whether haptics fire, and
+anything needing a physical digitiser.
+
 Work through this on a phone and on a tablet if you have both, since the default pointer modes differ
 between them.
 
+## ✅ First harnessed Android run, 2026-08-22
+
+`npm run check:android` ran against real Android for the first time on **2026-08-22**, on an
+**emulator** rather than physical hardware. **16 passed, 3 skipped, 0 failed.**
+
+|          |                                                    |
+| -------- | -------------------------------------------------- |
+| Device   | Android emulator, `google_apis` x86_64, Android 16 |
+| Viewport | 412x783 at dpr 2.625, 5 touch points               |
+| Browser  | Chrome 133.0.6943.137                              |
+| Foundry  | 14.366, world `cootestworld`, system `coo` 0.78.0  |
+| Module   | 0.25.68                                            |
+
+**The keyboard question is answered: `events`.** Foundry honours synthesised `KeyboardEvent`s on
+Android. Measured two ways that agree - the module reported `events`, and an independent probe
+confirmed `isTrusted=false`, `downKeys` is a Set, `registered=true`. The `applyDirectFallback` path
+that reaches into `KeyboardManager.downKeys` is therefore not needed on this stack.
+
+Also verified on real touch hardware:
+
+- **Tap clicks at the pointer, not under the finger** - the module's entire premise. Pointer parked
+  on the combat tab, finger tapped over the canvas, sidebar moved chat to combat.
+- The pointer lands inside the token it is aimed at: client (206, 391) read as scene (350, 350).
+- The scene control toggle is reachable and on screen at 412px, and the modifier bar at its default
+  position does not cover it.
+- All 20 modifier bar controls are on screen at phone width.
+- No page errors from this module. Four came from elsewhere on the page
+  (`RegExp.escape is not a function`), which is Chrome 133 lacking a newer JS builtin.
+
+⚠️ **Three checks could not run, and a skip is not a pass.** All three are hover, and the harness
+established the module is not implicated: a hand-built `pointermove` at the same coordinates **with
+the module bypassed** also failed to hover, while the same control succeeds on desktop Chrome. Chrome
+133 cannot express scripted hover. Re-run on Chromium 146 or newer.
+
+⚠️ **An emulator is not a phone.** It has no real digitiser, no haptics and a different GPU, so the
+long-press vibration and anything touching real touch latency are still unverified. The list below
+still wants physical hardware.
+
 ## Setup
 
-- Foundry version tested: `_____________`
-- Device and Android version: `_____________`
-- Browser: `_____________`
+- Foundry version tested: `14.366` (2026-08-22)
+- Device and Android version: `emulator, Android 16` (2026-08-22)
+- Browser: `Chrome 133.0.6943.137` (2026-08-22)
 - Pointer mode: trackpad / offset
-- Module version: `_____________`
+- Module version: `0.25.68`
 
 Have these installed, since they are the live stack this is built for: **PF2e system**, **PF2e HUD
 (reonZ)**, **PF2e Workbench**, **Health Estimate**.
