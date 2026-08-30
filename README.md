@@ -150,6 +150,57 @@ at all, which structurally enforces that the event sequence builders and the ges
 stay pure: if one reaches for `document`, its test fails immediately rather than passing quietly. The
 `dom` project covers dispatch ordering, hover transitions and exclusion zones under jsdom.
 
+### Coverage
+
+**The target is 100%.** `npm run verify` runs coverage and fails below the thresholds in
+`vitest.config.ts`, which are a ratchet: Vitest rewrites them upward whenever coverage improves, so a
+gain cannot be given back. As of 2026-08-22 the mark is 95.66% of statements and 93.21% of functions.
+
+Coverage was measured but never enforced before that date. `test:coverage` existed and neither
+`verify` nor CI ran it, so the figure appeared only when somebody typed the command by hand.
+
+⚠️ **A percentage is a floor on what was EXECUTED, never evidence that anything was ASSERTED.** A test
+written to move the number, with no expected value in it, raises coverage and proves nothing. This
+repo has found exactly that by mutation testing, which is the only check that tells the two apart.
+Reaching 100% by writing tests that assert nothing would be worse than staying at 95%, because it
+would also remove the signal that anything is missing.
+
+### Testing on Android
+
+The gesture layer's whole reason to exist is a real touchscreen, so desktop passing is not the phone
+passing. `npm run check:android` drives Chrome on a real device or emulator over the DevTools socket
+`adb` forwards, against a live Foundry world.
+
+```
+adb forward tcp:9222 localabstract:chrome_devtools_remote
+FOUNDRY_URL=http://10.0.2.2:30000 npm run check:android
+```
+
+`FOUNDRY_URL` is how the DEVICE reaches the host, which is `10.0.2.2` on an emulator rather than
+`localhost`. See [docs/MANUAL-TESTING.md](docs/MANUAL-TESTING.md) for the checks that need a human
+rather than a harness, and [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md) for how device
+testing gates a package submission.
+
+⚠️ Use a `google_apis` emulator image rather than `google_apis_playstore`. A Play Store image cannot
+be rooted, so Chrome's first-run cannot be skipped with `--disable-fre` and the DevTools socket never
+opens until somebody clicks through the setup by hand.
+
+⚠️ **If the device gets `ERR_EMPTY_RESPONSE` while the host serves the same URL fine, suspect a
+second listener on the port rather than the network.** Measured 2026-08-22: Foundry held
+`0.0.0.0:30000` and an unrelated `cef_server` process held `127.0.0.1:30000`. Windows routes the more
+specific binding, so the host's `localhost` resolved to `::1` and reached Foundry, while the device's
+`10.0.2.2` **and** `adb reverse` both landed on IPv4 loopback and hit the other process, which
+accepted the connection and sent nothing.
+
+`netstat -ano | grep :30000` shows both. The fix needs no process killed: point the device at the
+host's LAN address, which reaches the `0.0.0.0` binding directly.
+
+```
+FOUNDRY_URL=http://192.168.1.251:30000 npm run check:android
+```
+
+Something answering on the port is not the same as the RIGHT thing answering.
+
 ### Releases
 
 Versioning runs on [Changesets](https://github.com/changesets/changesets). Every pull request that
