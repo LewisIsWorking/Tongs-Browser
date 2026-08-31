@@ -1,5 +1,22 @@
 # tongs-browser
 
+## 0.25.80
+
+### Patch Changes
+
+- [#298](https://github.com/LewisIsWorking/Tongs-Browser/pull/298) [`564b24d`](https://github.com/LewisIsWorking/Tongs-Browser/commit/564b24d4b4c22d32c05cf3beef88b3518b4d43ac) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Test the zoom limit thunk, reached only by a pinch.
+
+  `getZoomLimits` was the last of the four `ModuleParts` canvas thunks with no caller: the pan suite
+  reaches the other three, and only `zoomBy` asks for the limits. The clamp it feeds is what stops a
+  pinch driving the scale to a value Foundry refuses, after which the canvas ignores zoom entirely
+  until the scene is reloaded.
+
+  Asserts the ceiling, the floor, and that both are read from Foundry's published config rather than
+  carried as constants: two runs with different maxima must land on different ceilings. Hardcoding the
+  limits fails three of the four tests.
+
+  `ModuleParts` goes to 90.9% of functions; project coverage to 97.93 statements and 96.12 branches.
+
 ## 0.25.79
 
 ### Patch Changes
