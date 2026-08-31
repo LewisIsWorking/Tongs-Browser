@@ -14,7 +14,7 @@ import { listSourceFiles } from '../../scripts/sizes/listing.ts';
  * Found in `check:sizes` on 2026-08-18, when a 212 line test file went green locally and red in CI.
  * Fixed there and in `check:readmes`, and the lesson was written down as "a blind spot found in one
  * guard is worth looking for in every guard that shares the technique" - and then not acted on.
- * `check:support` still had it on 2026-08-22, four days later, and reported "All 9 shared test
+ * `check:support` still had it on 2026-08-30, twelve days later, and reported "All 9 shared test
  * fixture(s) are imported somewhere" with an unadopted fixture sitting in the folder.
  *
  * A lesson recorded in prose did not survive. This is the same lesson as a predicate.

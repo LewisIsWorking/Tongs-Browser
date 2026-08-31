@@ -12,9 +12,9 @@ anything needing a physical digitiser.
 Work through this on a phone and on a tablet if you have both, since the default pointer modes differ
 between them.
 
-## ✅ First harnessed Android run, 2026-08-22
+## ✅ First harnessed Android run, 2026-08-30
 
-`npm run check:android` ran against real Android for the first time on **2026-08-22**, on an
+`npm run check:android` ran against real Android for the first time on **2026-08-30**, on an
 **emulator** rather than physical hardware. **16 passed, 3 skipped, 0 failed.**
 
 |          |                                                    |
@@ -52,9 +52,9 @@ still wants physical hardware.
 
 ## Setup
 
-- Foundry version tested: `14.366` (2026-08-22)
-- Device and Android version: `emulator, Android 16` (2026-08-22)
-- Browser: `Chrome 133.0.6943.137` (2026-08-22)
+- Foundry version tested: `14.366` (2026-08-30)
+- Device and Android version: `emulator, Android 16` (2026-08-30)
+- Browser: `Chrome 133.0.6943.137` (2026-08-30)
 - Pointer mode: trackpad / offset
 - Module version: `0.25.68`
 

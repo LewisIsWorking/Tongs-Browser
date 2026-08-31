@@ -34,7 +34,7 @@ export default defineConfig({
       exclude: ['src/types/**'],
 
       /**
-       * ⚠️ THE TARGET IS 100%, and these numbers are the ratchet that gets there. Added 2026-08-22.
+       * ⚠️ THE TARGET IS 100%, and these numbers are the ratchet that gets there. Added 2026-08-30.
        *
        * Until now this block read "thresholds are switched on alongside the pointer core, once there
        * is logic worth measuring". That day passed a long time ago: 95.66% of statements across 30-odd
@@ -55,10 +55,10 @@ export default defineConfig({
        */
       thresholds: {
         autoUpdate: true,
-        statements: 96.59,
-        branches: 94.23,
-        functions: 94.49,
-        lines: 96.55,
+        statements: 96.74,
+        branches: 94.63,
+        functions: 95.04,
+        lines: 96.71,
       },
     },
   },

@@ -30,7 +30,7 @@ import { basename } from 'node:path';
 import { listSourceFiles } from './sizes/listing.ts';
 
 /*
- * ⚠️ The SAME listing every other guard uses, which includes UNTRACKED files. Changed 2026-08-22
+ * ⚠️ The SAME listing every other guard uses, which includes UNTRACKED files. Changed 2026-08-30
  * after an audit: this guard still called `git ls-files`, which reports tracked files only, so a
  * fixture written moments ago was invisible until staged.
  *

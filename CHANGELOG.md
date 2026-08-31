@@ -94,7 +94,7 @@
   Every install since v0.2.1 has therefore polled a file that says `0.1.0` and concluded there was
   nothing newer.
 
-  Measured 2026-08-22 against the live URLs: the shipped zip reported `0.25.67`, its own manifest URL
+  Measured 2026-08-30 against the live URLs: the shipped zip reported `0.25.67`, its own manifest URL
   reported `0.1.0`.
 
   - `manifest` now points at `releases/latest/download/module.json`.

@@ -37,7 +37,7 @@ manifest.download = `https://github.com/${repo}/releases/download/v${version}/mo
  * against the installed one. That field pointed at `raw.githubusercontent.com/.../main/module.json`,
  * and the copy on main is deliberately left at the `0.1.0` placeholder because only the copy inside
  * module.zip is stamped. So every install polled a file that said 0.1.0 forever and concluded there
- * was nothing newer. Measured 2026-08-22 against the live URLs: the shipped zip said 0.25.67 and its
+ * was nothing newer. Measured 2026-08-30 against the live URLs: the shipped zip said 0.25.67 and its
  * own manifest URL said 0.1.0.
  *
  * The release now uploads a stamped module.json as an asset, so `releases/latest/download` serves

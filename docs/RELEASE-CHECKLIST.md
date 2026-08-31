@@ -1,6 +1,6 @@
 # Releasing to the Foundry package listing
 
-Written 2026-08-22, against v0.25.68.
+Written 2026-08-30, against v0.25.68.
 
 ## The goal is ONE listing, not two
 
@@ -12,7 +12,7 @@ the whole job; The Forge follows.
 
 > **No physical Android device has ever run this module.**
 
-`adb devices` was empty on 2026-08-22. Everything measured so far went through headless desktop
+`adb devices` was empty on 2026-08-30. Everything measured so far went through headless desktop
 Chromium synthesising touch events against a live Foundry 14.366. That validates the logic. It does
 not validate the thing a user does.
 
@@ -47,7 +47,7 @@ against the installed one. That field pointed at `raw.githubusercontent.com/.../
 and the copy on `main` is deliberately pinned at the `0.1.0` placeholder because only the copy inside
 `module.zip` is stamped.
 
-Measured against the live URLs on 2026-08-22:
+Measured against the live URLs on 2026-08-30:
 
 - the shipped v0.25.67 zip reported `0.25.67`
 - the URL that zip told Foundry to poll reported `0.1.0`
@@ -80,7 +80,7 @@ module was never publicly listed, so the practical blast radius is the developer
    https://github.com/LewisIsWorking/Tongs-Browser/releases/download/v0.25.68/module.json
    ```
 
-   Verified HTTP 200 on 2026-08-22. Before submitting, re-check it for whatever version is current -
+   Verified HTTP 200 on 2026-08-30. Before submitting, re-check it for whatever version is current -
    the form silently accepts a URL that 404s later.
 
 6. Foundry staff review, typically a few days, then grant access to the package admin pages.

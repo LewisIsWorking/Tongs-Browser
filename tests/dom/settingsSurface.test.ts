@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { buildModule as build, stubFoundryEnvironment } from './support/moduleUnderTest.js';
 
 /**
- * The methods a Foundry setting change calls, none of which any test called. Written 2026-08-22.
+ * The methods a Foundry setting change calls, none of which any test called. Written 2026-08-30.
  *
  * ⚠️ These are the module's SETTINGS SURFACE: `main.ts` registers a Foundry setting for each and
  * calls the matching method from its `onChange`. Nothing else calls them, so an unexercised one is a
