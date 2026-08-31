@@ -120,4 +120,59 @@ describe('scaling and hit testing must stay decoupled', () => {
 
     expect(calls).toEqual([[120, 120]]);
   });
+
+  /**
+   * ⚠️ NOTHING is written until `apply` is called, and the guard in `setScale` is what enforces it.
+   *
+   * The module must leave Foundry's own layout completely alone while it is switched off. A user
+   * who has configured a scale but not enabled the module, or who has just disabled it, must get
+   * Foundry exactly as it ships. `isApplied` is that state, and `setScale` consults it rather than
+   * writing eagerly.
+   */
+  describe('before it has been applied', () => {
+    it('writes nothing to the document when the scale is set', () => {
+      const scaler = new UiScaler({ document });
+
+      scaler.setScale(0.6);
+
+      expect(document.documentElement.style.getPropertyValue('--tb-ui-scale')).toBe('');
+      expect(document.documentElement.classList.contains('tb-scaled')).toBe(false);
+    });
+
+    it('reports that it is not applied, and that it is once it has been', () => {
+      const scaler = new UiScaler({ document });
+      expect(scaler.isApplied()).toBe(false);
+
+      scaler.apply();
+
+      expect(scaler.isApplied()).toBe(true);
+    });
+
+    /** ⚠️ The scale set while inert is REMEMBERED, so enabling uses it rather than the default. */
+    it('applies the scale it was given while inert, once applied', () => {
+      const scaler = new UiScaler({ document });
+      scaler.setScale(0.6);
+
+      scaler.apply();
+
+      expect(document.documentElement.style.getPropertyValue('--tb-ui-scale')).toBe('0.6');
+    });
+
+    /**
+     * ⚠️ Once applied, a further change takes effect immediately rather than needing a re-apply.
+     *
+     * ⚠️ 0.9 rather than 0.4, and the first draft used 0.4 and failed reporting 0.5. The scale is
+     * clamped to MIN_UI_SCALE..MAX_UI_SCALE (0.5 to 1) and snapped to a 0.05 step, so an
+     * out-of-range value tests the clamp rather than the re-apply. Picking a value the code will
+     * carry unchanged is what makes this assertion about the thing it names.
+     */
+    it('re-applies immediately when the scale changes after applying', () => {
+      const scaler = new UiScaler({ document });
+      scaler.apply();
+
+      scaler.setScale(0.9);
+
+      expect(document.documentElement.style.getPropertyValue('--tb-ui-scale')).toBe('0.9');
+    });
+  });
 });

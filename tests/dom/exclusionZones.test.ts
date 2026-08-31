@@ -75,4 +75,31 @@ describe('ExclusionZones', () => {
       true
     );
   });
+
+  /**
+   * ⚠️ PINS A LIVE AUDIT FINDING. `#chat-log` is an ID selector and it matched NOTHING on Foundry
+   * 14.365: the log is `<ol class="chat-log">`, and the id belongs to the v12 markup. The exclusion
+   * only kept working because `.chat-scroll` wraps the log and `closest` found that instead, which
+   * is luck rather than design.
+   *
+   * The class form was added after that audit. Without this assertion it reads as a duplicate of the
+   * id form and is exactly the kind of thing a tidy-up deletes, which would leave chat protected by
+   * coincidence again.
+   */
+  it('excludes the chat log by class, not only by the id older Foundry used', () => {
+    const selector = new ExclusionZones().getSelector();
+
+    expect(selector).toContain('.chat-log');
+    expect(selector).toContain('#chat-log');
+  });
+
+  /** Extra selectors widen the set without a code change, and must survive into the real selector. */
+  it('carries an additional selector through to the one it matches on', () => {
+    const selector = new ExclusionZones({
+      additionalSelectors: ['.someone-elses-widget'],
+    }).getSelector();
+
+    expect(selector).toContain('.someone-elses-widget');
+    expect(selector).toContain('.chat-log');
+  });
 });
