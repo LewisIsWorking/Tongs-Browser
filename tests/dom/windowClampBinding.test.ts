@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { captureHookRegistry } from './support/hookCapture.js';
 import { clampBinder, makeClampWindow } from './support/clampWindows.js';
 
 /**
@@ -15,32 +16,7 @@ import { clampBinder, makeClampWindow } from './support/clampWindows.js';
  * MISSES: whether Foundry emits these hook names on the version in use. Only the live harness can
  *   answer that, and `check:android` does.
  */
-interface Registration {
-  hook: string;
-  callback: () => void;
-}
-
-interface CapturedHooks {
-  registered: Registration[];
-  removed: string[];
-}
-
-function captureHooks(): CapturedHooks {
-  const registered: Registration[] = [];
-  const removed: string[] = [];
-  Object.assign(globalThis, {
-    Hooks: {
-      on: (hook: string, callback: () => void) => {
-        registered.push({ hook, callback });
-        return registered.length;
-      },
-      off: (hook: string) => {
-        removed.push(hook);
-      },
-    },
-  });
-  return { registered, removed };
-}
+const captureHooks = captureHookRegistry;
 
 const offscreen = (): HTMLElement =>
   makeClampWindow('application', { left: 350, top: 10, width: 300, height: 200 });
@@ -130,7 +106,10 @@ describe('binding to the render hooks', () => {
 
     bound.unbind();
 
-    expect(hooks.removed).toEqual(['renderApplication', 'renderApplicationV2']);
+    expect(hooks.removed.map((entry) => entry.hook)).toEqual([
+      'renderApplication',
+      'renderApplicationV2',
+    ]);
   });
 
   /** ⚠️ The guard is on `hookIds` being empty, so unbinding has to clear it or rebinding is a no-op. */
