@@ -71,12 +71,17 @@ export class CanvasController {
 
   public constructor(private readonly options: CanvasControllerOptions) {}
 
-  public isAvailable(): boolean {
-    return this.options.getCanvas()?.ready ?? false;
-  }
-
   /**
    * Pans by a screen space delta.
+   *
+   * ⚠️ The readiness check below is the ONLY statement of that rule now. `isAvailable()`, a public
+   * method returning the same `getCanvas()?.ready ?? false`, was removed 2026-09-01 because nothing
+   * called it anywhere in src, tests or scripts. Two statements of one rule with only one of them
+   * reachable is how the unreachable copy drifts.
+   *
+   * `check:exports` would not have found it: that guard covers exported VALUES, and a public method
+   * on a class that is itself used looks used from the outside. Coverage found it, which is the only
+   * signal separating a method nobody calls from one nobody happened to call today.
    *
    * Two conversions, and leaving either out breaks it in a way that still looks plausible.
    *
