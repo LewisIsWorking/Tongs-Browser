@@ -185,6 +185,16 @@ testing gates a package submission.
 be rooted, so Chrome's first-run cannot be skipped with `--disable-fre` and the DevTools socket never
 opens until somebody clicks through the setup by hand.
 
+⚠️ **Cold boot the emulator before a run you intend to record.** Measured 2026-08-31: a warm emulator
+that had been up for hours failed the tap-at-the-pointer check four times running, on two builds
+including one that had passed the previous day. A cold boot passed twice with nothing else changed.
+A warm emulator manufactures a false failure on the module's most important check, which is the kind
+of red that gets a correct module "fixed".
+
+```
+emulator -avd coo_phone -no-snapshot-load -no-boot-anim
+```
+
 ⚠️ **If the device gets `ERR_EMPTY_RESPONSE` while the host serves the same URL fine, suspect a
 second listener on the port rather than the network.** Measured 2026-08-30: Foundry held
 `0.0.0.0:30000` and an unrelated `cef_server` process held `127.0.0.1:30000`. Windows routes the more
