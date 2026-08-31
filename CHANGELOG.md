@@ -1,5 +1,22 @@
 # tongs-browser
 
+## 0.25.76
+
+### Patch Changes
+
+- [#290](https://github.com/LewisIsWorking/Tongs-Browser/pull/290) [`19875e9`](https://github.com/LewisIsWorking/Tongs-Browser/commit/19875e954cedb054d0c8eba11c9ca5a821137e8c) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Test binding and unbinding the scene control, which the injection suite never exercised.
+
+  The existing suite calls `inject` directly, so every question about the button's content was answered
+  and none about whether it is ever asked for. Foundry builds the scene controls exactly once, so a
+  hook registered late has already missed the only call it will get: measured on 14.365, a listener
+  added at `ready` fired zero times and the button never existed.
+
+  Unbinding is asserted by id as well as hook name, because passing the wrong id silently leaves the
+  listener installed. Mutation checked: all five mutations kill a test.
+
+  `SceneControlToggle` reaches 100% of statements, functions and lines; project coverage to 97.57
+  statements and 96.88 functions.
+
 ## 0.25.75
 
 ### Patch Changes
