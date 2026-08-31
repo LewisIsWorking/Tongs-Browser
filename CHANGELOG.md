@@ -1,5 +1,21 @@
 # tongs-browser
 
+## 0.25.85
+
+### Patch Changes
+
+- [#308](https://github.com/LewisIsWorking/Tongs-Browser/pull/308) [`4b0fe8e`](https://github.com/LewisIsWorking/Tongs-Browser/commit/4b0fe8e5a8087fd21dcc849399035b87390f467d) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Test what the one sidebar button does in each shape of Foundry.
+
+  `decideSidebarAction` returns five kinds and only three were ever dispatched by a test: the decision
+  was covered and the carrying out was not. A phone has room for one button, so that button has to
+  serve several tabs, exactly one, none with a docked sidebar, and no sidebar at all.
+
+  A kind dispatched to the wrong branch is a button that does nothing in one configuration, and nobody
+  notices until somebody plays in that configuration. Mutation checked: each of the four branches kills
+  a different test.
+
+  Project coverage to 98.39 statements and 96.71 branches.
+
 ## 0.25.84
 
 ### Patch Changes
