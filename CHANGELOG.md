@@ -1,5 +1,21 @@
 # tongs-browser
 
+## 0.25.75
+
+### Patch Changes
+
+- [#288](https://github.com/LewisIsWorking/Tongs-Browser/pull/288) [`b2f34c9`](https://github.com/LewisIsWorking/Tongs-Browser/commit/b2f34c953521c6b2866e2201388d4e7a3fbbbf97) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Test the two `DragDiagnostics` callbacks, both of which lose a diagnostic silently when unwired.
+
+  `onObservation` carries what Foundry did into the journal, which is the one place a Foundry action
+  sits beside the button press that caused it. `fallback` is the last resort when there is no chat to
+  whisper into, and chat is the only diagnostic channel a phone has.
+
+  The report renders either way, so a lost input looks exactly like a quiet session. Mutation checked:
+  dropping either callback, or the no-game guard, fails.
+
+  `DragDiagnostics` reaches 100% of statements, functions and lines; project coverage to 97.26
+  statements and 96.51 functions.
+
 ## 0.25.74
 
 ### Patch Changes
