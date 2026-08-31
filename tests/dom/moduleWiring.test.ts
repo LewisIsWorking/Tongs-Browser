@@ -12,7 +12,7 @@ import { stubFoundryEnvironment } from './support/moduleUnderTest.js';
  * captures `undefined` and fails at the first tap, long after the code that caused it has finished
  * running." Seven of them were never called by any test, so the claim was documented and unverified.
  *
- * Written 2026-08-22. Nothing here duplicates a focused suite: every part already has one. What is
+ * Written 2026-08-30. Nothing here duplicates a focused suite: every part already has one. What is
  * asserted is that the WIRING between them arrives at the right sibling, which is the one thing a
  * per-part test cannot see and the compiler cannot check.
  *

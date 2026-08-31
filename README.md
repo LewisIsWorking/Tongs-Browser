@@ -28,7 +28,7 @@ Foundry assumes a mouse. Touch devices do not have one, and the gap is wider tha
 Tongs Browser fixes all three by synthesising a persistent virtual mouse pointer driven by your
 finger, adding a sticky modifier key bar, and scaling the interface for small screens.
 
-Status as of **2026-08-22**: **pre-release.** The module has been exercised against a live Foundry
+Status as of **2026-08-30**: **pre-release.** The module has been exercised against a live Foundry
 **14.366** server, driving a real world through a headless browser: pointer movement, click, drag,
 double click to open a sheet, and the sidebar. It has **not** been run on a physical Android device,
 which is the gap that still matters most. See [docs/MANUAL-TESTING.md](docs/MANUAL-TESTING.md) for
@@ -44,7 +44,7 @@ https://github.com/LewisIsWorking/Tongs-Browser/releases/latest/download/module.
 
 Foundry re-reads that URL to decide whether an update exists, so it must be the release asset and not
 the copy on `main`. The copy on `main` deliberately stays at the `0.1.0` placeholder, and pointing
-users at it meant no install could ever see a new version. Corrected 2026-08-22.
+users at it meant no install could ever see a new version. Corrected 2026-08-30.
 
 Compatible with Foundry **v14**. The manifest declares 14.366, which is also the build the live
 measurements were taken against.
@@ -154,7 +154,7 @@ stay pure: if one reaches for `document`, its test fails immediately rather than
 
 **The target is 100%.** `npm run verify` runs coverage and fails below the thresholds in
 `vitest.config.ts`, which are a ratchet: Vitest rewrites them upward whenever coverage improves, so a
-gain cannot be given back. As of 2026-08-22 the mark is 95.66% of statements and 93.21% of functions.
+gain cannot be given back. As of 2026-08-30 the mark is 95.66% of statements and 93.21% of functions.
 
 Coverage was measured but never enforced before that date. `test:coverage` existed and neither
 `verify` nor CI ran it, so the figure appeared only when somebody typed the command by hand.
@@ -186,7 +186,7 @@ be rooted, so Chrome's first-run cannot be skipped with `--disable-fre` and the 
 opens until somebody clicks through the setup by hand.
 
 ⚠️ **If the device gets `ERR_EMPTY_RESPONSE` while the host serves the same URL fine, suspect a
-second listener on the port rather than the network.** Measured 2026-08-22: Foundry held
+second listener on the port rather than the network.** Measured 2026-08-30: Foundry held
 `0.0.0.0:30000` and an unrelated `cef_server` process held `127.0.0.1:30000`. Windows routes the more
 specific binding, so the host's `localhost` resolved to `::1` and reached Foundry, while the device's
 `10.0.2.2` **and** `adb reverse` both landed on IPv4 loopback and hit the other process, which

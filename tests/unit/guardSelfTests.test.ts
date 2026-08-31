@@ -13,7 +13,7 @@ import { listSourceFiles } from '../../scripts/sizes/listing.ts';
  * claim. `npm run verify` never typed it, and neither did CI. The proof existed only in the past
  * tense, so the self-test could have rotted to a no-op and nothing would have gone red.
  *
- * Found 2026-08-22, auditing the guards after the SAME sweep found the untracked-files blind spot in
+ * Found 2026-08-30, auditing the guards after the SAME sweep found the untracked-files blind spot in
  * `check:support`. `--self-test` was wired into `check:sizes` on 2026-08-18 with the note that it
  * "was reachable only by hand", and the two other guards that had one were left alone. Third time a
  * fix landed on one user of a shared technique and not the rest.

@@ -71,9 +71,21 @@ Hooks.once('init', () => {
   const toggle = new SceneControlToggle({
     isActive: () => instance?.isEnabled() ?? store?.getBoolean(SettingKey.ENABLED) ?? false,
     onToggle: () => {
-      // Writing the setting rather than calling enable directly, so the scene control and the
-      // settings dialog cannot disagree about what is on.
-      store?.set(SettingKey.ENABLED, !(instance?.isEnabled() ?? false));
+      /*
+       * Writing the setting rather than calling enable directly, so the scene control and the
+       * settings dialog cannot disagree about what is on.
+       *
+       * ⚠️ Falls back to the STORE exactly as `isActive` above does, corrected 2026-08-30. It read
+       * `!(instance?.isEnabled() ?? false)`, so the two callbacks disagreed about where the truth
+       * lives before `ready` builds the instance: the button reported ON from the store and a tap
+       * wrote `true` again, leaving it impossible to switch off. Identical behaviour once `instance`
+       * exists, which is why it survived; found by testing the callback rather than the
+       * registration.
+       */
+      store?.set(
+        SettingKey.ENABLED,
+        !(instance?.isEnabled() ?? store.getBoolean(SettingKey.ENABLED))
+      );
     },
   });
   toggle.bind();
