@@ -1,5 +1,37 @@
 # tongs-browser
 
+## 0.25.73
+
+### Patch Changes
+
+- [#283](https://github.com/LewisIsWorking/Tongs-Browser/pull/283) [`4fc1fa8`](https://github.com/LewisIsWorking/Tongs-Browser/commit/4fc1fa8931ccaea0470862ebbb7cffed658e1adf) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Test that the window clamp binder actually binds.
+
+  The existing suite covers `clampAll` thoroughly and calls it by hand every time. In a real session
+  nothing does: Foundry renders a window and the render hook is the only thing that notices. The
+  clamping was covered and the binding was not, and a binder that clamps perfectly but never runs is
+  indistinguishable from no binder at all.
+
+  Asserts registration for both application generations, clamping of what is already on screen and of
+  what renders later, the double-bind guard, and that unbinding leaves it able to bind again. Mutation
+  checked: all six mutations kill a test.
+
+  The two window helpers moved into a shared fixture rather than being copied, since the jsdom layout
+  workaround they carry is load bearing.
+
+- [#285](https://github.com/LewisIsWorking/Tongs-Browser/pull/285) [`71032d1`](https://github.com/LewisIsWorking/Tongs-Browser/commit/71032d1d8288aaeccbf2a6640e8d1358fffb8ae6) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Record that a warm emulator fails the tap check on a correct module.
+
+  Re-running `check:android` a day after the first successful run produced a failure on the module's
+  central premise: tap clicks at the pointer rather than under the finger. It was reproducible, four
+  times.
+
+  It is not a regression, and that was established rather than argued: `v0.25.68`, the exact build that
+  had passed, was checked out, rebuilt and re-run, and failed identically. Cold booting the emulator
+  fixed it outright, twice in a row, with nothing else changed.
+
+  Cold boot the emulator before any run whose result you intend to record. A warm one manufactures a
+  false failure on the most important check in the suite, which is the kind of red that gets a correct
+  module "fixed".
+
 ## 0.25.72
 
 ### Patch Changes
