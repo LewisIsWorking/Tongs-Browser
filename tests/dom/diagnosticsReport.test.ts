@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildDiagnosticsReport } from '../../src/debug/DiagnosticsReport.js';
+import { buildJournalSection } from '../../src/debug/JournalSection.js';
+import type { JournalEntry } from '../../src/debug/DebugJournal.js';
 import { find, snapshot } from './support/diagnosticsSnapshot.js';
 
 /**
@@ -114,5 +116,45 @@ describe('buildDiagnosticsReport', () => {
     const lines = buildDiagnosticsReport(snapshot({ lastGateDistance: Number.NaN }));
 
     expect(find(lines, 'last gate distance')).toContain('origin or pointer missing');
+  });
+});
+
+/**
+ * ⚠️ The timeline SAYS when it has been trimmed, and the alternative is worse than it looks.
+ *
+ * `JournalSection` records why: "A timeline that starts mid gesture and does not say so reads as a
+ * complete account of the gesture, and the reader then concludes the button press never happened
+ * rather than that it scrolled off." That reader is someone debugging a device they cannot attach a
+ * console to, working from a chat card, and a silently trimmed timeline sends them looking for a
+ * missing button press that was never missing.
+ */
+describe('the timeline heading', () => {
+  const entries = (count: number): JournalEntry[] =>
+    Array.from({ length: count }, (_unused, index) => ({
+      at: index,
+      source: 'ui' as const,
+      detail: `entry ${String(index)}`,
+    }));
+
+  it('says how many earlier entries were dropped', () => {
+    const heading = buildJournalSection(entries(30))[0] ?? '';
+
+    expect(heading).toContain('last 24');
+    expect(heading).toContain('6 earlier entries dropped');
+  });
+
+  it('does not claim anything was dropped when nothing was', () => {
+    const heading = buildJournalSection(entries(5))[0] ?? '';
+
+    expect(heading).toContain('5 entries');
+    expect(heading).not.toContain('dropped');
+  });
+
+  /** ⚠️ The LAST entries, not the first: what is being diagnosed is always how a gesture ENDED. */
+  it('keeps the most recent entries rather than the earliest', () => {
+    const section = buildJournalSection(entries(30)).join(' ');
+
+    expect(section).toContain('entry 29');
+    expect(section).not.toContain('entry 0 ');
   });
 });
