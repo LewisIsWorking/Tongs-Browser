@@ -33,7 +33,8 @@ that reaches into `KeyboardManager.downKeys` is therefore not needed on this sta
 Also verified on real touch hardware:
 
 - **Tap clicks at the pointer, not under the finger** - the module's entire premise. Pointer parked
-  on the combat tab, finger tapped over the canvas, sidebar moved chat to combat.
+  on the combat tab, finger tapped over the canvas, sidebar moved chat to combat. Re-confirmed
+  2026-08-31 on a cold booted emulator; ⚠️ a WARM emulator reports this as a false failure, see below.
 - The pointer lands inside the token it is aimed at: client (206, 391) read as scene (350, 350).
 - The scene control toggle is reachable and on screen at 412px, and the modifier bar at its default
   position does not cover it.
@@ -49,6 +50,53 @@ the module bypassed** also failed to hover, while the same control succeeds on d
 ⚠️ **An emulator is not a phone.** It has no real digitiser, no haptics and a different GPU, so the
 long-press vibration and anything touching real touch latency are still unverified. The list below
 still wants physical hardware.
+
+## ⚠️ The tap check did not reproduce, 2026-08-31
+
+Re-run the next day on the same emulator, the same Foundry 14.366 and the same world:
+**15 passed, 3 skipped, 1 FAILED.**
+
+```
+FAIL  tap clicks at the pointer rather than under the finger:
+      pointer parked on the combat tab, finger tapped at (206,509) over canvas,
+      sidebar stayed on chat. A plain scripted click on the SAME element does switch
+      it (chat -> combat), so the page is fine and the tap is not producing an
+      activation the tab acts on.
+```
+
+**It is not a code regression, and that was established rather than assumed.** `v0.25.68` - the exact
+build that passed on 2026-08-30 - was checked out, rebuilt and re-run, and it fails identically. So
+the module did not change; the environment did.
+
+### Cause: a warm emulator. COLD BOOT BEFORE TRUSTING A RESULT.
+
+| emulator state                                                              | runs | result                |
+| --------------------------------------------------------------------------- | ---- | --------------------- |
+| warm, running several hours, Chrome force-stopped and relaunched repeatedly | 4    | **all FAILED**        |
+| cold booted, `-no-snapshot-load`                                            | 2    | **all passed, 16/16** |
+
+Same build, same Foundry, same world, same flags. Killing the emulator and cold booting it fixed the
+failure outright and it has not returned.
+
+Ruled out along the way, each by measurement rather than reasoning:
+
+- **A code regression.** `v0.25.68`, the exact build that passed on 2026-08-30, was checked out,
+  rebuilt and re-run on the warm emulator: it failed identically. This was the first thing checked and
+  it is what stopped four hours going into a bisect.
+- **Flakiness.** Four consecutive failures, then two consecutive passes. Not random.
+- **Chrome flags.** The `--disable-features=HttpsUpgrades...` and `--ignore-certificate-errors` flags
+  added while diagnosing the loopback problem were removed and Chrome restarted. No change.
+- **A stale session.** A previous run holding a user slot caused a `waitForReady` timeout, which is a
+  different and earlier failure; clearing it let the run proceed to this one.
+
+⚠️ **Cold boot the emulator before any run whose result you intend to record.** A warm one reports a
+false FAILURE on the single most important check this module has, which is the kind of red that gets
+a correct module "fixed".
+
+⚠️ It cuts the other way too, and that is the part worth keeping in mind. An environment that
+manufactures a false failure can manufacture a false pass, and nothing here distinguishes them from
+the inside. Two runs of one emulator agreeing is weaker evidence than it looks. This remains the
+argument for testing on a physical device.
 
 ## Setup
 
