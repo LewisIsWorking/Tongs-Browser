@@ -49,4 +49,27 @@ describe('CursorOverlay', () => {
     cursor.setButtonHeld(false);
     expect(cursor.getElement().classList.contains('tb-cursor--held')).toBe(false);
   });
+
+  /**
+   * ⚠️ Hiding is how the cursor leaves the screen without the overlay being torn down and rebuilt.
+   * The element keeps its position and held state, so re-showing it does not make the pointer jump
+   * to a stale coordinate. Removing the element instead would be the obvious alternative and would
+   * lose exactly that.
+   */
+  it('hides and shows without being rebuilt', () => {
+    const overlay = new CursorOverlay({ document });
+    const element = overlay.getElement();
+
+    overlay.setVisible(false);
+    expect(element.style.display).toBe('none');
+
+    overlay.setVisible(true);
+    expect(element.style.display).toBe('');
+    expect(overlay.getElement()).toBe(element);
+  });
+
+  /** The document it was built against, which the debug overlay needs to attach beside it. */
+  it('reports the document it was given', () => {
+    expect(new CursorOverlay({ document }).getDocument()).toBe(document);
+  });
 });
