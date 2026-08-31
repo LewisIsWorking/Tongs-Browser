@@ -98,6 +98,22 @@ manufactures a false failure can manufacture a false pass, and nothing here dist
 the inside. Two runs of one emulator agreeing is weaker evidence than it looks. This remains the
 argument for testing on a physical device.
 
+## ✅ Confirmed again on v0.25.79, 2026-09-01
+
+Cold booted emulator, same Foundry 14.366 and world: **16 passed, 3 skipped, 0 failed.** Identical to
+the 2026-08-30 run, seven released versions later.
+
+Worth recording for two reasons beyond the result itself:
+
+- **No regression across seven versions.** Everything shipped between v0.25.72 and v0.25.79 was tests
+  and documentation apart from one behaviour fix, and the unit suite sat at 97.9% throughout. That
+  number says nothing about whether Foundry still accepts what the module sends; only this does.
+- **A third independent confirmation of the cold boot rule.** This emulator was freshly cold booted
+  and passed immediately, where warm ones failed the same check four times running.
+
+The three skips are unchanged and remain hover, which Chrome 133 cannot express from any scripted
+event. They need Chromium 146 or newer. A skip is not a pass.
+
 ## Setup
 
 - Foundry version tested: `14.366` (2026-08-30)
