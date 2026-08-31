@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { buildModuleParts } from '../../src/ModuleParts.js';
-import { makeTouchEvent } from './support/touchEvents.js';
+import { buildParts as parts, stubCanvas, twoFingerDrag } from './support/canvasParts.js';
 import { stubFoundryEnvironment } from './support/moduleUnderTest.js';
 
 /**
@@ -18,56 +17,6 @@ import { stubFoundryEnvironment } from './support/moduleUnderTest.js';
  * MISSES: whether Foundry's own `canvas.pan` does what its signature says. Only the live harness can
  *   answer that, and `check:foundry` and `check:multitouch` do.
  */
-interface PanCall {
-  x?: number;
-  y?: number;
-  scale?: number;
-}
-
-/**
- * The canvas surface the readers actually touch, and nothing more.
- *
- * ⚠️ Deliberately minimal. A fuller fake would start describing Foundry, and a partial description of
- * somebody else's API that claims to be complete is worse than an obvious stub. `ready`, `stage.scale.x`,
- * `stage.pivot` and `pan` is the whole of what `CanvasReaders` and `CanvasController` read.
- */
-function stubCanvas(scale: number, pivot: { x: number; y: number }): PanCall[] {
-  const calls: PanCall[] = [];
-  Object.assign(globalThis, {
-    canvas: {
-      ready: true,
-      stage: { scale: { x: scale }, pivot: { ...pivot } },
-      pan: (args: PanCall) => {
-        calls.push(args);
-      },
-    },
-  });
-  return calls;
-}
-
-function parts() {
-  return buildModuleParts(
-    { document, window, suppressNativeTouch: () => true },
-    { isEnabled: () => true }
-  );
-}
-
-/** Two fingers down, then both moved by the same delta, which is a pan rather than a pinch. */
-function twoFingerDrag(deltaX: number, deltaY: number): void {
-  document.dispatchEvent(
-    makeTouchEvent('touchstart', [
-      { identifier: 1, clientX: 100, clientY: 100 },
-      { identifier: 2, clientX: 200, clientY: 100 },
-    ])
-  );
-  document.dispatchEvent(
-    makeTouchEvent('touchmove', [
-      { identifier: 1, clientX: 100 + deltaX, clientY: 100 + deltaY },
-      { identifier: 2, clientX: 200 + deltaX, clientY: 100 + deltaY },
-    ])
-  );
-}
-
 beforeEach(() => {
   stubFoundryEnvironment();
 });
