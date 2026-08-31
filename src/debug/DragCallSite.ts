@@ -32,8 +32,19 @@ export function describeCause(event: unknown): string {
  * `can("dragLeftStart")`, `#handleDragCancel` from a pointerup, and the long press are three
  * different bugs with three different fixes, and they are indistinguishable without this.
  */
-export function describeCallSite(): string {
-  const frames = (new Error('cancel').stack ?? '').split(String.fromCharCode(10)).slice(1);
+export function describeCallSite(
+  /**
+   * ⚠️ Defaulted rather than absent, added 2026-09-01, and the default is what production uses.
+   *
+   * Reading its own stack left every fallback in here unreachable from a test: an absent stack, a
+   * frame the pattern cannot parse, and a stack with no foreign frames at all. Those are exactly the
+   * paths worth pinning, because this function has already spent two releases reporting nothing
+   * useful. Taking the stack as an argument costs the caller nothing and makes the parsing a pure
+   * function of its input.
+   */
+  stack: string = new Error('cancel').stack ?? ''
+): string {
+  const frames = stack.split(String.fromCharCode(10)).slice(1);
 
   /*
    * ⚠️ Filtered by the BUNDLE URL, not by source file names, and the difference is why two releases
