@@ -93,6 +93,52 @@ creation everywhere, by any route, permanently.
 The relay is not a preference. Assigning a sheet to another user is a GM-only operation, and the
 player-side version of it does not even fail loudly.
 
+## ✅ Measured 2026-09-01, from the sf2e system's own bundle
+
+Read from `Data/systems/sf2e/sf2e.mjs` (Starfinder 2e 1.4.0), which is PF2e-derived.
+⚠️ **A proxy, not the thing itself.** Re-measure on pf2e before shipping.
+
+**Members are stored at `system.details.members`, as an array of `{ uuid }`.** UUIDs, not ids, and not
+declared in `template.json`: the party model is a DataModel in code.
+
+**Reading members is permission-safe by accident, and usefully so:**
+
+```js
+this.members = this.system.details.members
+  .map((e) => fromUuidSync(e.uuid))
+  .filter((e) => e instanceof Actor && e.isOfType('creature'))
+  .sort(byName);
+```
+
+`fromUuidSync` returns nothing for a document this client never received, so a member the user cannot
+see silently drops out of `party.members`. A picker built on `party.members` inherits requirement 3
+rather than having to implement it. That is worth knowing, and worth asserting rather than relying on.
+
+### ⚠️ `addMembers` clears the actor's folder
+
+```js
+for (let e of newMembers) {
+  let t = e.isOfType('character', 'npc') ? { 'system.details.alliance': ... ?? 'party' } : {};
+  await e.update({ folder: null, ...t });
+}
+```
+
+**Joining a party sets `folder: null` on the actor.** A party member does not live in a folder; the
+party IS its home. So "create the sheet, choose a party, and file it in a folder" is not a thing this
+system supports: the folder would be silently cleared the moment the party took it.
+
+That is worth raising with Lewis rather than deciding quietly, because his requirement mentions
+folders. The likely reading is that folders matter for VISIBILITY, not placement, and nothing here
+conflicts with that.
+
+It also sets `system.details.alliance` to `party` for a `character` or `npc` that has none.
+
+### Who may do it
+
+`addMembers` calls `update` on the party actor and on each new member. A player therefore needs
+OWNER on both to add themselves, which they will not have on the party. Party assignment is GM
+territory for the same reason ownership assignment is, and goes through the same relay.
+
 ## Verification reality on this machine
 
 ⚠️ **The PF2e system is not installed here.** `Data/systems` holds `coo`, `sf2e` and `worldbuilding`.
@@ -101,17 +147,24 @@ player-side version of it does not even fail loudly.
 so it is a usable proxy for the party half of this work. It is a proxy and not the thing itself:
 anything measured against `sf2e` must be re-measured on `pf2e` before this is called done.
 
-The permission half is Foundry core, not system code, and can be measured on any world.
-`scripts/foundry-permissions-probe.ts` asks 14.366 directly about ownership levels, which roles hold
-`ACTOR_CREATE`, whether a named player may create an actor, and whether that player may write an
-`ownership` field. It creates nothing.
+### On the probe that was written and then deleted
+
+A browser probe was written to ask a running Foundry these questions, and it **never ran**: Playwright's
+headless shell needed reinstalling after an update. Reading the shipped source answered the same
+questions better, because it is the code that enforces the rule rather than a client's report of it,
+and it needed no world, no browser and no login.
+
+It was deleted rather than left in place. An unrun script sitting in `scripts/` reads as evidence
+somebody gathered, and the next person to see it would reasonably assume its questions had been asked.
+Same reasoning as removing `CanvasController.isAvailable()`: code nothing runs is not neutral.
 
 ## Proposed slices
 
 Each is separately shippable and separately testable, and none is useful without the one before it.
 
-1. **Measure.** ✅ The permission half is done, above, read from Foundry's own enforcement code. Still
-   open: confirm on `sf2e` how a party actor stores its members and how an actor is added to one.
+1. **Measure.** ✅ Done, both halves, read from shipped source rather than probed. Permissions from
+   Foundry's own enforcement code; party membership from the sf2e bundle. Re-measure the party half on
+   pf2e before shipping.
 2. **The visibility audit** (requirement 3). ✅ Done, and it produced a guard rather than a report:
    `npm run check:documents` forces every listing of Foundry documents through one boundary, so the
    permission filter is written once. It immediately found what a hand grep had missed, because
