@@ -41,7 +41,15 @@ if (process.argv.includes('--self-test')) {
  * The obligation that comes with being on this list: enumerate, filter by permission in the same
  * breath, and never render an unfiltered result.
  */
-const BOUNDARY: readonly string[] = ['src/foundry/FoundryActions.ts'];
+const BOUNDARY: readonly string[] = [
+  'src/foundry/FoundryActions.ts',
+  /*
+   * ⚠️ Added 2026-09-02 with the party pickers. It is the boundary this guard was written FOR, ahead
+   * of it existing. It filters parties to those the viewer has at least LIMITED on, fails closed when
+   * a document cannot answer, and hands the result to `PartyRoster` for the authorisation rules.
+   */
+  'src/foundry/PartyAccess.ts',
+];
 
 const sources = listSourceFiles().filter(
   (file) => file.startsWith('src/') && file.endsWith('.ts') && !file.endsWith('.d.ts')

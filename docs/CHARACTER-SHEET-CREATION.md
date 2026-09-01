@@ -158,6 +158,23 @@ It was deleted rather than left in place. An unrun script sitting in `scripts/` 
 somebody gathered, and the next person to see it would reasonably assume its questions had been asked.
 Same reasoning as removing `CanvasController.isAvailable()`: code nothing runs is not neutral.
 
+## Where this is meant to end up
+
+Lewis's own Forge instance, once party access works. That matters to the plan rather than being a
+nice-to-have at the end, for two reasons.
+
+**It is the re-measurement.** Everything known about parties here was read from `sf2e` because pf2e is
+not installed on this machine. A real pf2e world on The Forge is where that gets confirmed, and the
+`addMembers` behaviour is the specific thing to re-check.
+
+**Installing is already possible.** The manifest URL points at
+`releases/latest/download/module.json`, which is what a Forge install needs, and it serves the current
+version since the release fix. Nothing extra is required to get the module onto that instance.
+
+⚠️ **Not a live game world.** Creating actors and parties is a write, and a scratch world on The Forge
+is the right target for it. Installing the module and joining the world are Lewis's actions, not
+something to be automated from here.
+
 ## Proposed slices
 
 Each is separately shippable and separately testable, and none is useful without the one before it.
