@@ -188,8 +188,10 @@ Each is separately shippable and separately testable, and none is useful without
    `game.actors` with an unescaped dot cannot match `game?.actors`. ⚠️ When a picker lands, add its
    file to `BOUNDARY` in `scripts/check-document-access.ts` and filter in the same breath as
    enumerating.
-3. **GM-only creation.** The button, a party picker, a user picker, and creation performed locally
-   because a GM is already allowed to do all of it. No socket traffic yet.
+3. **GM-only creation.** ✅ Done. `PartyRoster` decides, `PartyAccess` reads, `SheetCreation` writes,
+   `ChoiceMenu` draws, `CreateSheetFlow` sequences, `CreateSheetDeps` calls Foundry, and the button is
+   on the tray, GM only. Verified on a cold booted Android emulator on 2026-09-02, v0.25.94:
+   16 passed, 0 failed, 3 hover skips, no regression from an entire feature landing.
 4. **The party flag.** A GM-only switch per party, and the plumbing to read it.
 5. **Player creation over the relay.** The generalised request/response, `isDesignatedGm`, and the
    "no GM online" state in the UI.
