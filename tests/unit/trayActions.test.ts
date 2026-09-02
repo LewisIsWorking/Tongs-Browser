@@ -1,11 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  buildTrayActions,
-  PAN_STEP,
-  ZOOM_STEP,
-  type TrayActionHandlers,
-} from '../../src/ui/TrayActions.js';
+import { buildTrayActions, PAN_STEP, ZOOM_STEP } from '../../src/ui/TrayActions.js';
+import { findAction, handlers } from './support/trayHandlers.js';
 
 /**
  * The action tray.
@@ -14,27 +10,7 @@ import {
  * cannot catch a pan button that goes the wrong way, a grab that never says DROP, or a button that
  * quietly stopped existing.
  */
-const handlers = (overrides: Partial<TrayActionHandlers> = {}): TrayActionHandlers => ({
-  toggleSidebar: vi.fn(),
-  openCharacterSheet: vi.fn(),
-  togglePause: vi.fn(),
-  isPaused: () => false,
-  isDragging: () => false,
-  beginDrag: vi.fn(),
-  endDrag: vi.fn(),
-  whisperDiagnostics: vi.fn(),
-  zoomBy: vi.fn(),
-  panBy: vi.fn(),
-  ...overrides,
-});
-
-const find = (given: Partial<TrayActionHandlers>, id: string) => {
-  const action = buildTrayActions(handlers(given)).find((candidate) => candidate.id === id);
-  if (action === undefined) {
-    throw new Error(`no tray action '${id}'`);
-  }
-  return action;
-};
+const find = findAction;
 
 describe('buildTrayActions', () => {
   /** A button that silently stops existing is invisible to every other test in this file. */
@@ -44,6 +20,7 @@ describe('buildTrayActions', () => {
     expect(ids).toEqual([
       'sidebar',
       'character',
+      'create-sheet',
       'pause',
       'grab',
       'diagnose',

@@ -4,6 +4,14 @@ import type { FoundryActions } from './foundry/FoundryActions.js';
 import type { VirtualPointer } from './pointer/VirtualPointer.js';
 import { buildTrayActions } from './ui/TrayActions.js';
 import type { TrayAction } from './modifiers/TrayAction.js';
+import { beginCreateSheet } from './ui/CreateSheetFlow.js';
+import type { CreateSheetPorts } from './ui/CreateSheetFlow.js';
+import { readParties, readUsers, readViewer } from './foundry/PartyAccess.js';
+import type { FoundryGame } from './foundry/PartyAccess.js';
+import { createSheetWithFoundry } from './foundry/CreateSheetDeps.js';
+import { readChatTargets } from './debug/ChatTargets.js';
+import type { ChatGlobals } from './debug/ChatTargets.js';
+import { logger } from './core/Logger.js';
 
 /**
  * Wiring the tray buttons to the things they drive. Extracted from TongsBrowser 2026-08-12.
@@ -17,6 +25,8 @@ export interface TrayWiring {
   readonly actions: FoundryActions;
   readonly pointer: () => VirtualPointer;
   readonly diagnostics: DragDiagnostics;
+  /** Where the create flow's pickers are attached. The bar's own document, not a captured one. */
+  readonly document: Document;
 }
 
 /**
@@ -62,5 +72,42 @@ export function wireTrayActions(
     panBy: (deltaX, deltaY) => {
       canvasController.panBy(deltaX, deltaY);
     },
+    createSheet: () => {
+      beginCreateSheet(createSheetPorts(parts.document));
+    },
+    /*
+     * ⚠️ GM only until the relay lands. A player cannot create an actor without Foundry's
+     * `ACTOR_CREATE` and cannot be handed ownership by anyone but a GM, so the button could only ever
+     * fail for them. Absent beats present and broken.
+     */
+    canCreateSheets: () => readViewer(GAME_ACCESS).isGm,
   });
+}
+
+/** Foundry's `game`, read live: a reconnect or a scene change replaces the collections on it. */
+const GAME_ACCESS = { getGame: () => (globalThis as { game?: FoundryGame }).game };
+
+/**
+ * ⚠️ Built fresh on every tap rather than once. The party list, the user list and who is asking can
+ * all change between one press and the next, and a picker built from a captured list would offer a
+ * party that has since been deleted.
+ */
+function createSheetPorts(doc: Document): CreateSheetPorts {
+  return {
+    document: doc,
+    host: () => doc.body,
+    readParties: () => readParties(GAME_ACCESS),
+    readUsers: () => readUsers(GAME_ACCESS),
+    readViewer: () => readViewer(GAME_ACCESS),
+    create: createSheetWithFoundry,
+    report: (message) => {
+      /*
+       * ⚠️ The banner FIRST, the console second, and both. A phone user has no devtools, so a message
+       * only in the console is a message nobody reads; and a banner alone loses the text the moment
+       * it fades.
+       */
+      readChatTargets(globalThis as ChatGlobals).notify?.(message);
+      logger.warn(message);
+    },
+  };
 }

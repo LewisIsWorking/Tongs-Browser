@@ -19,6 +19,17 @@ export interface TrayActionHandlers {
   readonly whisperDiagnostics: () => void;
   readonly zoomBy: (factor: number) => void;
   readonly panBy: (deltaX: number, deltaY: number) => void;
+  readonly createSheet: () => void;
+  /**
+   * Whether to offer the create button at all.
+   *
+   * ⚠️ GM only until the relay lands. A player cannot create an actor without Foundry's
+   * `ACTOR_CREATE`, and cannot be given ownership of one by anybody but a GM, so a button offered to
+   * them now could only ever fail. A control that is present and cannot work is worse than one that
+   * is absent: it invites a tap, and the failure reads as a broken module rather than an unfinished
+   * feature.
+   */
+  readonly canCreateSheets: () => boolean;
 }
 
 /** How far one press of a pan arrow moves the view, in screen pixels. */
@@ -28,6 +39,17 @@ export const PAN_STEP = 160;
 export const ZOOM_STEP = 1.25;
 
 export function buildTrayActions(handlers: TrayActionHandlers): readonly TrayAction[] {
+  /*
+   * ⚠️ Filtered at the END rather than conditionally pushed, so the list below stays a flat
+   * description of every button that exists. A list assembled with branches in it stops being
+   * readable as "these are the buttons" and becomes a thing to trace.
+   */
+  return everyTrayAction(handlers).filter(
+    (action) => action.id !== 'create-sheet' || handlers.canCreateSheets()
+  );
+}
+
+function everyTrayAction(handlers: TrayActionHandlers): readonly TrayAction[] {
   return [
     {
       id: 'sidebar',
@@ -40,6 +62,16 @@ export function buildTrayActions(handlers: TrayActionHandlers): readonly TrayAct
       label: 'C',
       title: 'Open your character sheet',
       activate: handlers.openCharacterSheet,
+    },
+    /**
+     * ⚠️ Beside the character button on purpose. "Open my character" and "make a character" are the
+     * same errand from the user's side, and separating them across the bar would mean hunting.
+     */
+    {
+      id: 'create-sheet',
+      label: 'C+',
+      title: 'Create a character sheet in a party',
+      activate: handlers.createSheet,
     },
     {
       id: 'pause',

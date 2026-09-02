@@ -70,6 +70,7 @@ export function buildModifierBar(deps: ModifierBarDeps): ModifierBar {
       // A thunk, because the pointer field is not assigned until after the bar is built.
       pointer: deps.pointer,
       diagnostics: deps.diagnostics,
+      document: deps.document,
     }),
   });
 }
