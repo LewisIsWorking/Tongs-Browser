@@ -1,5 +1,22 @@
 # tongs-browser
 
+## 0.25.93
+
+### Patch Changes
+
+- [#324](https://github.com/LewisIsWorking/Tongs-Browser/pull/324) [`a204ba9`](https://github.com/LewisIsWorking/Tongs-Browser/commit/a204ba9c89c3b5265fc2bb0b386ae07adc3e35ce) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add the flow that joins the create-sheet pieces: tap, choose a party, choose an owner, get a sheet.
+
+  It only sequences work decided elsewhere. `PartyRoster` says who may create where, `PartyAccess` says
+  what exists, `SheetCreation` writes, `ChoiceMenu` draws. None of the rules live in the flow, where a
+  UI change could disturb them.
+
+  No text input: the sheet is created with a default name and then opened, so renaming happens in
+  Foundry's own sheet. A text field on a phone means a keyboard over most of the screen, which is the
+  class of problem this module exists to avoid.
+
+  Every outcome is reported, and a sheet created outside its party is opened as well as explained,
+  because it exists and leading with the failure would invite a duplicate.
+
 ## 0.25.92
 
 ### Patch Changes
