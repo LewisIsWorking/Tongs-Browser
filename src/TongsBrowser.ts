@@ -7,6 +7,7 @@ import type { GestureConfig } from './gesture/GestureTypes.js';
 import { KeyboardSynthesizer } from './modifiers/KeyboardSynthesizer.js';
 import { ModifierBar } from './modifiers/ModifierBar.js';
 import { PauseRelay } from './relay/PauseRelay.js';
+import type { CreationRelay } from './relay/CreationRelay.js';
 import { CursorOverlay } from './pointer/CursorOverlay.js';
 import { VirtualPointer } from './pointer/VirtualPointer.js';
 import { UiScaler } from './scaling/UiScaler.js';
@@ -36,6 +37,7 @@ export class TongsBrowser {
   private readonly clampBinder: WindowClampBinder;
   private readonly debug: DebugOverlay;
   private readonly pauseRelay: PauseRelay;
+  private readonly creationRelay: CreationRelay;
   /** What the tray buttons do to Foundry. See foundry/FoundryActions.ts. */
   private readonly actions: FoundryActions;
 
@@ -61,6 +63,7 @@ export class TongsBrowser {
     this.scaler = parts.scaler;
     this.clampBinder = parts.clampBinder;
     this.pauseRelay = parts.pauseRelay;
+    this.creationRelay = parts.creationRelay;
     this.binder = parts.binder;
   }
 
@@ -75,6 +78,8 @@ export class TongsBrowser {
     this.clampBinder.bind();
     // Bound even for a GM: this client may be the one that has to answer a player's request.
     this.pauseRelay.bind();
+    // Bound for everyone: a player emits on it, and the designated GM is the one that answers.
+    this.creationRelay.bind();
     this.debug.setEnabled(this.options.debugOverlay ?? false);
 
     if (this.options.modifierBarEnabled ?? true) {
@@ -102,6 +107,7 @@ export class TongsBrowser {
     this.cursor.detach();
     this.clampBinder.unbind();
     this.pauseRelay.unbind();
+    this.creationRelay.unbind();
     this.actions.closeSidebarMenu();
     this.debug.setEnabled(false);
     // Removes the property rather than setting it back to 1, so Foundry's own layout is restored

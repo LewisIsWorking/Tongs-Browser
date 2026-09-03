@@ -222,8 +222,18 @@ Each is separately shippable and separately testable, and none is useful without
    a GM. It decides, from the GM's own view, what the player was entitled to ask for, and does that.
    All five of its guards are in `scripts/mutations/recorded.ts` rather than merely unit tested.
 
-   **5b, the transport.** Still to do: request/response with a correlation id, a timeout, and the
-   "no GM online" state wired into the UI.
+   **5b, the transport.** DONE. `CreationRelay` carries the ask and brings the answer back;
+   `PendingRequests` owns correlation and the timeout. Everything about it follows from one fact:
+   every client receives every message, so only the designated GM serves, an answer is matched on the
+   id this client sent, and a request nobody answers still ends.
+
+   **5c, the button.** DONE. `CreateSheetRoute` decides GM-direct versus relay, and the flow does not
+   know which route it took. The create button is now offered to a PLAYER whenever a GM has opened a
+   party to them.
+
+   The button is deliberately NOT gated on a GM being online. One that came and went as GMs connected
+   would be a mystery to watch; tapping it and reading "a GM has to be online" is a fact to act on.
+   Presence decides the MESSAGE, never whether the control exists.
 
    🔴 **FOR LEWIS, a real limitation rather than a detail.** Core Foundry rebroadcasts a socket
    payload without a verified sender, so `userId` is CLAIMED, not proven. A player could name another

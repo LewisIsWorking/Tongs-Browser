@@ -90,3 +90,23 @@ export const ACCESS_NOTICES = {
     message: 'Who may add characters could not be changed:',
   },
 } as const;
+
+/**
+ * Why a player's request did not become a sheet they can open. Added 2026-09-03.
+ *
+ * ⚠️ Five, not one "it failed", because each names a DIFFERENT thing to do. A player whose GM is
+ * offline should wait; one who timed out should try again; one whose sheet was made but has not
+ * arrived should go and look rather than tap again and end up with two characters.
+ *
+ * ⚠️ `noGm` will be read more than the rest, and it is NOT an error. It is a fact about how this
+ * works, so it says so plainly instead of apologising for it.
+ */
+export const RELAY_REASONS = {
+  noGm: 'A GM has to be online to add a character. Ask one to log in, then try again.',
+  noSocket: 'This client is not connected to the server, so a GM cannot be asked.',
+  timedOut: 'No GM answered in time. They may have just dropped out; try again in a moment.',
+  /** ⚠️ MADE, not failed. "Failed" here invites a second tap and a duplicate character. */
+  madeButUnknown:
+    'The character was made, but the GM did not say which one, so it cannot be opened here.',
+  madeButUnreachable: 'The character was made, but it has not reached this client yet.',
+} as const;

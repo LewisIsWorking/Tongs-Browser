@@ -10,6 +10,7 @@ import {
   globals,
   parts,
   partyWorld,
+  playerWorld,
 } from './support/trayWiringWorld.js';
 
 /**
@@ -29,29 +30,6 @@ beforeEach(() => {
 });
 
 afterEach(clearWorld);
-
-describe('who is offered the create button', () => {
-  it('offers it to a GM', () => {
-    globals['game'] = { user: { id: 'gm1', isGM: true } };
-
-    expect(find('create-sheet')).toBeDefined();
-  });
-
-  /**
-   * ⚠️ ABSENT for a player until the relay lands. They cannot create an actor without Foundry's
-   * `ACTOR_CREATE` and cannot be handed ownership by anyone but a GM, so the button could only fail.
-   */
-  it('does not offer it to a player', () => {
-    globals['game'] = { user: { id: 'p1', isGM: false } };
-
-    expect(find('create-sheet')).toBeUndefined();
-  });
-
-  /** ⚠️ An unidentifiable viewer counts as a player, which is the safer of the two mistakes. */
-  it('does not offer it before a user is known', () => {
-    expect(find('create-sheet')).toBeUndefined();
-  });
-});
 
 describe('tapping the create button', () => {
   /**
@@ -93,6 +71,56 @@ describe('tapping the create button', () => {
     expect(() => {
       button?.activate();
     }).not.toThrow();
+  });
+});
+
+describe('a player whose GM answered', () => {
+  /**
+   * ⚠️ The only test that reaches this wiring's `resolveSheet`, and what it proves is that a player's
+   * sheet gets OPENED. A GM's sheet comes back as a document already; a player's arrives as a bare
+   * uuid over the socket, so a client that never turned it back into a document would leave them
+   * having successfully created something they cannot see, which reads as nothing having happened.
+   */
+  it('opens the sheet the GM made for them', async () => {
+    const render = vi.fn();
+    playerWorld(true);
+    globals['fromUuid'] = async () => Promise.resolve({ uuid: 'Actor.new', sheet: { render } });
+
+    const relay = {
+      request: async () => Promise.resolve({ kind: 'created' as const, actorUuid: 'Actor.new' }),
+      bind: () => undefined,
+      unbind: () => undefined,
+      isBound: () => false,
+    };
+    find('create-sheet', parts({ creationRelay: relay as never }))?.activate();
+
+    await vi.waitFor(() => {
+      expect(render).toHaveBeenCalledWith(true);
+    });
+  });
+
+  /**
+   * ⚠️ MADE, not failed, when this client cannot look the sheet up. The GM created it; only the
+   * lookup is missing. Saying it failed would invite a second tap and a duplicate character that a
+   * player has no permission to delete.
+   */
+  it('says the sheet was made even when it cannot look it up', async () => {
+    const info = vi.fn();
+    playerWorld(true);
+    globals['ui'] = { notifications: { info } };
+
+    const relay = {
+      request: async () => Promise.resolve({ kind: 'created' as const, actorUuid: 'Actor.new' }),
+      bind: () => undefined,
+      unbind: () => undefined,
+      isBound: () => false,
+    };
+    find('create-sheet', parts({ creationRelay: relay as never }))?.activate();
+
+    await vi.waitFor(() => {
+      expect(info).toHaveBeenCalled();
+    });
+    expect(String(info.mock.calls[0]?.[0])).toContain('was made');
   });
 });
 

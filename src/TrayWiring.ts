@@ -7,6 +7,10 @@ import type { TrayAction } from './modifiers/TrayAction.js';
 import { beginCreateSheet } from './ui/CreateSheetFlow.js';
 import type { CreateSheetPorts } from './ui/CreateSheetFlow.js';
 import { readParties, readUsers, readViewer } from './foundry/PartyAccess.js';
+import { creatableParties } from './foundry/PartyRoster.js';
+import { routeCreate } from './ui/CreateSheetRoute.js';
+import type { CreationRelay } from './relay/CreationRelay.js';
+import type { CreatedSheet } from './foundry/SheetCreationTypes.js';
 import type { FoundryGame } from './foundry/PartyAccess.js';
 import { createSheetWithFoundry } from './foundry/CreateSheetDeps.js';
 import { beginPartyAccess } from './ui/PartyAccessFlow.js';
@@ -30,6 +34,8 @@ export interface TrayWiring {
   readonly diagnostics: DragDiagnostics;
   /** Where the create flow's pickers are attached. The bar's own document, not a captured one. */
   readonly document: Document;
+  /** How a player asks a GM for a sheet. A GM never uses it; see `CreateSheetRoute`. */
+  readonly creationRelay: CreationRelay;
 }
 
 /**
@@ -76,14 +82,22 @@ export function wireTrayActions(
       canvasController.panBy(deltaX, deltaY);
     },
     createSheet: () => {
-      beginCreateSheet(createSheetPorts(parts.document));
+      beginCreateSheet(createSheetPorts(parts.document, parts.creationRelay));
     },
     /*
-     * ⚠️ GM only until the relay lands. A player cannot create an actor without Foundry's
-     * `ACTOR_CREATE` and cannot be handed ownership by anyone but a GM, so the button could only ever
-     * fail for them. Absent beats present and broken.
+     * ⚠️ Open to PLAYERS now that the relay has landed, but only where there is somewhere to create.
+     * `creatableParties` returns nothing for a player until a GM opens a party, so the button appears
+     * exactly when it can do something. That is the rule the old comment here described in reverse:
+     * absent beats present and broken.
+     *
+     * ⚠️ Deliberately NOT gated on a GM being online. A button that came and went as GMs connected
+     * would be a mystery; tapping it and being told "a GM has to be online" is a fact the player can
+     * act on. Presence decides the MESSAGE, never whether the control exists.
      */
-    canCreateSheets: () => readViewer(GAME_ACCESS).isGm,
+    canCreateSheets: () => {
+      const viewer = readViewer(GAME_ACCESS);
+      return viewer.isGm || creatableParties(readParties(GAME_ACCESS), viewer).length > 0;
+    },
     managePartyAccess: () => {
       beginPartyAccess({
         document: parts.document,
@@ -126,14 +140,27 @@ const GAME_ACCESS = { getGame: () => (globalThis as { game?: FoundryGame }).game
  * all change between one press and the next, and a picker built from a captured list would offer a
  * party that has since been deleted.
  */
-function createSheetPorts(doc: Document): CreateSheetPorts {
+function createSheetPorts(doc: Document, relay: CreationRelay): CreateSheetPorts {
   return {
     document: doc,
     host: () => doc.body,
     readParties: () => readParties(GAME_ACCESS),
     readUsers: () => readUsers(GAME_ACCESS),
     readViewer: () => readViewer(GAME_ACCESS),
-    create: createSheetWithFoundry,
+    /*
+     * ⚠️ The flow does not know which route it took, which is the point. It asks which party and
+     * whose, then calls one port; `routeCreate` decides. Teaching the pickers about GM-ness would
+     * mean every future change to them reasoning about it again.
+     */
+    create: routeCreate({
+      isGm: () => readViewer(GAME_ACCESS).isGm,
+      direct: createSheetWithFoundry,
+      viaRelay: async (partyUuid, name) => relay.request(partyUuid, name),
+      resolveSheet: async (uuid) => {
+        const resolve = (globalThis as { fromUuid?: (id: string) => Promise<unknown> }).fromUuid;
+        return resolve === undefined ? null : ((await resolve(uuid)) as CreatedSheet | null);
+      },
+    }),
     report,
   };
 }
