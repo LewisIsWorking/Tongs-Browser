@@ -121,3 +121,49 @@ describe('the buttons that were already there', () => {
     expect(endDrag).toHaveBeenCalledOnce();
   });
 });
+
+describe('the party access button', () => {
+  /** ⚠️ Wired to the flow, not merely present. A list only appears if the wiring resolved. */
+  it('puts the access list on screen for a GM', () => {
+    partyWorld([GAMEMASTER]);
+
+    find('party-access')?.activate();
+
+    expect(document.body.textContent).toContain('Who may add characters?');
+    expect(document.body.textContent).toContain('The Firebrands: closed to players');
+  });
+
+  /**
+   * ⚠️ Reaches Foundry's own `fromUuid` and `setFlag`. The wiring between the flow and the document
+   * is the part no focused suite can see: the flow is handed a `setAccess` port in its own tests, so
+   * only here does the real lookup get exercised.
+   */
+  it('writes the flag through Foundry when a party is tapped', async () => {
+    const setFlag = vi.fn(async () => Promise.resolve());
+    partyWorld([GAMEMASTER]);
+    globals['fromUuid'] = vi.fn(async () => Promise.resolve({ setFlag }));
+
+    find('party-access')?.activate();
+    [...document.querySelectorAll<HTMLButtonElement>('button[data-choice]')][0]?.click();
+
+    await vi.waitFor(() => {
+      expect(setFlag).toHaveBeenCalled();
+    });
+    expect(setFlag).toHaveBeenCalledWith('tongs-browser', 'allowPlayerCreation', true);
+  });
+
+  /** ⚠️ A missing `fromUuid` is reported, not swallowed: the GM must know nothing changed. */
+  it('reports when this client cannot look a party up', async () => {
+    const info = vi.fn();
+    partyWorld([GAMEMASTER]);
+    globals['ui'] = { notifications: { info } };
+
+    find('party-access')?.activate();
+    [...document.querySelectorAll<HTMLButtonElement>('button[data-choice]')][0]?.click();
+
+    await vi.waitFor(() => {
+      expect(info).toHaveBeenCalled();
+    });
+    expect(String(info.mock.calls[0]?.[0])).toContain('fromUuid');
+  });
+});

@@ -24,6 +24,8 @@ export const handlers = (overrides: Partial<TrayActionHandlers> = {}): TrayActio
   panBy: vi.fn(),
   createSheet: vi.fn(),
   canCreateSheets: () => true,
+  managePartyAccess: vi.fn(),
+  canManagePartyAccess: () => true,
   ...overrides,
 });
 

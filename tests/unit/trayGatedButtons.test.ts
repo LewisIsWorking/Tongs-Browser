@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { actionIds, findAction } from './support/trayHandlers.js';
 
 /**
- * Whether the create button is offered at all. Written 2026-09-02.
+ * Whether the gated buttons are offered at all. Written 2026-09-02, widened 2026-09-03.
  *
  * ⚠️ ABSENT, not disabled, and only until the relay lands. A player cannot create an actor without
  * Foundry's `ACTOR_CREATE`, and cannot be handed ownership of one by anybody but a GM, so the button
@@ -14,7 +14,12 @@ import { actionIds, findAction } from './support/trayHandlers.js';
  * distinction matters on a phone, where the user has no console to check which it was.
  *
  * Its own file because the tray suite crossed the 200 line limit; that one owns which buttons exist
- * and what they do, this one owns who is offered this one.
+ * and what they do, this one owns who is offered them.
+ *
+ * ⚠️ The two gates are SEPARATE, and this file asserts them separately for a reason that arrives with
+ * the relay: creating opens to players in a party their GM allowed, while deciding WHICH parties
+ * those are stays a GM's alone, permanently. A single flag serving both would need splitting at
+ * exactly the moment it mattered most.
  */
 describe('the create button', () => {
   it('is offered when the user may create sheets', () => {
@@ -47,5 +52,34 @@ describe('the create button', () => {
     const ids = actionIds();
 
     expect(ids.indexOf('create-sheet')).toBe(ids.indexOf('character') + 1);
+  });
+});
+
+describe('the party access button', () => {
+  it('is offered to someone who may manage party access', () => {
+    expect(actionIds({ canManagePartyAccess: () => true })).toContain('party-access');
+  });
+
+  it('is not offered at all when they may not', () => {
+    expect(actionIds({ canManagePartyAccess: () => false })).not.toContain('party-access');
+  });
+
+  /** ⚠️ The two gates are independent: hiding one must not hide the other. */
+  it('is unaffected by the create gate, and does not affect it', () => {
+    const noCreate = actionIds({ canCreateSheets: () => false });
+    expect(noCreate).toContain('party-access');
+    expect(noCreate).not.toContain('create-sheet');
+
+    const noAccess = actionIds({ canManagePartyAccess: () => false });
+    expect(noAccess).toContain('create-sheet');
+    expect(noAccess).not.toContain('party-access');
+  });
+
+  it('runs the manage handler when tapped', () => {
+    const managePartyAccess = vi.fn();
+
+    findAction({ managePartyAccess }, 'party-access').activate();
+
+    expect(managePartyAccess).toHaveBeenCalledOnce();
   });
 });

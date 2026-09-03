@@ -21,6 +21,7 @@ describe('buildTrayActions', () => {
       'sidebar',
       'character',
       'create-sheet',
+      'party-access',
       'pause',
       'grab',
       'diagnose',
