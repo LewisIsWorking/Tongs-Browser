@@ -12,6 +12,9 @@ Guards that run in CI, and harnesses that drive a real Foundry.
 | `check-orphaned-docblocks.ts` | No docblock left above nothing                             |
 | `check-scripts-load.ts`       | Every script can still be loaded by Node                   |
 | `check-support-adopted.ts`    | No shared fixture that nothing imports                     |
+| `check-dead-exports.ts`       | No export that nothing imports                             |
+| `check-document-access.ts`    | Foundry documents enumerated through one filtered boundary |
+| `check-mutations.ts`          | The tests still catch the bugs they were written for       |
 | `prune-unused-imports.ts`     | Tidying, on request                                        |
 | `stamp-manifest.ts`           | The real version into the released `module.json`           |
 
@@ -63,5 +66,23 @@ them at a world you are willing to have written to.
 ## A guard is only real if it runs
 
 `check:sizes` shipped a `--self-test` that appeared in no npm script and no workflow, so it had never
-once executed. Both guards with self tests now run them as part of the check itself. A proof nobody
+once executed. Every guard with a self test now runs it as part of the check itself. A proof nobody
 invokes cannot fail, which is the same as not having one.
+
+That rule is no longer a convention to remember: `tests/unit/guardSelfTests.test.ts` enumerates the
+guards and asserts each one's npm script runs both its `--self-test` and the real check. A new guard
+is adopted by it automatically, which is how `check:mutations` was checked on the day it was added.
+
+⚠️ This paragraph used to say "both guards", which was true when written and stopped being true
+without anything failing. Prose counts go stale silently; that is what the enumerating test is for.
+
+## Coverage says a line ran, not that a wrong version would be noticed
+
+`check-mutations.ts` is the newest guard and the one that answers a question the others cannot. The
+coverage ratchet in `vitest.config.ts` asks whether a line **executed**. It cannot ask whether the
+tests would have **objected** to a different line.
+
+The gap is not theoretical. On 2026-09-03, replacing a lookup in `PartyAccessFlow` with
+`readParties()[0]` passed all eleven of that flow's tests, at 100% coverage of the line, and passed
+the first test written specifically to close it. See `mutations/README.md` for how to record one and
+for the two traps the runner is built around.
