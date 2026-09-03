@@ -56,3 +56,37 @@ export const NOTICES = {
     message: 'The character could not be created:',
   },
 } as const;
+
+/**
+ * What the party access flow says. Added 2026-09-03.
+ *
+ * ⚠️ Separate from `NOTICES` because they answer a different question. These are read by a GM
+ * changing a setting, not by somebody trying to make a character, and the advice that helps each is
+ * not the same advice.
+ */
+export const ACCESS_NOTICES = {
+  /**
+   * ⚠️ Reachable even though the button is hidden from players. A permission enforced only by a
+   * control's visibility is not enforced, and this is what the check behind it says when it fires.
+   */
+  notGm: {
+    title: 'GM only',
+    message: 'Only a GM can change who may add characters to a party.',
+  },
+
+  noParties: {
+    title: 'No parties yet',
+    message: 'There is no party to open. Make one first.',
+  },
+
+  /** A party deleted between opening this list and tapping a row. An ordinary race, not a fault. */
+  vanished: {
+    title: 'Party gone',
+    message: 'That party is no longer there.',
+  },
+
+  failed: {
+    title: 'Not changed',
+    message: 'Who may add characters could not be changed:',
+  },
+} as const;

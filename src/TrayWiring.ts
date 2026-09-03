@@ -9,6 +9,9 @@ import type { CreateSheetPorts } from './ui/CreateSheetFlow.js';
 import { readParties, readUsers, readViewer } from './foundry/PartyAccess.js';
 import type { FoundryGame } from './foundry/PartyAccess.js';
 import { createSheetWithFoundry } from './foundry/CreateSheetDeps.js';
+import { beginPartyAccess } from './ui/PartyAccessFlow.js';
+import { setPlayerCreation } from './foundry/PartyFlag.js';
+import type { FlaggableParty } from './foundry/PartyFlag.js';
 import { readChatTargets } from './debug/ChatTargets.js';
 import type { ChatGlobals } from './debug/ChatTargets.js';
 import { logger } from './core/Logger.js';
@@ -81,7 +84,38 @@ export function wireTrayActions(
      * fail for them. Absent beats present and broken.
      */
     canCreateSheets: () => readViewer(GAME_ACCESS).isGm,
+    managePartyAccess: () => {
+      beginPartyAccess({
+        document: parts.document,
+        host: () => parts.document.body,
+        readParties: () => readParties(GAME_ACCESS),
+        readViewer: () => readViewer(GAME_ACCESS),
+        setAccess: async (uuid, enabled) =>
+          setPlayerCreation(uuid, enabled, {
+            resolveParty: async (target) => {
+              const resolve = (globalThis as { fromUuid?: (id: string) => Promise<unknown> })
+                .fromUuid;
+              if (resolve === undefined) {
+                throw new Error('Foundry has no fromUuid on this client.');
+              }
+              return (await resolve(target)) as FlaggableParty | null;
+            },
+          }),
+        report,
+      });
+    },
+    /* ⚠️ Its own gate, because create opens to players with the relay and this never does. */
+    canManagePartyAccess: () => readViewer(GAME_ACCESS).isGm,
   });
+}
+
+/**
+ * ⚠️ The banner FIRST, the console second, and both. A phone user has no devtools, so a message only
+ * in the console is a message nobody reads; and a banner alone loses the text the moment it fades.
+ */
+function report(message: string): void {
+  readChatTargets(globalThis as ChatGlobals).notify?.(message);
+  logger.warn(message);
 }
 
 /** Foundry's `game`, read live: a reconnect or a scene change replaces the collections on it. */
@@ -100,14 +134,6 @@ function createSheetPorts(doc: Document): CreateSheetPorts {
     readUsers: () => readUsers(GAME_ACCESS),
     readViewer: () => readViewer(GAME_ACCESS),
     create: createSheetWithFoundry,
-    report: (message) => {
-      /*
-       * ⚠️ The banner FIRST, the console second, and both. A phone user has no devtools, so a message
-       * only in the console is a message nobody reads; and a banner alone loses the text the moment
-       * it fades.
-       */
-      readChatTargets(globalThis as ChatGlobals).notify?.(message);
-      logger.warn(message);
-    },
+    report,
   };
 }

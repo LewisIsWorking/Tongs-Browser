@@ -192,7 +192,21 @@ Each is separately shippable and separately testable, and none is useful without
    `ChoiceMenu` draws, `CreateSheetFlow` sequences, `CreateSheetDeps` calls Foundry, and the button is
    on the tray, GM only. Verified on a cold booted Android emulator on 2026-09-02, v0.25.94:
    16 passed, 0 failed, 3 hover skips, no regression from an entire feature landing.
-4. **The party flag.** A GM-only switch per party, and the plumbing to read it.
+4. **The party flag.** ✅ Done. `PartyFlag` writes it, `PartyAccess` reads it, and `PartyAccessFlow`
+   is the GM's picker: every visible party listed with its current state in the label, tap to flip,
+   and the result said out loud because a permission change moves nothing on screen. Its own tray
+   button behind its own `canManagePartyAccess` gate, deliberately not a reuse of `canCreateSheets`,
+   because those two diverge the moment slice 5 lands.
+
+   ⚠️ Tapping RE-READS the party rather than using the one captured when the list was drawn. Not
+   defensiveness: the first version could not reach its own "party is gone" guard, because the uuid
+   came out of the very array it searched. Mutation testing on 2026-09-03 then found the wrong
+   version that survives full coverage, and it is subtler than it looks. The uuid written is always
+   the tapped one, so reading the wrong party does not write to the wrong party; it takes the
+   DIRECTION from the wrong party and names the wrong party in the confirmation. Tapping a closed
+   party would close an open one and announce it about a third. Two fixtures in the SAME state cannot
+   see any of that, and the first attempt at the test used two closed parties and passed the mutant.
+
 5. **Player creation over the relay.** The generalised request/response, `isDesignatedGm`, and the
    "no GM online" state in the UI.
 
