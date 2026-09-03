@@ -64,4 +64,49 @@ export const RECORDED: readonly RecordedMutation[] = [
     defect: 'a party deleted under the list fails silently',
     tests: ['tests/dom/partyAccessRace.test.ts'],
   },
+  /*
+   * ⚠️ The four below guard code that runs on a GM's CLIENT, where Foundry refuses nothing. Elsewhere
+   * in this module our checks are a second line behind Foundry's own enforcement; on this path they
+   * are the only line, so each one is recorded rather than merely tested.
+   */
+  {
+    file: 'src/relay/CreationPolicy.ts',
+    find: '  if (!party.playerCreationEnabled) {',
+    replace: '  if (party.playerCreationEnabled) {',
+    defect: 'players may create in the parties the GM CLOSED, and not the open ones',
+    tests: ['tests/unit/creationPolicy.test.ts'],
+  },
+  {
+    file: 'src/relay/CreationPolicy.ts',
+    find: '  const owner = world.users.find((user) => user.id === request.userId);',
+    replace: '  const owner = world.users[0];',
+    defect: 'any requester is treated as the first user in the world',
+    tests: ['tests/unit/creationPolicy.test.ts'],
+  },
+  {
+    file: 'src/relay/CreationPolicy.ts',
+    find: '  if (owner.isGm) {',
+    replace: '  if (!owner.isGm) {',
+    defect: 'players are refused and GMs are served, exactly backwards',
+    tests: ['tests/unit/creationPolicy.test.ts'],
+  },
+  {
+    file: 'src/relay/CreationPolicy.ts',
+    find: '  return trimmed.slice(0, NAME_LIMIT);',
+    replace: '  return trimmed;',
+    defect: 'a player-supplied name is written into the world uncapped',
+    tests: ['tests/unit/creationPolicy.test.ts'],
+  },
+  {
+    file: 'src/foundry/DesignatedGm.ts',
+    find: '  const isMe = typeof myId === ' + "'string'" + ' && myId.length > 0 && gm.id === myId;',
+    replace: '  const isMe = gm.id === myId;',
+    /*
+     * ⚠️ The obvious form of this line, and it is wrong in the worst direction. Both sides being
+     * `undefined` compares equal, so a client that cannot say who it is decides it is the designated
+     * GM and starts acting on everybody else's requests. Silent, and worse the more clients connect.
+     */
+    defect: 'an unidentifiable client believes it is the designated GM',
+    tests: ['tests/unit/designatedGm.test.ts'],
+  },
 ];

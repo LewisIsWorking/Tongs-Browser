@@ -207,8 +207,30 @@ Each is separately shippable and separately testable, and none is useful without
    party would close an open one and announce it about a third. Two fixtures in the SAME state cannot
    see any of that, and the first attempt at the test used two closed parties and passed the mutant.
 
-5. **Player creation over the relay.** The generalised request/response, `isDesignatedGm`, and the
-   "no GM online" state in the UI.
+5. **Player creation over the relay.** Split in two, because the decisions and the transport fail in
+   completely different ways and deserve separate review.
+
+   **5a, the decisions.** ✅ Done. `CreationRequest` is the wire shape and its check, `CreationPolicy`
+   is what a GM's client will honour, and `DesignatedGm` answers both "am I the one who should act"
+   and "is anybody there to ask" from a single read.
+
+   ⚠️ The inversion worth internalising: everywhere else our checks sit IN FRONT of Foundry's own
+   enforcement, so a gap still ends in a refusal. On the relay's receiving end that is backwards. The
+   code runs on a GM's client, `sanitizeDocumentOwnershipField` returns the value untouched for a GM,
+   and the rule that stops a player granting ownership elsewhere is simply absent. The policy is not a
+   convenience layer; it is the only check there is. So the relay does not run the player's request as
+   a GM. It decides, from the GM's own view, what the player was entitled to ask for, and does that.
+   All five of its guards are in `scripts/mutations/recorded.ts` rather than merely unit tested.
+
+   **5b, the transport.** Still to do: request/response with a correlation id, a timeout, and the
+   "no GM online" state wired into the UI.
+
+   🔴 **FOR LEWIS, a real limitation rather than a detail.** Core Foundry rebroadcasts a socket
+   payload without a verified sender, so `userId` is CLAIMED, not proven. A player could name another
+   player's id and have the sheet created owned by them. It is bounded: only in a party you have
+   already opened to players, only an ordinary character, and only naming a real user, so the damage
+   is a misattributed sheet where sheets were invited. Closing it properly means depending on
+   socketlib. Happy to do that if you want it closed; it is documented rather than hidden either way.
 
 Slice 3 is the first one with visible value, and slices 1 and 2 are what stop it being built on
 guesses.
