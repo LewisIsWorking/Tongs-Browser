@@ -35,7 +35,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check:support": "node scripts/check-support-adopted.ts",
-    "verify": "npm run lint && npm run typecheck && npm run typecheck:scripts && npm run check:scripts && npm run check:sizes && npm run check:readmes && npm run check:exports && npm run check:support && npm run check:documents && npm run test:coverage && npm run build",
+    "verify": "npm run lint && npm run typecheck && npm run typecheck:scripts && npm run check:scripts && npm run check:sizes && npm run check:readmes && npm run check:exports && npm run check:support && npm run check:documents && npm run test:coverage && npm run check:mutations && npm run build",
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:tag": "changeset tag",
@@ -48,7 +48,8 @@
     "check:readmes": "node scripts/check-folder-readmes.ts --self-test && node scripts/check-folder-readmes.ts",
     "check:grab": "node scripts/foundry-grab-button-check.ts",
     "check:exports": "node scripts/check-dead-exports.ts --self-test && node scripts/check-dead-exports.ts",
-    "check:documents": "node scripts/check-document-access.ts --self-test && node scripts/check-document-access.ts"
+    "check:documents": "node scripts/check-document-access.ts --self-test && node scripts/check-document-access.ts",
+    "check:mutations": "node scripts/check-mutations.ts --self-test && node scripts/check-mutations.ts"
   },
   "devDependencies": {
     "@changesets/changelog-github": "0.7.0",
