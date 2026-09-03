@@ -1,5 +1,38 @@
 # tongs-browser
 
+## 0.26.0
+
+### Minor Changes
+
+- [#333](https://github.com/LewisIsWorking/Tongs-Browser/pull/333) [`98a0a7b`](https://github.com/LewisIsWorking/Tongs-Browser/commit/98a0a7b5a19ccbd0b6f38927b6dd32bba96f75da) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add the decision layer for player-requested character sheets: the wire shape and its check, the
+  authorisation a GM's client applies to a request, and a single read of which GM answers and whether
+  one is online. No behaviour changes yet; the transport that uses them lands next.
+
+- [#334](https://github.com/LewisIsWorking/Tongs-Browser/pull/334) [`01f564a`](https://github.com/LewisIsWorking/Tongs-Browser/commit/01f564a5fa8cffff212aeb4439835406ce84d980) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add the transport for player-requested character sheets: a request that carries a correlation id, an
+  answer matched against it, and a timeout so a request nobody answers still ends. Not wired to a
+  button yet.
+
+- [#330](https://github.com/LewisIsWorking/Tongs-Browser/pull/330) [`30b24fe`](https://github.com/LewisIsWorking/Tongs-Browser/commit/30b24feac4c2ce3f291cad83b54ad214ab8a3dcf) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add a GM-only party access picker to the tray. A new `C🔓` button lists every party the GM can see
+  with its current state in the label, and tapping one opens or closes it to player character
+  creation. The result is announced, because changing a permission moves nothing on screen and silence
+  is indistinguishable from a tap that missed.
+
+  The button has its own gate rather than sharing the create button's: deciding which parties are open
+  stays a GM's alone even once players can create in them.
+
+- [#335](https://github.com/LewisIsWorking/Tongs-Browser/pull/335) [`9af65dc`](https://github.com/LewisIsWorking/Tongs-Browser/commit/9af65dc3e92682b12b593c6ebd1f86fba1355872) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Players can now create a character sheet from the control pad, in any party their GM has opened to
+  them. The request runs on a GM's client, which is the only place Foundry allows a sheet to be handed
+  to somebody else, and the answer comes back with the sheet opened. The button appears for a player
+  exactly when a party is open to them, and explains itself rather than disappearing when no GM is
+  online.
+
+### Patch Changes
+
+- [#332](https://github.com/LewisIsWorking/Tongs-Browser/pull/332) [`00ab69e`](https://github.com/LewisIsWorking/Tongs-Browser/commit/00ab69e300f4d4a4569b1b3c01a28537f57a351a) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add `npm run check:mutations`, a guard that applies recorded defects to the real source and requires
+  the tests to catch them. It closes a gap the coverage ratchet cannot see: coverage asks whether a
+  line ran, not whether a wrong version of it would be noticed. The first recorded mutation passed
+  eleven tests at 100% coverage of the line it changed.
+
 ## 0.25.95
 
 ### Patch Changes
