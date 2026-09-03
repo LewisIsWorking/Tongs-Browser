@@ -68,14 +68,15 @@ export function authoriseCreation(request: CreationRequest, world: RequestWorld)
   }
 
   /*
-   * ⚠️ A GM asking through the relay is refused rather than served, and it is not an oversight. A GM
-   * has the create flow directly, with the full picker and the choice of owner; routing them through
-   * the player path would silently drop that choice and hand them a sheet owned by themselves. A
-   * request that can only produce the wrong answer is better refused than honoured.
+   * ⚠️ A GM owner is ALLOWED, and an earlier version of this refused it. That rule was written
+   * confidently and was wrong: "a GM should use the picker instead" is a question about which UI to
+   * route someone to, not about what they are entitled to. Putting it here protected nothing, since a
+   * GM owning a sheet in a party open to players is entirely legitimate, and it broke the case where
+   * the designated GM is the local client and creates directly without a round trip.
+   *
+   * The rule that DOES belong here is the one above: the owner must be a real user. Which flow a GM
+   * is offered is `TrayActions`' business.
    */
-  if (owner.isGm) {
-    return { kind: 'refused', reason: 'A GM should use the create button directly.' };
-  }
 
   return {
     kind: 'authorised',

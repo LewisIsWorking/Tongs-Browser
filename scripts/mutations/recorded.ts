@@ -85,17 +85,36 @@ export const RECORDED: readonly RecordedMutation[] = [
   },
   {
     file: 'src/relay/CreationPolicy.ts',
-    find: '  if (owner.isGm) {',
-    replace: '  if (!owner.isGm) {',
-    defect: 'players are refused and GMs are served, exactly backwards',
-    tests: ['tests/unit/creationPolicy.test.ts'],
-  },
-  {
-    file: 'src/relay/CreationPolicy.ts',
     find: '  return trimmed.slice(0, NAME_LIMIT);',
     replace: '  return trimmed;',
     defect: 'a player-supplied name is written into the world uncapped',
     tests: ['tests/unit/creationPolicy.test.ts'],
+  },
+  /*
+   * ⚠️ The three below are consequences of EVERY client receiving EVERY message on the channel. All
+   * three fail while looking like success, which is why they are recorded rather than only tested.
+   */
+  {
+    file: 'src/relay/CreationRelay.ts',
+    find: '    if (!this.options.readPresence().isMe) {',
+    replace: '    if (this.options.readPresence().isMe) {',
+    defect: 'every GM but the designated one serves the request, so a table gets one sheet per GM',
+    tests: ['tests/unit/creationRelay.test.ts'],
+  },
+  {
+    file: 'src/relay/CreationRelay.ts',
+    find: '    const made = await this.options.create(verdict.ownerId, verdict.partyUuid, verdict.name);',
+    replace:
+      '    const made = await this.options.create(this.options.myUserId(), verdict.partyUuid, verdict.name);',
+    defect: 'the sheet is owned by the GM who ran it rather than the player who asked',
+    tests: ['tests/unit/creationRelay.test.ts'],
+  },
+  {
+    file: 'src/relay/PendingRequests.ts',
+    find: '    const pending = this.waiting.get(id);',
+    replace: '    const pending = [...this.waiting.values()][0];',
+    defect: 'any answer settles whichever request is outstanding, so a player takes someone else’s',
+    tests: ['tests/unit/pendingRequests.test.ts', 'tests/unit/creationRelay.test.ts'],
   },
   {
     file: 'src/foundry/DesignatedGm.ts',
