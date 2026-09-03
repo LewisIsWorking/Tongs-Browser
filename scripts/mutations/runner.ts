@@ -13,6 +13,30 @@ import type { RecordedMutation } from './recorded.ts';
  */
 const SUMMARY = /^\s*Tests\s+(?:(\d+) failed \| )?(\d+) passed/m;
 
+/**
+ * ⚠️ Colour codes are STRIPPED before anything is matched, and this was a real CI-only failure on
+ * 2026-09-03, not a precaution.
+ *
+ * Vitest emits plain text when its output is piped, which is what happens on a developer's machine,
+ * and coloured text under GitHub Actions, which forces colour on. The summary line therefore arrives
+ * as `ESC[2m Tests ESC[22m...`, and an anchor of `^\s*Tests` cannot match a line that begins
+ * with an escape sequence. Three mutations that were genuinely killed were reported as "no tests
+ * ran", in CI only, on output that looked identical in the log.
+ *
+ * Any `^` anchored match against a child process's text has this bug latent in it.
+ */
+/*
+ * ⚠️ The disable is the rule being satisfied, not a way around it. `no-control-regex` exists
+ * because a control character in a pattern is almost always a typo. Here the escape character is
+ * exactly what is being matched, and colour cannot be stripped without naming it.
+ */
+// eslint-disable-next-line no-control-regex
+const ANSI = /\u001B\[[0-9;]*[A-Za-z]/g;
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI, '');
+}
+
 export type Verdict =
   | { readonly kind: 'killed'; readonly failed: number; readonly by: readonly string[] }
   | { readonly kind: 'survived' }
@@ -76,6 +100,13 @@ function runVitest(tests: readonly string[]): string {
     return execFileSync(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', ...tests], {
       encoding: 'utf8',
       stdio: 'pipe',
+      /*
+       * ⚠️ Asks for plain text AS WELL AS stripping it on the way in. Asking alone relies on the
+       * child agreeing, and GitHub Actions sets FORCE_COLOR, which is the whole reason this was a
+       * CI-only bug. Stripping alone would work, but leaving colour on means the quoted evidence in
+       * a failure message is full of escape sequences and hard to read in a log.
+       */
+      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' },
     });
   } catch (error) {
     /* A failing run is the expected case here, and its output is the whole point. */
@@ -84,7 +115,8 @@ function runVitest(tests: readonly string[]): string {
   }
 }
 
-export function readVerdict(output: string): Verdict {
+export function readVerdict(raw: string): Verdict {
+  const output = stripAnsi(raw);
   const summary = SUMMARY.exec(output);
   if (summary === null) {
     return { kind: 'noTests', output: lastLines(output) };

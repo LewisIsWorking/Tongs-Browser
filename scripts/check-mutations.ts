@@ -19,6 +19,10 @@
  *   real run printed `❌ SURVIVED` and exited 1; a `find` occurring twice printed
  *   `⛔ AMBIGUOUS ANCHOR` and exited 1. The mutated source was verified restored after both, which is
  *   the branch that matters most: a failing run is exactly when a restore is easiest to skip.
+ *   PROVEN AGAINST ITS OWN FIRST BUG, same day: the coloured summary check was confirmed by deleting
+ *   the `stripAnsi` call, which makes it print "a coloured summary read as noTests" and exit 1. That
+ *   bug was real and CI only, and every other check in this self test passed all the way through it,
+ *   because they were written with the plain text that a piped local run produces.
  *
  * ⚠️ THIS SCRIPT EDITS SOURCE FILES and puts them back. It is safe to interrupt in the sense that the
  * restore is in a `finally` and is verified by content, but do not run it with unsaved work in an
@@ -47,12 +51,28 @@ function selfTest(): void {
     fail(`a run where no test executed read as ${nothing.kind}, not noTests`);
   }
 
+  /*
+   * ⚠️ The SAME summary wearing colour, which is what CI actually sends. This is not a hypothetical:
+   * on 2026-09-03 three mutations that were genuinely killed were reported as "no tests ran", on CI
+   * only, because GitHub Actions forces colour on and `^\s*Tests` cannot match a line beginning with
+   * an escape sequence. Every check above this one passed throughout, because they were written with
+   * the plain text a piped local run produces.
+   */
+  const coloured = readVerdict(
+    '\u001B[2m  Tests \u001B[22m \u001B[31m1 failed\u001B[39m | 10 passed (11)'
+  );
+  if (coloured.kind !== 'killed') {
+    fail(
+      `a coloured summary read as ${coloured.kind}, not killed. CI sends colour; a local pipe does not`
+    );
+  }
+
   if (countAnchor('const a = 1;\nconst a = 1;\n', 'const a = 1;') !== 2) {
     fail('a duplicated anchor was not counted twice, so an ambiguous mutation would be applied');
   }
 
   console.log(
-    'Self test passed: a failure is a kill, all-passing is a survivor, no tests is neither, and a duplicated anchor is counted.'
+    'Self test passed: a failure is a kill (in colour too), all-passing is a survivor, no tests is neither, and a duplicated anchor is counted.'
   );
 }
 
