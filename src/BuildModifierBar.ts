@@ -1,6 +1,7 @@
 import { ModifierBar } from './modifiers/ModifierBar.js';
 import { wireTrayActions } from './TrayWiring.js';
 import type { CanvasController } from './gesture/CanvasController.js';
+import type { CreationRelay } from './relay/CreationRelay.js';
 import type { DragDiagnostics } from './debug/DragDiagnostics.js';
 import type { FoundryAccess } from './foundry/FoundryAccess.js';
 import type { FoundryActions } from './foundry/FoundryActions.js';
@@ -25,6 +26,8 @@ export interface ModifierBarDeps {
   readonly actions: FoundryActions;
   readonly diagnostics: DragDiagnostics;
   readonly canvasController: CanvasController;
+  /** The player path for creating a sheet. A GM never uses it; see `CreateSheetRoute`. */
+  readonly creationRelay: CreationRelay;
   /** ⚠️ A THUNK. See the note above: the pointer does not exist yet when this runs. */
   readonly pointer: () => VirtualPointer;
 }
@@ -71,6 +74,7 @@ export function buildModifierBar(deps: ModifierBarDeps): ModifierBar {
       pointer: deps.pointer,
       diagnostics: deps.diagnostics,
       document: deps.document,
+      creationRelay: deps.creationRelay,
     }),
   });
 }

@@ -8,15 +8,17 @@ import { FoundryActions } from './foundry/FoundryActions.js';
 import { GestureController } from './gesture/GestureController.js';
 import { KeyboardSynthesizer } from './modifiers/KeyboardSynthesizer.js';
 import { ModifierBar } from './modifiers/ModifierBar.js';
-import { PauseRelay, type SocketLike } from './relay/PauseRelay.js';
+import type { PauseRelay } from './relay/PauseRelay.js';
+import type { CreationRelay } from './relay/CreationRelay.js';
 import { TouchBinder } from './gesture/TouchBinder.js';
 import { UiScaler } from './scaling/UiScaler.js';
 import { WindowClampBinder } from './scaling/WindowClampBinder.js';
 import { createPointerStack } from './PointerStack.js';
 import { buildModifierBar } from './BuildModifierBar.js';
+import { buildCreationRelay } from './relay/BuildCreationRelay.js';
+import { buildPauseRelay } from './relay/BuildPauseRelay.js';
 import { logger } from './core/Logger.js';
 import { vibrate } from './core/Vibrate.js';
-import { MODULE_ID } from './constants.js';
 import type { CursorOverlay } from './pointer/CursorOverlay.js';
 import type { VirtualPointer } from './pointer/VirtualPointer.js';
 import type { TongsBrowserOptions } from './TongsBrowserOptions.js';
@@ -54,6 +56,7 @@ export interface ModuleParts {
   readonly scaler: UiScaler;
   readonly clampBinder: WindowClampBinder;
   readonly pauseRelay: PauseRelay;
+  readonly creationRelay: CreationRelay;
   readonly binder: TouchBinder;
   readonly diagnostics: DragDiagnostics;
   readonly actions: FoundryActions;
@@ -123,6 +126,8 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
     logger,
   });
 
+  const creationRelay = buildCreationRelay();
+
   const modifierBar = buildModifierBar({
     document: doc,
     options,
@@ -131,6 +136,7 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
     actions,
     diagnostics,
     canvasController,
+    creationRelay,
     // A thunk, because the pointer field is not assigned until after the bar is built.
     pointer: () => stack.pointer,
   });
@@ -142,23 +148,7 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
 
   const clampBinder = new WindowClampBinder({ document: doc, window: win, logger });
 
-  /*
-   * Resolved lazily on every call rather than captured now. The socket, the user list and who
-   * counts as the designated GM all change during a session, and a GM disconnecting mid game is
-   * exactly when the relay has to still pick the right client.
-   */
-  const pauseRelay = new PauseRelay({
-    get socket(): SocketLike | null {
-      return (globalThis as { game?: { socket?: SocketLike } }).game?.socket ?? null;
-    },
-    channel: `module.${MODULE_ID}`,
-    isDesignatedGm: () => actions.isDesignatedGm(),
-    applyPause: (pause: boolean) => {
-      actions.applyPause(pause);
-    },
-    getPaused: () => (globalThis as { game?: { paused?: boolean } }).game?.paused === true,
-    logger,
-  });
+  const pauseRelay = buildPauseRelay(actions, logger);
 
   const binder = new TouchBinder({
     target: doc,
@@ -189,6 +179,7 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
     scaler,
     clampBinder,
     pauseRelay,
+    creationRelay,
     binder,
     diagnostics,
     actions,

@@ -12,11 +12,27 @@ import type { VirtualPointer } from '../../../src/pointer/VirtualPointer.js';
  */
 export const globals = globalThis as unknown as Record<string, unknown>;
 
-export const parts = (): TrayWiring => ({
+/**
+ * ⚠️ A relay that refuses everything, because these tests are about the WIRING, not the round trip.
+ * A relay that succeeded would make a player's create indistinguishable from a GM's, and the point of
+ * several of these tests is that the two take different routes. `creationRelay.test.ts` owns the
+ * round trip.
+ */
+const refusingRelay = (): TrayWiring['creationRelay'] =>
+  ({
+    request: async () => Promise.resolve({ kind: 'noGm' as const }),
+    bind: () => undefined,
+    unbind: () => undefined,
+    isBound: () => false,
+  }) as unknown as TrayWiring['creationRelay'];
+
+export const parts = (over: Partial<TrayWiring> = {}): TrayWiring => ({
   actions: {} as FoundryActions,
   pointer: () => ({}) as VirtualPointer,
   diagnostics: {} as DragDiagnostics,
   document,
+  creationRelay: refusingRelay(),
+  ...over,
 });
 
 export const findTrayAction = (id: string, wiring = parts()): TrayAction | undefined =>
@@ -43,6 +59,29 @@ export function partyWorld(users: { id: string; name: string; isGM: boolean }[])
       },
     ],
     users,
+  };
+}
+
+/**
+ * A world seen by a PLAYER, with one party that is either open to them or not.
+ *
+ * ⚠️ The flag is what decides whether the create button exists for them, so it is the only thing
+ * that varies here. Everything else is held identical on purpose: a test where two things differ
+ * cannot say which one the button was responding to.
+ */
+export function playerWorld(openToPlayers: boolean): void {
+  globals['game'] = {
+    user: { id: 'p1', isGM: false },
+    actors: [
+      {
+        uuid: 'Actor.p',
+        name: 'The Firebrands',
+        type: 'party',
+        testUserPermission: () => true,
+        getFlag: () => (openToPlayers ? true : undefined),
+      },
+    ],
+    users: [{ id: 'p1', name: 'Ana', isGM: false }],
   };
 }
 
