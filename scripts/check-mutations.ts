@@ -56,6 +56,14 @@ function selfTest(): void {
   );
 }
 
+/** ⚠️ The evidence, indented so it reads as quoted output rather than as this script's own words. */
+function indent(text: string): string {
+  return text
+    .split('\n')
+    .map((line) => `   | ${line}`)
+    .join('\n');
+}
+
 function fail(why: string): never {
   console.error(`SELF TEST FAILED: ${why}`);
   process.exit(1);
@@ -82,7 +90,9 @@ for (const mutation of RECORDED) {
       `❌ SURVIVED  ${where}\n   ${mutation.tests.join(', ')} all passed with it applied.`
     );
   } else if (verdict.kind === 'noTests') {
-    console.error(`⛔ NO TESTS RAN  ${where}\n   Nothing was measured. Check the test paths.`);
+    console.error(
+      `⛔ NO TESTS RAN  ${where}\n   Nothing was measured. What the run printed instead:\n${indent(verdict.output)}`
+    );
   } else {
     console.error(
       `⛔ AMBIGUOUS ANCHOR  ${where}\n   Found ${String(verdict.occurrences)} times, needs exactly 1.`

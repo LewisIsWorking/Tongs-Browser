@@ -16,7 +16,13 @@ const SUMMARY = /^\s*Tests\s+(?:(\d+) failed \| )?(\d+) passed/m;
 export type Verdict =
   | { readonly kind: 'killed'; readonly failed: number; readonly by: readonly string[] }
   | { readonly kind: 'survived' }
-  | { readonly kind: 'noTests' }
+  /**
+   * ⚠️ Carries the OUTPUT, not just the verdict. The first version reported "Nothing was measured"
+   * and stopped there, which is a diagnosis with the evidence thrown away: it says a run produced no
+   * summary line without saying what it produced instead. CI found this immediately, on a failure
+   * that could not be reproduced from the message alone.
+   */
+  | { readonly kind: 'noTests'; readonly output: string }
   | { readonly kind: 'badAnchor'; readonly occurrences: number };
 
 /** How many times the anchor appears. Exported so the self test can prove the ambiguity rule. */
@@ -81,7 +87,7 @@ function runVitest(tests: readonly string[]): string {
 export function readVerdict(output: string): Verdict {
   const summary = SUMMARY.exec(output);
   if (summary === null) {
-    return { kind: 'noTests' };
+    return { kind: 'noTests', output: lastLines(output) };
   }
 
   const failed = Number(summary[1] ?? '0');
@@ -89,6 +95,11 @@ export function readVerdict(output: string): Verdict {
     return { kind: 'survived' };
   }
   return { kind: 'killed', failed, by: namesOfFailures(output) };
+}
+
+/** The tail of a run that produced no summary, which is where the reason for that usually is. */
+function lastLines(output: string): string {
+  return output.trim().split('\n').slice(-12).join('\n');
 }
 
 /** ⚠️ WHICH tests failed, not just how many. A mutation killed by an unrelated test is a coincidence. */
