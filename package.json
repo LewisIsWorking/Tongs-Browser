@@ -49,7 +49,8 @@
     "check:grab": "node scripts/foundry-grab-button-check.ts",
     "check:exports": "node scripts/check-dead-exports.ts --self-test && node scripts/check-dead-exports.ts",
     "check:documents": "node scripts/check-document-access.ts --self-test && node scripts/check-document-access.ts",
-    "check:mutations": "node scripts/check-mutations.ts --self-test && node scripts/check-mutations.ts"
+    "check:mutations": "node scripts/check-mutations.ts --self-test && node scripts/check-mutations.ts",
+    "check:sheets": "node scripts/foundry-sheets-check.ts"
   },
   "devDependencies": {
     "@changesets/changelog-github": "0.7.0",

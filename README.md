@@ -74,6 +74,26 @@ tap a third time to clear. The three states look different from each other, and 
 Text inputs, the chat log, the sidebar and any scrollable region are left alone entirely, so typing
 and native scrolling work exactly as they did before.
 
+## Making a character from the control pad
+
+Two tray buttons, for PF2e and the systems derived from it:
+
+| Button | Who sees it                                  | What it does                                       |
+| ------ | -------------------------------------------- | -------------------------------------------------- |
+| `C+`   | GMs, and players with a party opened to them | Create a character sheet in a party                |
+| `C🔓`  | GMs only                                     | Choose which parties players may add characters to |
+
+By default no party is open, so `C+` is a GM-only button. Open one with `C🔓` and the players who can
+see that party get the button too. They can only create in a party you have opened, and only as
+themselves.
+
+**A GM has to be online for a player to use it.** That is not a choice this module made: Foundry
+silently discards an ownership entry naming anyone but the creator, so a player's own client cannot
+make a sheet that properly belongs to them. The request runs on a GM's client instead, and the module
+says so plainly rather than failing quietly when nobody is logged in.
+
+Nobody is shown a sheet, party or folder they did not already have permission to see.
+
 ## Settings
 
 All settings are per client, so every player configures their own device.
