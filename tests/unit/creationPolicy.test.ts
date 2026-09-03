@@ -94,14 +94,15 @@ describe('what it refuses', () => {
   });
 
   /**
-   * ⚠️ Refused rather than served. A GM has the full picker, including the choice of owner; honouring
-   * this would silently drop that choice and give them a sheet owned by themselves.
+   * ⚠️ A GM owner is ALLOWED. An earlier version refused this on the grounds that a GM "should use
+   * the picker", which is a question about which UI to offer, not about entitlement. It protected
+   * nothing and broke the designated GM creating directly with no round trip.
    */
-  it('refuses a GM who came through the player path', () => {
+  it('allows a GM as the owner, because which flow to offer is a question for the UI', () => {
     const verdict = authoriseCreation(ask({ userId: 'user-gm' }), world());
 
-    expect(verdict.kind).toBe('refused');
-    expect(verdict).toHaveProperty('reason', expect.stringContaining('directly'));
+    expect(verdict).toHaveProperty('kind', 'authorised');
+    expect(verdict).toHaveProperty('ownerId', 'user-gm');
   });
 });
 
