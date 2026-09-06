@@ -1,9 +1,12 @@
 import type { GmPresence } from '../foundry/DesignatedGm.js';
+import type { CreationOutcome, PerformOutcome } from './CreationOutcome.js';
 import { authoriseCreation, type RequestWorld } from './CreationPolicy.js';
 import { isCreationRequest, type CreationRequest } from './CreationRequest.js';
-import { isCreationResult, type CreationResult } from './CreationResult.js';
+import { isCreationResult, resultFor, type CreationResult } from './CreationResult.js';
 import type { SocketLike } from './PauseRelay.js';
 import { PendingRequests, type TimerPorts } from './PendingRequests.js';
+import { proves, UNPROVEN_REASON, type ProofPorts } from './RequestProof.js';
+import { SocketBinding } from './SocketBinding.js';
 
 /**
  * A player asks a GM to make them a character sheet, and hears back. Added 2026-09-03.
@@ -22,16 +25,6 @@ import { PendingRequests, type TimerPorts } from './PendingRequests.js';
  * without a timer the requester waits forever behind a spinner that never resolves. "I did not hear
  * back" is a real outcome and is reported as one.
  */
-export type CreationOutcome =
-  | { readonly kind: 'created'; readonly actorUuid: string | null }
-  | { readonly kind: 'refused'; readonly reason: string }
-  | { readonly kind: 'noGm' }
-  | { readonly kind: 'noSocket' }
-  | { readonly kind: 'timedOut' };
-
-/** What can come back once a GM actually has the request. The other three never reached one. */
-type PerformOutcome = Extract<CreationOutcome, { kind: 'created' } | { kind: 'refused' }>;
-
 export interface CreationRelayOptions {
   readonly socket: SocketLike | null;
   readonly channel: string;
@@ -50,10 +43,17 @@ export interface CreationRelayOptions {
   /** Injected so tests do not wait in real time, and so the id is not a hidden global dependency. */
   readonly newRequestId: () => string;
   readonly timers: TimerPorts;
+  /**
+   * Proves the sender is who the payload says. See `RequestProof`.
+   *
+   * ⛔ REQUIRED, not optional. An optional security check is one somebody forgets to wire, and it
+   * fails open when they do: the relay would go on trusting a claimed id with nothing saying so.
+   */
+  readonly proof: ProofPorts;
 }
 
 export class CreationRelay {
-  private bound = false;
+  private readonly binding: SocketBinding;
   private readonly pending: PendingRequests<CreationOutcome>;
 
   private readonly onSocket = (payload: unknown): void => {
@@ -70,26 +70,20 @@ export class CreationRelay {
     this.pending = new PendingRequests<CreationOutcome>(options.timers, () => ({
       kind: 'timedOut',
     }));
+    /* ⚠️ A thunk, not `options.socket`: it is a getter over a global that is null until `ready`. */
+    this.binding = new SocketBinding(() => options.socket, options.channel, this.onSocket);
   }
 
   public bind(): void {
-    if (this.bound || this.options.socket === null) {
-      return;
-    }
-    this.options.socket.on(this.options.channel, this.onSocket);
-    this.bound = true;
+    this.binding.bind();
   }
 
   public unbind(): void {
-    if (!this.bound || this.options.socket === null) {
-      return;
-    }
-    this.options.socket.off?.(this.options.channel, this.onSocket);
-    this.bound = false;
+    this.binding.unbind();
   }
 
   public isBound(): boolean {
-    return this.bound;
+    return this.binding.isBound();
   }
 
   /**
@@ -133,39 +127,50 @@ export class CreationRelay {
       name,
     };
 
-    /* ⚠️ Waiting is set up BEFORE the emit, so an answer on the same tick is not missed. */
+    /*
+     * ⚠️ Waiting starts BEFORE the emit so a same-tick answer is not missed, and before the CLAIM so
+     * the timeout covers the flag write too. Claiming first left a server that never answered the
+     * write hanging the caller with no timer running: the exact outcome the timeout exists for,
+     * reachable only through the code added to make the ask trustworthy. Caught by the timer
+     * fixtures, 2026-09-06.
+     *
+     * ⛔ The claim is then AWAITED BEFORE THE EMIT, and that await is load bearing. It resolves only
+     * once the server has accepted the write, so the proof exists before anyone can act on the ask.
+     * Emitting first would race our own proof and refuse our own honest request.
+     */
     const answer = this.pending.wait(requestId);
+    await this.options.proof.claim(requestId);
     this.options.socket?.emit(this.options.channel, request);
     return answer;
   }
 
-  /** The GM side. Authorise from the GM's own view, act, and say what happened. */
+  /**
+   * The GM side. Prove who asked, authorise from the GM's own view, act, and say what happened.
+   *
+   * ⛔ THE PROOF COMES FIRST, before the policy, and the order is the point. `authoriseCreation`
+   * decides what the named user is entitled to; it has always been right about that and has no way
+   * to know whether the payload really came from them. Asking "is this user allowed" before "is this
+   * actually this user" answers a question about the wrong person.
+   */
   private async serve(request: CreationRequest): Promise<void> {
     if (!this.options.readPresence().isMe) {
       return;
     }
 
-    const outcome = await this.perform(request);
-    const result: CreationResult =
-      outcome.kind === 'created'
-        ? { action: 'createSheetResult', requestId: request.requestId, ok: true, ...uuid(outcome) }
-        : {
-            action: 'createSheetResult',
-            requestId: request.requestId,
-            ok: false,
-            reason: outcome.reason,
-          };
-    this.options.socket?.emit(this.options.channel, result);
+    const outcome = proves(this.options.proof.readClaim(request.userId), request.requestId)
+      ? await this.perform(request)
+      : ({ kind: 'refused', reason: UNPROVEN_REASON } as const);
+
+    /* ⚠️ Released whatever happened. A refusal that left the claim standing would let the same
+     * payload be retried forever, and a failed create is exactly when a client retries. */
+    await this.options.proof.release(request.userId);
+    this.options.socket?.emit(this.options.channel, resultFor(request.requestId, outcome));
   }
 
   /**
    * Authorise and create. Shared by the GM serving a request and a GM asking for themselves.
    *
-   * ⚠️ Returns the NARROWED union, not `CreationOutcome`. The wider type forced a `reason` fallback
-   * for `noGm`, `noSocket` and `timedOut`, none of which this can produce: those describe a request
-   * that never reached a GM, and this only runs once one has it. That fallback was a branch nothing
-   * could reach and no honest test could cover. Saying so in the type deletes it, and makes a future
-   * outcome that genuinely can occur here a compile error rather than a silent default.
+   * ⚠️ Returns `PerformOutcome`, the NARROWED union, and `CreationOutcome.ts` says why.
    */
   private async perform(request: CreationRequest): Promise<PerformOutcome> {
     const verdict = authoriseCreation(request, this.options.readWorld());
@@ -189,9 +194,4 @@ export class CreationRelay {
         : { kind: 'refused', reason: result.reason ?? 'The GM did not say why.' }
     );
   }
-}
-
-/** ⚠️ Omits the key entirely when there is no uuid, so `exactOptionalPropertyTypes` stays satisfied. */
-function uuid(outcome: { readonly actorUuid: string | null }): { actorUuid?: string } {
-  return outcome.actorUuid === null ? {} : { actorUuid: outcome.actorUuid };
 }

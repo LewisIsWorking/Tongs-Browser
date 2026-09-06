@@ -5,11 +5,15 @@
  * can emit on, so the shape check below is a real boundary rather than a formality. Nothing here is
  * evidence of anything; it is a claim, and `CreationPolicy` decides what to believe.
  *
- * ⚠️ `userId` is CLAIMED, NOT PROVEN, and that limitation is the design's one real weakness. Core
- * Foundry rebroadcasts a socket payload without attaching a verified sender, so the GM's client
- * cannot tell who actually emitted this. A player could name another player's id and have the sheet
- * created owned by them. See the note in `CreationPolicy` for why that is bounded rather than
- * dangerous, and why it is still worth raising with Lewis rather than left implicit.
+ * ✅ `userId` IS NOW PROVEN, 2026-09-06. It used to be a bare claim: core Foundry rebroadcasts a
+ * socket payload without attaching a verified sender, so a player could name another player's id and
+ * have the sheet created owned by them. `RequestProof` closes that WITHOUT socketlib, by making the
+ * requester write the request id onto their own User document first. Foundry's server refuses that
+ * write aimed at anyone else, so the flag is evidence of authorship.
+ *
+ * ⚠️ The field is still an untrusted claim AT THIS LAYER, and that is why the wording below has not
+ * changed. This module checks shape only. `CreationRelay.serve` is what tests the claim against the
+ * proof, and it does so BEFORE `CreationPolicy` decides what the named user may have.
  *
  * Kept minimal so an older client cannot be confused by a field a newer one adds, which is the same
  * reason `PauseRelay` keeps its payload to two fields.

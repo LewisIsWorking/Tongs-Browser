@@ -2,6 +2,7 @@ import { vi } from 'vitest';
 
 import type { CreationRelayOptions } from '../../../src/relay/CreationRelay.js';
 import type { SocketLike } from '../../../src/relay/PauseRelay.js';
+import type { ProofPorts } from '../../../src/relay/RequestProof.js';
 
 /**
  * A table with a socket everybody shares. Written 2026-09-03.
@@ -78,12 +79,46 @@ export function manualTimers(): {
   };
 }
 
+/**
+ * The claims every relay in a test can see. Added 2026-09-06 with the sender proof.
+ *
+ * ⚠️ SHARED, deliberately, because the thing it stands in for is shared: a flag on a User document
+ * is world state that every client reads. Giving each relay its own store would mean a GM could
+ * never see the claim a player wrote, and every honest round trip in these files would fail for a
+ * reason that does not exist in Foundry.
+ *
+ * ⚠️ Reset between tests via `resetProofs`, or a claim released in one test leaves a stale entry
+ * that could vouch for a request in the next. That is the failure direction that HIDES a bug.
+ */
+const claims = new Map<string, string>();
+
+export function resetProofs(): void {
+  claims.clear();
+}
+
+/** ⚠️ `claim` writes as whoever this client is, exactly as the real port does: it takes no user id. */
+export function testProof(myUserId: () => string): ProofPorts {
+  return {
+    claim: (requestId) => {
+      claims.set(myUserId(), requestId);
+      return Promise.resolve();
+    },
+    readClaim: (userId) => claims.get(userId) ?? null,
+    release: (userId) => {
+      claims.delete(userId);
+      return Promise.resolve();
+    },
+  };
+}
+
 export function relayOptions(over: Partial<CreationRelayOptions> = {}): CreationRelayOptions {
+  const myUserId = over.myUserId ?? ((): string => 'user-player');
   return {
     socket: new TestSocket(),
     channel: CHANNEL,
     readPresence: () => ({ online: true, name: 'The GM', isMe: false }),
-    myUserId: () => 'user-player',
+    myUserId,
+    proof: testProof(myUserId),
     readWorld: () => ({
       parties: [OPEN_PARTY],
       users: [

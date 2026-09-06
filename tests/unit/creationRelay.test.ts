@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
 import { CreationRelay } from '../../src/relay/CreationRelay.js';
@@ -8,7 +8,14 @@ import {
   AS_PLAYER,
   TestSocket,
   relayOptions,
+  resetProofs,
 } from './support/creationRelayWorld.js';
+
+/**
+ * ⚠️ Claims are shared world state, exactly as a User flag is. Cleared between tests, or one left
+ * behind by a request nobody served would vouch for a later one in this file. Added 2026-09-06.
+ */
+beforeEach(resetProofs);
 
 /**
  * A player asking a GM for a character sheet, over a socket everybody shares. Written 2026-09-03.

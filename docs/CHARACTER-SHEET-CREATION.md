@@ -235,12 +235,48 @@ Each is separately shippable and separately testable, and none is useful without
    would be a mystery to watch; tapping it and reading "a GM has to be online" is a fact to act on.
    Presence decides the MESSAGE, never whether the control exists.
 
-   🔴 **FOR LEWIS, a real limitation rather than a detail.** Core Foundry rebroadcasts a socket
-   payload without a verified sender, so `userId` is CLAIMED, not proven. A player could name another
-   player's id and have the sheet created owned by them. It is bounded: only in a party you have
-   already opened to players, only an ordinary character, and only naming a real user, so the damage
-   is a misattributed sheet where sheets were invited. Closing it properly means depending on
-   socketlib. Happy to do that if you want it closed; it is documented rather than hidden either way.
+   **5d, the sender proof.** ✅ **CLOSED 2026-09-06, and WITHOUT socketlib.**
+
+   What this row used to carry, addressed to Lewis: core Foundry rebroadcasts a socket payload
+   without a verified sender, so `userId` was CLAIMED, not proven, and a player could name another
+   player's id and have the sheet created owned by them. Bounded, and still real. The stated fix was
+   a socketlib dependency, and Lewis was asked whether to take it.
+
+   ⭐ **He did not need to. Foundry already had a verified channel: its own document permissions.**
+   Measured from 14.366's shipped source rather than assumed, which is how everything else on this
+   page was settled. `common/documents/user.mjs`, `BaseUser.#canUpdate` ends:
+
+   ```js
+   const restricted = ['permissions', 'passwordSalt'];
+   if (user.role < roles.ASSISTANT) restricted.push('name', 'role');
+   if (restricted.some((k) => k in changes)) return false;
+   return user.isGM || user.id === doc.id;
+   ```
+
+   `flags` is not restricted, `User` carries `flags: new fields.DocumentFlagsField()`, and a player
+   may write to their OWN document and to nobody else's. ⭐ **And it is the SERVER that enforces it**,
+   which is what makes this a proof rather than a politeness:
+   `dist/database/backend/server-backend.mjs` runs
+   `if (r && !o.canUserModify(r, "update", u)) throw ...` on the update path. A client cannot talk its
+   way past a check it is not the one making.
+
+   So the requester writes the request id onto their own user as a flag and awaits it, then emits.
+   The GM reads that flag off the user the payload NAMES, and serves only if it matches. Forging
+   somebody else's id now means writing to their document, which the server refuses.
+
+   ⚠️ **Ordering is the one fragile part.** The flag update and the socket payload travel by
+   different routes. `ask` awaits the write, which resolves only once the server has accepted it, so
+   in practice the claim lands first. It is SAFE rather than merely likely because of which way it
+   fails: a claim that has not arrived reads as unproven, which REFUSES. The failure direction is a
+   player tapping again, never a sheet for the wrong person.
+
+   ⚠️ **A claim is public, so it is released once served.** Every client sees the flag update and
+   could re-emit a real payload verbatim. Without the release that replay verifies perfectly and buys
+   a duplicate sheet. It could never buy one for the wrong person, which was the original hole.
+
+   ⛔ Both behaviours are proven by REMOVING the check and watching the tests go red, not by
+   inspection. Doing that fails exactly two tests in `tests/unit/requestProof.test.ts` and nothing
+   else, which is what says they are testing the check rather than the happy path around it.
 
 Slice 3 is the first one with visible value, and slices 1 and 2 are what stop it being built on
 guesses.

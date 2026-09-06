@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { CreationRelay } from '../../src/relay/CreationRelay.js';
 import {
@@ -7,7 +7,14 @@ import {
   TestSocket,
   manualTimers,
   relayOptions,
+  resetProofs,
 } from './support/creationRelayWorld.js';
+
+/**
+ * ⚠️ Claims are shared world state, exactly as a User flag is. Cleared between tests, or one left
+ * behind by a request nobody served would vouch for a later one in this file. Added 2026-09-06.
+ */
+beforeEach(resetProofs);
 
 /**
  * Two players at one table, listening to the same broadcast. Written 2026-09-03, split from

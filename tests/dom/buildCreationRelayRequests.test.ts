@@ -25,10 +25,20 @@ afterEach(() => {
 });
 
 describe('the id a request travels under', () => {
-  const askAsPlayer = (sent: Emitted[]): Emitted | undefined => {
+  /**
+   * ⚠️ ASYNC since 2026-09-06, and the reason is behavioural rather than cosmetic. `ask` now awaits
+   * the sender proof's claim BEFORE emitting, so the payload does not exist on the tick `request`
+   * was called on. Reading `sent[0]` synchronously found nothing, and every assertion here failed
+   * against `undefined` rather than against a wrong value.
+   *
+   * ⚠️ `advanceTimersByTimeAsync`, not `runAllTimers`, because that wait is a MICROTASK and the
+   * synchronous form does not drain those. The same trap as the `stubGlobal` note below: the obvious
+   * call runs, reports success, and measures nothing.
+   */
+  const askAsPlayer = async (sent: Emitted[]): Promise<Emitted | undefined> => {
     vi.useFakeTimers();
     void buildCreationRelay().request('Actor.p', 'Bramble');
-    vi.runAllTimers();
+    await vi.advanceTimersByTimeAsync(0);
     return sent[0];
   };
 
@@ -37,11 +47,11 @@ describe('the id a request travels under', () => {
    * `globals['crypto'] = ...` fails SILENTLY and the test then measures the real implementation while
    * appearing to measure the stub. Both of these tests passed that way for the wrong reason first.
    */
-  it('uses crypto.randomUUID when the page is a secure context', () => {
+  it('uses crypto.randomUUID when the page is a secure context', async () => {
     const { sent } = world({ user: { id: 'p1', isGM: false } });
     vi.stubGlobal('crypto', { randomUUID: () => 'a-real-uuid' });
 
-    expect(askAsPlayer(sent)?.requestId).toBe('a-real-uuid');
+    expect((await askAsPlayer(sent))?.requestId).toBe('a-real-uuid');
   });
 
   /**
@@ -49,17 +59,17 @@ describe('the id a request travels under', () => {
    * that is the ordinary way this module is reached from a phone. A bare counter would have two
    * clients both starting at one, colliding, and a player settling on somebody else's answer.
    */
-  it('falls back to an id scoped by the user when randomUUID is missing', () => {
+  it('falls back to an id scoped by the user when randomUUID is missing', async () => {
     const { sent } = world({ user: { id: 'p1', isGM: false } });
     vi.stubGlobal('crypto', {});
 
-    expect(askAsPlayer(sent)?.requestId).toContain('p1');
+    expect((await askAsPlayer(sent))?.requestId).toContain('p1');
   });
 
-  it('sends the asker’s own id rather than anything from a payload', () => {
+  it('sends the asker’s own id rather than anything from a payload', async () => {
     const { sent } = world({ user: { id: 'p1', isGM: false } });
 
-    expect(askAsPlayer(sent)?.userId).toBe('p1');
+    expect((await askAsPlayer(sent))?.userId).toBe('p1');
   });
 
   /**
@@ -67,11 +77,11 @@ describe('the id a request travels under', () => {
    * segment, so two anonymous clients would generate the SAME id and settle on each other's answers.
    * The request is refused by the policy anyway, but an id that can collide is worth not minting.
    */
-  it('still makes a distinct id when there is no user yet', () => {
+  it('still makes a distinct id when there is no user yet', async () => {
     const { sent } = world({ user: undefined });
     vi.stubGlobal('crypto', {});
 
-    expect(askAsPlayer(sent)?.requestId).toContain('anon');
+    expect((await askAsPlayer(sent))?.requestId).toContain('anon');
   });
 
   /**
@@ -80,10 +90,10 @@ describe('the id a request travels under', () => {
    * string is refused; a missing field would fail the shape check before that and be dropped in
    * silence, which is the same outcome with no explanation attached to it.
    */
-  it('sends an empty asker when Foundry has not said who this client is', () => {
+  it('sends an empty asker when Foundry has not said who this client is', async () => {
     const { sent } = world({ user: undefined });
 
-    expect(askAsPlayer(sent)?.userId).toBe('');
+    expect((await askAsPlayer(sent))?.userId).toBe('');
   });
 });
 
@@ -115,6 +125,20 @@ describe('when an answer comes back', () => {
     const relay = buildCreationRelay();
     relay.bind();
     const waiting = relay.request('Actor.p', 'Bramble');
+
+    /*
+     * ⚠️ The emit happens AFTER `request` returns, because `ask` awaits the sender proof before
+     * sending. Answering too early replies to `sent[0]` while it is still undefined, which settles
+     * nothing and hangs the test on its timeout rather than failing on a value.
+     *
+     * ⚠️ A macrotask, not `await Promise.resolve()`. The claim is an async function awaiting inside
+     * itself, so resuming it and then resuming `ask` takes more than one microtask hop, and a single
+     * flush left the emit still pending. A `setTimeout` drains whatever is queued rather than a
+     * counted number of them.
+     */
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
 
     handler?.({
       action: 'createSheetResult',
