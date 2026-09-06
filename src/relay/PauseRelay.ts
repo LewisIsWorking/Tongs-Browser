@@ -1,4 +1,7 @@
 import type { Logger } from '../core/Logger.js';
+/* ⚠️ `SocketBinding` imports `SocketLike` back out of this file, but as a TYPE only, so the cycle is
+ * erased at compile time and there is no runtime import loop. */
+import { SocketBinding } from './SocketBinding.js';
 
 /** The subset of Foundry's socket this needs. Narrow on purpose, so it is trivial to fake. */
 export interface SocketLike {
@@ -58,7 +61,7 @@ function isPauseRequest(payload: unknown): payload is PauseRequest {
  * agree on an outcome rather than cancel each other out.
  */
 export class PauseRelay {
-  private bound = false;
+  private readonly binding: SocketBinding;
 
   private readonly onSocket = (payload: unknown): void => {
     if (!isPauseRequest(payload)) {
@@ -71,26 +74,21 @@ export class PauseRelay {
     this.options.applyPause(payload.pause);
   };
 
-  public constructor(private readonly options: PauseRelayOptions) {}
+  public constructor(private readonly options: PauseRelayOptions) {
+    /* ⚠️ A thunk, not `options.socket`: it is a getter over a global that is null until `ready`. */
+    this.binding = new SocketBinding(() => options.socket, options.channel, this.onSocket);
+  }
 
   public bind(): void {
-    if (this.bound || this.options.socket === null) {
-      return;
-    }
-    this.options.socket.on(this.options.channel, this.onSocket);
-    this.bound = true;
+    this.binding.bind();
   }
 
   public unbind(): void {
-    if (!this.bound || this.options.socket === null) {
-      return;
-    }
-    this.options.socket.off?.(this.options.channel, this.onSocket);
-    this.bound = false;
+    this.binding.unbind();
   }
 
   public isBound(): boolean {
-    return this.bound;
+    return this.binding.isBound();
   }
 
   /**

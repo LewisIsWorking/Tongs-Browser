@@ -1,4 +1,4 @@
-import type { CreationOutcome } from '../relay/CreationRelay.js';
+import type { CreationOutcome } from '../relay/CreationOutcome.js';
 import type {
   CreatedSheet,
   CreationRequest,

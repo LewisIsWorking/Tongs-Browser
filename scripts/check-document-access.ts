@@ -49,6 +49,14 @@ const BOUNDARY: readonly string[] = [
    * a document cannot answer, and hands the result to `PartyRoster` for the authorisation rules.
    */
   'src/foundry/PartyAccess.ts',
+  /*
+   * ⚠️ Added 2026-09-06, and it is the one entry that does NOT enumerate. It resolves a single user
+   * by an id already in hand and reads one flag off them, to prove a create request came from the
+   * user it names. It lists nothing and renders nothing: the value is compared for equality and
+   * discarded, so the rule this guard protects, never show a player a document they cannot see, is
+   * met by there being no output at all. If it ever grows a listing, it must grow a filter with it.
+   */
+  'src/relay/BuildRequestProof.ts',
 ];
 
 const sources = listSourceFiles().filter(

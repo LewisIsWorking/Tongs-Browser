@@ -42,3 +42,27 @@ export function isCreationResult(payload: unknown): payload is CreationResult {
 function isAbsentOrString(value: unknown): boolean {
   return value === undefined || typeof value === 'string';
 }
+
+/**
+ * Turn what the GM did into what the GM says. Extracted from `CreationRelay` 2026-09-06, when the
+ * sender proof needed room there.
+ *
+ * ⚠️ Takes the outcome's SHAPE rather than importing `CreationRelay`'s narrowed union, which would
+ * be a cycle: the relay already imports this module to check what arrives.
+ *
+ * ⚠️ Omits `actorUuid` entirely rather than sending `undefined`, so `exactOptionalPropertyTypes`
+ * stays satisfied and the payload does not carry a key that means nothing.
+ */
+export function resultFor(
+  requestId: string,
+  outcome:
+    | { readonly kind: 'created'; readonly actorUuid: string | null }
+    | { readonly kind: 'refused'; readonly reason: string }
+): CreationResult {
+  if (outcome.kind === 'refused') {
+    return { action: 'createSheetResult', requestId, ok: false, reason: outcome.reason };
+  }
+  return outcome.actorUuid === null
+    ? { action: 'createSheetResult', requestId, ok: true }
+    : { action: 'createSheetResult', requestId, ok: true, actorUuid: outcome.actorUuid };
+}

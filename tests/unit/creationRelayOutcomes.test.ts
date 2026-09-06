@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CreationRelay } from '../../src/relay/CreationRelay.js';
 import {
@@ -9,7 +9,15 @@ import {
   TestSocket,
   manualTimers,
   relayOptions,
+  resetProofs,
 } from './support/creationRelayWorld.js';
+
+/**
+ * ⚠️ Claims are shared world state, exactly as a User flag is. Cleared between tests, and this file
+ * is the one that needs it: its timeout cases leave a request nobody served, so the claim survives
+ * and would vouch for an unrelated request later on. Added 2026-09-06.
+ */
+beforeEach(resetProofs);
 
 /**
  * Every way an ask can end without a sheet. Written 2026-09-03, split from `creationRelay.test.ts`

@@ -128,4 +128,32 @@ export const RECORDED: readonly RecordedMutation[] = [
     defect: 'an unidentifiable client believes it is the designated GM',
     tests: ['tests/unit/designatedGm.test.ts'],
   },
+  {
+    file: 'src/relay/CreationRelay.ts',
+    find: '    const outcome = proves(this.options.proof.readClaim(request.userId), request.requestId)',
+    replace: '    const outcome = true',
+    /*
+     * ⚠️ Recorded rather than merely unit tested, for the same reason `CreationPolicy`'s guards are:
+     * on the relay's receiving end our check is not a layer sitting in front of Foundry's own
+     * enforcement, it is the ONLY check there is. Core Foundry rebroadcasts a socket payload without
+     * a verified sender, so deleting this line restores the original hole exactly: a player names
+     * another player's id and the sheet is created owned by them, silently.
+     */
+    defect:
+      'a request is served on a CLAIMED sender id, so a player can create a sheet owned by someone else',
+    tests: ['tests/unit/requestProof.test.ts'],
+  },
+  {
+    file: 'src/relay/CreationRelay.ts',
+    find: '    await this.options.proof.release(request.userId);',
+    replace: '    await Promise.resolve();',
+    /*
+     * ⚠️ A claim is PUBLIC: every client sees the flag update, so a hostile one can read a real
+     * request id off the wire and re-emit the payload verbatim. Without the release that replay
+     * verifies perfectly. It cannot buy a sheet for the WRONG person, which is why this is the
+     * lesser of the two, but it buys any number of them for the right one.
+     */
+    defect: 'a served claim is left standing, so a replayed payload creates a duplicate sheet',
+    tests: ['tests/unit/requestProof.test.ts'],
+  },
 ];

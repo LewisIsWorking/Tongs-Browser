@@ -4,6 +4,7 @@ import { readGmPresence } from '../foundry/DesignatedGm.js';
 import type { GmGame } from '../foundry/DesignatedGm.js';
 import { readParties, readUsers } from '../foundry/PartyAccess.js';
 import type { FoundryGame } from '../foundry/PartyAccess.js';
+import { buildRequestProof } from './BuildRequestProof.js';
 import { CreationRelay } from './CreationRelay.js';
 import type { SocketLike } from './PauseRelay.js';
 
@@ -80,6 +81,12 @@ export function buildCreationRelay(): CreationRelay {
     newRequestId: () =>
       globals().crypto?.randomUUID?.() ??
       `${MODULE_ID}-${gameOf()?.user?.id ?? 'anon'}-${String(nextId())}`,
+    /*
+     * ⛔ What makes `CreationRequest.userId` believable. See `RequestProof` for the measurement it
+     * rests on: Foundry's server refuses a player writing a flag onto anyone but themselves, so a
+     * claim found on a user's own document was put there by that user.
+     */
+    proof: buildRequestProof(),
     timers: {
       setTimer: (run, ms) => globalThis.setTimeout(run, ms),
       clearTimer: (handle) => {
