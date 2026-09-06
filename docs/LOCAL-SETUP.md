@@ -154,8 +154,32 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Fourteen tests against real Chromium, covering the hit testing behaviour jsdom cannot reach. They
-run against `dist/`, so build first.
+They cover the hit testing behaviour jsdom cannot reach, and they run against `dist/`, so build
+first.
+
+> ⚠️ **`playwright install` hangs forever on Node 26.** Measured 2026-09-06 on Node 26.5.1: the
+> download reaches `100% of 148.9 MiB`, then the out-of-process helper extracts exactly two files
+> and freezes with zero CPU and zero disk I/O. It never errors and never times out, so it reads as
+> a slow download rather than a hang. Only the installer is affected. `npm run test:browser` itself
+> runs fine on Node 26.
+>
+> Run the install under Node 24, invoked by absolute path so the global nvm version is left alone:
+>
+> ```powershell
+> & "$env:LOCALAPPDATA\nvm\v24.18.1\node.exe" node_modules\@playwright\test\cli.js install chromium
+> ```
+>
+> If an earlier attempt hung, first kill the stray `node` processes, then remove the stale lock
+> directory and the partial download:
+>
+> ```powershell
+> Remove-Item -Recurse -Force "$env:LOCALAPPDATA\ms-playwright\__dirlock"
+> Remove-Item -Recurse -Force "$env:LOCALAPPDATA\ms-playwright\chromium-<revision>"
+> ```
+>
+> That lock is a bare directory used as a mutex and records no owner PID, so one left behind by a
+> killed installer is indistinguishable from one held by a live one. Check its age and the process
+> list before removing it.
 
 ## Testing on the Android device
 
