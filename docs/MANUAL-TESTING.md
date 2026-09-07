@@ -380,6 +380,19 @@ module exists and which no automated check can judge.
 - [ ] Escape closes an open sheet.
 - [ ] A latched modifier clears after use. A locked one does not.
 
+### Targeting, added 2026-09-07
+
+⛔ **This is the half the unit tests deliberately do not cover.** They assert the event this module
+sends; whether Foundry acts on it needs a live canvas with a hovered token, which is here.
+
+- [ ] Put the pointer over a token and tap **🎯**. The token shows the target reticle.
+- [ ] Tap 🎯 again on the same token. The target clears, because Foundry's handler toggles.
+- [ ] Target one token, then target a second **without** Shift. Only the second stays targeted.
+- [ ] Latch **Shift**, then target a second token. **Both** stay targeted.
+- [ ] Whoever else is at the table sees your targets, since targeting is broadcast.
+- [ ] On a layer other than tokens, 🎯 does nothing and nothing breaks. Foundry's own handler
+      returns early off the token layer, so "no effect" is the correct behaviour rather than a bug.
+
 ## Canvas
 
 - [ ] Two finger drag pans the map, and the map moves **with** the fingers.
