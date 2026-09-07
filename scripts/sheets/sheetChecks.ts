@@ -1,5 +1,6 @@
 import type { Page } from 'playwright';
 
+import { expectationFor } from './expectations.ts';
 import type { Recorder } from '../live/recorder.ts';
 
 /**
@@ -33,18 +34,59 @@ async function trayButtonExists(page: Page, id: string): Promise<boolean> {
   );
 }
 
-/** The tray has to be showing before anything on it can be asserted. */
+/**
+ * Who this session actually is, and what the world holds. Added 2026-09-07.
+ *
+ * ⚠️ READ rather than assumed, and that is the fix for a real defect. These checks were written
+ * against `FOUNDRY_USER=Gamemaster`, the default, and named their assertions "for a GM" while never
+ * establishing that they were one. Run as a player they reported the create and party buttons
+ * MISSING, which is the module's gate working exactly as designed, as two module failures.
+ *
+ * ⛔ That is the harness accusing the feature, which is the one thing a check must never do. It is
+ * worse than no check at all: it produces a red result pointing at innocent code, and the next
+ * person spends their afternoon in the module.
+ */
+async function readViewer(page: Page): Promise<{ isGm: boolean; parties: number }> {
+  return page.evaluate(() => ({
+    isGm: globalThis.game?.user?.isGM === true,
+    parties: [...(globalThis.game?.actors ?? [])].filter(
+      (actor: { type?: string }) => actor.type === 'party'
+    ).length,
+  }));
+}
+
+/**
+ * The tray has to be showing before anything on it can be asserted.
+ *
+ * ⚠️ The EXPECTATION depends on who is looking, and saying so is the point:
+ *
+ *   - a GM sees both buttons, always;
+ *   - a player never sees party access, which is GM only and stays that way;
+ *   - a player sees create only where a GM has opened a party to them, so in a world with no parties
+ *     at all its absence is the gate working and its PRESENCE would be the bug.
+ *
+ * ⚠️ A player in a world that DOES hold parties cannot be judged from out here: whether one is open
+ * to them is exactly the decision under test, and asserting either way would be asserting the
+ * module's own answer back at it. That case skips, and says why.
+ */
 export async function checkButtonsPresent(page: Page, recorder: Recorder): Promise<void> {
+  const viewer = await readViewer(page);
+
   for (const [id, what] of [
     ['create-sheet', 'the create button'],
     ['party-access', 'the party access button'],
   ] as const) {
     const present = await trayButtonExists(page, id);
-    recorder.record(
-      `${what} is on the tray for a GM`,
-      present,
-      present ? `found ${id}` : `no element matching ${TRAY_BUTTON(id)}`
-    );
+    const found = present ? `found ${id}` : `no element matching ${TRAY_BUTTON(id)}`;
+    const expected = expectationFor(id, what, viewer);
+
+    if (expected.kind === 'skip') {
+      recorder.skip(expected.name, expected.because);
+    } else if (expected.kind === 'present') {
+      recorder.record(expected.name, present, found);
+    } else {
+      recorder.record(expected.name, !present, `${expected.because}: ${found}`);
+    }
   }
 }
 
