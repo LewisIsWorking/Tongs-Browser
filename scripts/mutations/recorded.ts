@@ -156,4 +156,22 @@ export const RECORDED: readonly RecordedMutation[] = [
     defect: 'a served claim is left standing, so a replayed payload creates a duplicate sheet',
     tests: ['tests/unit/requestProof.test.ts'],
   },
+  {
+    file: 'src/modifiers/KeyButtons.ts',
+    find: '      this.options.synthesizer.tap(definition);\n      this.consumeLatched();',
+    replace: '      this.consumeLatched();\n      this.options.synthesizer.tap(definition);',
+    /*
+     * ⚠️ Swapping two adjacent lines, both of which still run, which is why no count and no coverage
+     * figure moves. It drops every latched modifier BEFORE the key it was latched for goes out, so
+     * every combination the bar exists to make reachable silently becomes the bare key: Ctrl+Delete
+     * becomes Delete, and Shift+T stops adding a target and starts replacing every other one.
+     *
+     * ⛔ Recorded because ORDER is the property and order is the thing a test forgets to assert. The
+     * first version of the target test kept `tapped` and `released` in separate arrays and checked
+     * the contents of each, which passes both ways round.
+     */
+    defect:
+      'latched modifiers are released BEFORE the key they modify, so every combination sends the bare key',
+    tests: ['tests/dom/targetKey.test.ts'],
+  },
 ];

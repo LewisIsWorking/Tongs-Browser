@@ -57,19 +57,24 @@ your finger is never on top of the thing you are trying to hit.
 
 ## Gesture map
 
-| Gesture                    | Action                                                                  |
-| -------------------------- | ----------------------------------------------------------------------- |
-| One finger drag            | Move the pointer                                                        |
-| Tap                        | Left click **at the pointer**, not under your finger                    |
-| Long press (500ms default) | Right click, with a short vibration                                     |
-| Double tap                 | Double click                                                            |
-| Tap, then press and hold   | Begin a left button drag. The cursor changes to show the button is held |
-| Two finger drag            | Pan the map                                                             |
-| Pinch                      | Zoom                                                                    |
-| Modifier bar               | Latch Ctrl, Shift or Alt, or tap Space, Delete, Escape, Enter or Tab    |
+| Gesture                    | Action                                                                   |
+| -------------------------- | ------------------------------------------------------------------------ |
+| One finger drag            | Move the pointer                                                         |
+| Tap                        | Left click **at the pointer**, not under your finger                     |
+| Long press (500ms default) | Right click, with a short vibration                                      |
+| Double tap                 | Double click                                                             |
+| Tap, then press and hold   | Begin a left button drag. The cursor changes to show the button is held  |
+| Two finger drag            | Pan the map                                                              |
+| Pinch                      | Zoom                                                                     |
+| Modifier bar               | Latch Ctrl, Shift or Alt, or tap Space, Delete, Escape, Enter, Tab or 🎯 |
 
 Modifier keys are three state. Tap to latch for the next action, tap again to lock until released,
 tap a third time to clear. The three states look different from each other, and not only by colour.
+
+**🎯 targets the token under the pointer.** Targeting is bound to `T` on a desktop, so without a
+keyboard there was no way to do it at all, which matters because most systems resolve an attack
+against a target. It toggles, so tapping a targeted token clears it. Latch **Shift** first and it
+adds to your targets rather than replacing them, exactly as Shift+T does on a desktop.
 
 Text inputs, the chat log, the sidebar and any scrollable region are left alone entirely, so typing
 and native scrolling work exactly as they did before.

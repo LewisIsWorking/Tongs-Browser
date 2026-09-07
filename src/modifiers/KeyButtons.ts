@@ -83,6 +83,13 @@ export class KeyButtons {
     button.className = 'tb-key tb-key--momentary';
     button.dataset['code'] = definition.code;
     button.textContent = definition.label;
+    /*
+     * ⚠️ Only when the definition carries one. Assigning `undefined` to `title` renders the literal
+     * string "undefined" as the tooltip, which is worse than having no tooltip at all.
+     */
+    if (definition.title !== undefined) {
+      button.title = definition.title;
+    }
     button.addEventListener('click', () => {
       /*
        * A full press and release on tap. These keys carry whatever modifiers are currently latched,

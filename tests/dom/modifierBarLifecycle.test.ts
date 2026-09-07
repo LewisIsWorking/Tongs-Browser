@@ -79,6 +79,12 @@ describe('ModifierBar lifecycle', () => {
       'Escape',
       'Enter',
       'Tab',
+      /*
+       * ⚠️ Added 2026-09-07, and LAST rather than beside the modifiers. The bar builds every sticky
+       * key first and every momentary one after, so placing it anywhere else here would assert a
+       * layout the builder does not produce.
+       */
+      'KeyT',
     ]);
   });
 
