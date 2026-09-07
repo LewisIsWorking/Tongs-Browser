@@ -1,5 +1,90 @@
 # tongs-browser
 
+## 0.26.0
+
+### Minor Changes
+
+- [#333](https://github.com/LewisIsWorking/Tongs-Browser/pull/333) [`98a0a7b`](https://github.com/LewisIsWorking/Tongs-Browser/commit/98a0a7b5a19ccbd0b6f38927b6dd32bba96f75da) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add the decision layer for player-requested character sheets: the wire shape and its check, the
+  authorisation a GM's client applies to a request, and a single read of which GM answers and whether
+  one is online. No behaviour changes yet; the transport that uses them lands next.
+
+- [#334](https://github.com/LewisIsWorking/Tongs-Browser/pull/334) [`01f564a`](https://github.com/LewisIsWorking/Tongs-Browser/commit/01f564a5fa8cffff212aeb4439835406ce84d980) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add the transport for player-requested character sheets: a request that carries a correlation id, an
+  answer matched against it, and a timeout so a request nobody answers still ends. Not wired to a
+  button yet.
+
+- [#330](https://github.com/LewisIsWorking/Tongs-Browser/pull/330) [`30b24fe`](https://github.com/LewisIsWorking/Tongs-Browser/commit/30b24feac4c2ce3f291cad83b54ad214ab8a3dcf) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add a GM-only party access picker to the tray. A new `C🔓` button lists every party the GM can see
+  with its current state in the label, and tapping one opens or closes it to player character
+  creation. The result is announced, because changing a permission moves nothing on screen and silence
+  is indistinguishable from a tap that missed.
+
+  The button has its own gate rather than sharing the create button's: deciding which parties are open
+  stays a GM's alone even once players can create in them.
+
+- [#335](https://github.com/LewisIsWorking/Tongs-Browser/pull/335) [`9af65dc`](https://github.com/LewisIsWorking/Tongs-Browser/commit/9af65dc3e92682b12b593c6ebd1f86fba1355872) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Players can now create a character sheet from the control pad, in any party their GM has opened to
+  them. The request runs on a GM's client, which is the only place Foundry allows a sheet to be handed
+  to somebody else, and the answer comes back with the sheet opened. The button appears for a player
+  exactly when a party is open to them, and explains itself rather than disappearing when no GM is
+  online.
+
+- [#339](https://github.com/LewisIsWorking/Tongs-Browser/pull/339) [`9109150`](https://github.com/LewisIsWorking/Tongs-Browser/commit/9109150d55017c8ed1709bb731dc4440c365f498) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add a target key to the modifier bar. Foundry binds targeting to `T`, so without a keyboard there
+  was no way to target a token at all, and most systems resolve an attack against a target: the bar
+  carried Ctrl, Shift, Alt, Space, Delete, Escape, Enter and Tab, and the one key that decides who an
+  attack is against was the one a phone could not reach.
+
+  Measured from Foundry 14.366's own source rather than assumed. `#onTarget` acts on
+  `canvas.activeLayer.hover`, which the virtual pointer already sets, so a synthesised key is enough;
+  it toggles, so tapping a targeted token clears it; and `releaseOthers: !context.isShift` means a
+  latched Shift turns it into "add to my targets", which the sticky bar provides for free.
+
+- [#341](https://github.com/LewisIsWorking/Tongs-Browser/pull/341) [`1aaad79`](https://github.com/LewisIsWorking/Tongs-Browser/commit/1aaad79d4e68005b60a9bf46a1f00631fc1d8f57) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add an undo button to the control pad, sending Ctrl+Z as one action.
+
+  The keybinding coverage guard added in the previous change named this as the standout gap: undo has
+  no on-screen equivalent anywhere in Foundry, so a mis-drag could not be undone from a phone at all.
+  It is also the failure this pointer makes easiest, because a token commits on the drop and the first
+  you know of a wrong square is once it is already there.
+
+  Chords are new. The bar could already do "latch Ctrl, then tap Delete", which is the right shape for
+  a modifier the user is choosing and the wrong one for a command that is always the same chord: nobody
+  thinks of undo as control-then-Z. `modifiers/Chord.ts` holds the modifier across the key and releases
+  after, which is the whole contract and is asserted as an ordered sequence rather than a set of calls.
+
+### Patch Changes
+
+- [#338](https://github.com/LewisIsWorking/Tongs-Browser/pull/338) [`fe8c820`](https://github.com/LewisIsWorking/Tongs-Browser/commit/fe8c820a59f0f00afb9f658534984e02662b8c6d) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Prove who sent a create request, closing the one known hole in player sheet creation. `userId` used
+  to be a claim: core Foundry rebroadcasts a socket payload without a verified sender, so a player
+  could name another player's id and have the sheet created owned by them.
+
+  The requester now writes the request id onto their own User document as a flag before emitting, and
+  the GM serves only if the user the payload names is carrying that id. Foundry's server refuses a
+  player writing a flag to anyone but themselves, so the flag is evidence of authorship. Measured from
+  14.366's own source, so this needs no socketlib dependency after all. A served claim is released, or
+  a replayed payload would buy a duplicate sheet.
+
+- [#340](https://github.com/LewisIsWorking/Tongs-Browser/pull/340) [`a5c5bfc`](https://github.com/LewisIsWorking/Tongs-Browser/commit/a5c5bfc92a86dea43cd5ce2f82ccc4c6fe248397) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add `npm run check:keybindings`, which requires every keybinding core Foundry registers to say how a
+  phone reaches it, or to say plainly that it cannot and what that costs.
+
+  The target key was found by hand: somebody listed Foundry's bindings, compared them against the
+  eight on the modifier bar, and noticed that the key deciding who an attack is against was one a
+  phone could not press. That worked by luck. Nothing recorded what was reachable, so nothing recorded
+  what was missing either, which is the fault this repo keeps meeting from other directions.
+
+  All 37 core bindings from 14.366 are now accounted for: 6 on the bar, 7 on the control pad, 4
+  through Foundry's own on-screen UI, and 20 not reachable with a note on each saying what a user
+  cannot do. The guard also fails when a route names a bar key or a tray button that no longer exists,
+  so the table cannot rot into a confident lie while reading as authoritative.
+
+- [#337](https://github.com/LewisIsWorking/Tongs-Browser/pull/337) [`cb29607`](https://github.com/LewisIsWorking/Tongs-Browser/commit/cb296072973c7054cb7364dbe987d3b3fc76db40) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Document that `playwright install` hangs forever on Node 26, and give the Node 24 workaround. The
+  download reaches 100%, then the out-of-process helper extracts two files and freezes with zero CPU
+  and zero disk I/O, so it reads as a slow download rather than a hang. Three attempts were lost to it
+  before the cause was found. Only the installer is affected, so the fix is to run that one command
+  under Node 24 rather than to move the toolchain. Also drops the hardcoded "Fourteen tests" from the
+  same section, which had drifted to fifteen.
+
+- [#332](https://github.com/LewisIsWorking/Tongs-Browser/pull/332) [`00ab69e`](https://github.com/LewisIsWorking/Tongs-Browser/commit/00ab69e300f4d4a4569b1b3c01a28537f57a351a) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Add `npm run check:mutations`, a guard that applies recorded defects to the real source and requires
+  the tests to catch them. It closes a gap the coverage ratchet cannot see: coverage asks whether a
+  line ran, not whether a wrong version of it would be noticed. The first recorded mutation passed
+  eleven tests at 100% coverage of the line it changed.
+
 ## 0.25.95
 
 ### Patch Changes
