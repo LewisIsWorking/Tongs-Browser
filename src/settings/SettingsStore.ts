@@ -8,6 +8,7 @@ import {
   findSetting,
   type SettingKeyValue,
 } from './SettingDefinitions.js';
+import type { SettingDefinition } from './SettingShapes.js';
 
 /**
  * Minimal view of Foundry's settings API, injected so the store is testable without Foundry.
@@ -28,6 +29,20 @@ export interface SettingsStoreOptions {
   readonly logger?: Logger;
   /** Called after any setting changes, so the module can apply it without a reload. */
   readonly onChanged?: (key: SettingKeyValue) => void;
+  /**
+   * Defaults decided at runtime rather than written into the definitions. Added 2026-09-07 so
+   * `Enabled` can start OFF on a desktop, where a finger driven pointer is not wanted.
+   *
+   * ⛔ Applied in ONE place, `defaultFor`, which both registration and every read fallback go
+   * through. This file's opening paragraph is that a default disagreeing between the register call
+   * and the read path is the classic settings bug, and an override honoured by only one of them
+   * would be that bug in a new coat: Foundry would register `false`, the read path would fall back
+   * to `true`, and the module would behave as enabled while its own settings screen said otherwise.
+   *
+   * ⚠️ It decides only what happens before the user has an opinion. Once anything is stored for a
+   * key, Foundry returns the stored value and this is never consulted again.
+   */
+  readonly defaults?: Partial<Record<SettingKeyValue, boolean>>;
 }
 
 /**
@@ -50,7 +65,7 @@ export class SettingsStore {
         // for nearly all of these.
         scope: 'client',
         config: definition.config,
-        default: definition.default,
+        default: this.defaultFor(definition),
         onChange: (): void => {
           this.options.onChanged?.(definition.key);
         },
@@ -69,9 +84,21 @@ export class SettingsStore {
     }
   }
 
+  /**
+   * The default this store will use for a setting, runtime override included.
+   *
+   * ⚠️ The ONE place an override is read. Registration and the read fallback both come here, so they
+   * cannot disagree, which is the failure this file was written to avoid.
+   */
+  private defaultFor(definition: SettingDefinition): SettingDefinition['default'] {
+    const override = this.options.defaults?.[definition.key];
+    return definition.kind === 'boolean' && override !== undefined ? override : definition.default;
+  }
+
   public getBoolean(key: SettingKeyValue): boolean {
     const definition = findSetting(key);
-    const fallback = definition?.kind === 'boolean' ? definition.default : false;
+    const fallback =
+      definition?.kind === 'boolean' ? (this.defaultFor(definition) as boolean) : false;
     const raw = this.read(key);
     return typeof raw === 'boolean' ? raw : fallback;
   }
