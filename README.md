@@ -46,6 +46,10 @@ Foundry re-reads that URL to decide whether an update exists, so it must be the 
 the copy on `main`. The copy on `main` deliberately stays at the `0.1.0` placeholder, and pointing
 users at it meant no install could ever see a new version. Corrected 2026-08-30.
 
+⭐ **Installing on a real instance for the first time?** Work through
+[docs/FIRST-INSTALL.md](docs/FIRST-INSTALL.md), which orders the checks cheapest and least
+destructive first, and says which actions write to the world.
+
 Compatible with Foundry **v14**. The manifest declares 14.366, which is also the build the live
 measurements were taken against.
 
