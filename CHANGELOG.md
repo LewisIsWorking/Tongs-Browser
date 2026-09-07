@@ -1,5 +1,43 @@
 # tongs-browser
 
+## 0.27.0
+
+### Minor Changes
+
+- [#345](https://github.com/LewisIsWorking/Tongs-Browser/pull/345) [`8fbaaa5`](https://github.com/LewisIsWorking/Tongs-Browser/commit/8fbaaa52bcc8248efaff21e5bffe9101e5965c00) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Start disabled on a desktop, where a finger driven pointer is not wanted.
+
+  `Enabled` defaulted to true everywhere, so opening Foundry on a PC got a virtual cursor, a modifier
+  bar and the whole interface shrunk to 75%. The module had no device detection of any kind: the only
+  `navigator.userAgent` in it is a line of diagnostics text that nothing has ever read to decide
+  anything.
+
+  It now asks `(pointer: coarse)`, which is the primary input's precision, rather than sniffing a user
+  agent string that lies by design and rots as browsers change it. A phone answers yes and starts
+  enabled. A desktop answers no and starts disabled. A touchscreen laptop also answers no, which is
+  right: the mouse is there, and a virtual cursor driven by a real cursor is absurd.
+
+  It is a default and never a lock. The setting and the scene control toggle are unchanged, a stored
+  value always wins, and the choice is logged either way, because "the module did nothing" and "the
+  module failed to load" look identical from outside.
+
+### Patch Changes
+
+- [#343](https://github.com/LewisIsWorking/Tongs-Browser/pull/343) [`0650d45`](https://github.com/LewisIsWorking/Tongs-Browser/commit/0650d45568a086226f7a012b36462ff91c97e664) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Fix the live sheet checks reporting the module's own gate as two module failures.
+
+  They were written against `FOUNDRY_USER=Gamemaster`, the default, and named their assertions "for a
+  GM" while never establishing that they were one. Run as a player, which nothing had ever done, they
+  reported the create and party-access buttons MISSING. Both are correctly hidden from a player with no
+  party opened, so the harness was accusing the feature.
+
+  The expectation now depends on who is looking, and says which case it judged. A GM sees both. A
+  player never sees party access. A player sees create only where a GM has opened a party, so in a
+  world with no parties its absence is the gate working and its presence would be the bug; in a world
+  that does hold parties the case skips, because whether one is open is the decision under test and
+  asserting either way would be asserting the module's own answer back at it.
+
+  The decision is a pure function so all four cases are proven without a Foundry. The GM branch could
+  not be run when this was written, since that account has a password.
+
 ## 0.26.0
 
 ### Minor Changes
