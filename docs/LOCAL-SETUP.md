@@ -188,6 +188,49 @@ The symlink only helps a locally hosted Foundry. For the tablet there are two ro
 **Against your local Foundry.** Put the tablet on the same network and browse to your machine's LAN
 address on Foundry's port, usually 30000. Fastest iteration, since it still uses the symlink.
 
+⛔ **`localhost` is the PHONE.** Typing `http://localhost:30000` on the device asks the device about
+itself, so it will always fail no matter how healthy the server is. Find the host's address with:
+
+```powershell
+Get-NetIPAddress -AddressFamily IPv4 |
+  Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } |
+  Select-Object IPAddress, InterfaceAlias
+```
+
+⚠️ Pick the one on your real adapter. A dev machine usually lists several, and the VirtualBox host
+adapter (`192.168.56.x`) and the WSL bridge (`172.x`) both look plausible and route nowhere useful.
+
+### ⛔ The Windows firewall rule is per EXECUTABLE, not per port
+
+This cost an evening on 2026-09-07 and the symptom is indistinguishable from a wrong address: the
+server is up, `localhost` works on the host, and the phone times out.
+
+Foundry's own rules are scoped to `foundry virtual tabletop.exe`. Starting the server the headless
+way runs **`node.exe`**, which those rules do not cover at all. Worse, Node rules are per INSTALLED
+VERSION, because each is a different path:
+
+```
+C:\users\<you>\appdata\local\nvm\v22.22.3\node.exe   allowed
+C:\users\<you>\appdata\local\nvm\v26.5.1\node.exe    allowed
+C:\users\<you>\appdata\local\nvm\v24.18.1\node.exe   NOT allowed
+```
+
+So launching under a Node version you happen not to have used before silently loses LAN access,
+while everything on the host keeps working. List what is actually allowed:
+
+```powershell
+Get-NetFirewallRule -Direction Inbound -Enabled True | ForEach-Object {
+  $a = $_ | Get-NetFirewallApplicationFilter
+  if ($a.Program -like '*node*') { "$($_.Action)  $($a.Program)" }
+}
+```
+
+⚠️ **Same-host testing cannot prove this is fixed.** A request from the machine to its own LAN
+address never crosses the firewall, so it succeeds either way. The only proof is the phone.
+
+Easiest fixes, in order of least ceremony: launch under a Node version that already has a rule, or
+run the Foundry desktop app, which is covered by its own. Adding a rule needs an administrator.
+
 **Against The Forge.** Install the released module through the manifest URL:
 
 ```
