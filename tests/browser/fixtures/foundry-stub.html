@@ -103,6 +103,23 @@
       const settingsStore = new Map();
       const settingsConfig = new Map();
 
+      /*
+       * ⚠️ ENABLED IS SEEDED ON, as though a user had already switched it on, and it has to be. From
+       * 2026-09-07 the module starts DISABLED where the primary pointer is fine, and this suite runs
+       * under `devices['Desktop Chrome']`, which is exactly such an environment. Without this the
+       * bundle correctly does nothing, and four specs fail hunting a bar and a cursor that were never
+       * meant to exist.
+       *
+       * ⚠️ SEEDED rather than the detection loosened. These specs ask what the module DOES once it is
+       * on, which is a different question from whether it should turn itself on; that second question
+       * has its own tests in tests/unit/touchDevice.test.ts. Making the module enable itself on a
+       * desktop to keep this fixture happy would be the test dictating the behaviour.
+       *
+       * ⚠️ Registration only fills a key it does not already hold, so this wins with no special case,
+       * in the same way a real user's stored value does.
+       */
+      settingsStore.set('tongs-browser.enabled', true);
+
       globalThis.Hooks = {
         on(name, callback) {
           if (!hooks.has(name)) hooks.set(name, []);
