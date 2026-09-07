@@ -1,4 +1,6 @@
 import { ModifierBar } from './modifiers/ModifierBar.js';
+import { sendChord } from './modifiers/Chord.js';
+import { CONTROL, UNDO_KEY } from './modifiers/keyDefinitions.js';
 import { wireTrayActions } from './TrayWiring.js';
 import type { CanvasController } from './gesture/CanvasController.js';
 import type { CreationRelay } from './relay/CreationRelay.js';
@@ -75,6 +77,14 @@ export function buildModifierBar(deps: ModifierBarDeps): ModifierBar {
       diagnostics: deps.diagnostics,
       document: deps.document,
       creationRelay: deps.creationRelay,
+      /*
+       * ⚠️ Built HERE because this is where the synthesizer is, and passed DOWN as one command rather
+       * than handing `TrayWiring` the whole synthesizer. The tray needs undo, not a keyboard, and
+       * giving it the keyboard is how a wiring module starts sending keys of its own.
+       */
+      undo: () => {
+        sendChord(deps.synthesizer, [CONTROL], UNDO_KEY);
+      },
     }),
   });
 }

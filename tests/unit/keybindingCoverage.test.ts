@@ -76,9 +76,36 @@ describe('routes that stopped being true', () => {
 
 describe('parsing the module’s own source', () => {
   it('reads key codes out of the definitions', () => {
-    const source = "{ code: 'KeyT', key: 't' },\n{ code: 'Escape', key: 'Escape' },";
+    const source =
+      "export const MOMENTARY_KEYS = [\n{ code: 'KeyT', key: 't' },\n{ code: 'Escape', key: 'Escape' },\n];";
 
     expect([...barCodesFrom(source)]).toEqual(['KeyT', 'Escape']);
+  });
+
+  /**
+   * ⛔ A FALSE PASS, and it appeared the moment the first non-rendered definition existed. `UNDO_KEY`
+   * is half of a chord and deliberately not a button, so counting it would let a route claim a bar
+   * key nobody can press, which is exactly what this guard exists to stop.
+   */
+  it('ignores a definition that is not in a rendered array', () => {
+    const source =
+      "export const MOMENTARY_KEYS = [\n{ code: 'Escape', key: 'Escape' },\n];\n" +
+      "export const UNDO_KEY = Object.freeze({ code: 'KeyZ', key: 'z' });";
+
+    expect([...barCodesFrom(source)]).toEqual(['Escape']);
+  });
+
+  /**
+   * ⛔ A FALSE NEGATIVE, the worse of the two because it is silent. Pulling `CONTROL` out of the
+   * array so the undo chord could name it left this parser believing the bar had no Ctrl key at all,
+   * and the guard stayed green because nothing happened to route to it.
+   */
+  it('resolves an entry written as a name rather than a literal', () => {
+    const source =
+      "export const CONTROL = Object.freeze({ code: 'ControlLeft', key: 'Control' });\n" +
+      'export const MODIFIER_KEYS = [\n  CONTROL,\n];';
+
+    expect([...barCodesFrom(source)]).toEqual(['ControlLeft']);
   });
 
   /** ⚠️ Six spaces of indent, which is where a tray action's `id` sits and where a nested one does not. */

@@ -15,6 +15,7 @@ export const handlers = (overrides: Partial<TrayActionHandlers> = {}): TrayActio
   toggleSidebar: vi.fn(),
   openCharacterSheet: vi.fn(),
   togglePause: vi.fn(),
+  undo: vi.fn(),
   isPaused: () => false,
   isDragging: () => false,
   beginDrag: vi.fn(),

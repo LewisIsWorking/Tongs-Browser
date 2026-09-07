@@ -36,6 +36,8 @@ export interface TrayWiring {
   readonly document: Document;
   /** How a player asks a GM for a sheet. A GM never uses it; see `CreateSheetRoute`. */
   readonly creationRelay: CreationRelay;
+  /** Ctrl+Z, built where the synthesizer lives. See BuildModifierBar. */
+  readonly undo: () => void;
 }
 
 /**
@@ -72,6 +74,7 @@ export function wireTrayActions(
     endDrag: () => {
       parts.pointer().endDrag();
     },
+    undo: parts.undo,
     whisperDiagnostics: () => {
       parts.diagnostics.whisperDiagnostics();
     },

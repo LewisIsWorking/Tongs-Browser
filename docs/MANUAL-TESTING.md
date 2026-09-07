@@ -380,6 +380,15 @@ module exists and which no automated check can judge.
 - [ ] Escape closes an open sheet.
 - [ ] A latched modifier clears after use. A locked one does not.
 
+### Undo, added 2026-09-07
+
+⛔ Same split as targeting: the unit tests assert that Ctrl+Z goes out in the right order. Whether
+Foundry undoes anything needs a live canvas with something on its history.
+
+- [ ] Drag a token to a new square, then tap **↶**. It goes back.
+- [ ] Tap ↶ again with nothing left to undo. Foundry says so itself, and nothing breaks.
+- [ ] Undo works on a layer other than tokens, since Foundry keeps a history per layer.
+
 ### Targeting, added 2026-09-07
 
 ⛔ **This is the half the unit tests deliberately do not cover.** They assert the event this module

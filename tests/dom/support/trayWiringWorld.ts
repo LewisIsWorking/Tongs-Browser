@@ -32,6 +32,7 @@ export const parts = (over: Partial<TrayWiring> = {}): TrayWiring => ({
   diagnostics: {} as DragDiagnostics,
   document,
   creationRelay: refusingRelay(),
+  undo: () => undefined,
   ...over,
 });
 

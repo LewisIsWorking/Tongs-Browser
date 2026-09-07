@@ -26,11 +26,39 @@ export interface KeyDefinition {
   readonly sticky: boolean;
 }
 
+/**
+ * ⚠️ NAMED, then put in the list, rather than reached for as `MODIFIER_KEYS[0]`. A chord needs to
+ * name the modifier it holds, and an index into an array is a reference that keeps compiling while
+ * quietly meaning something else the moment the order changes.
+ */
+export const CONTROL: KeyDefinition = Object.freeze({
+  code: 'ControlLeft',
+  key: 'Control',
+  keyCode: 17,
+  label: 'Ctrl',
+  sticky: true,
+});
+
 export const MODIFIER_KEYS: readonly KeyDefinition[] = Object.freeze([
-  { code: 'ControlLeft', key: 'Control', keyCode: 17, label: 'Ctrl', sticky: true },
+  CONTROL,
   { code: 'ShiftLeft', key: 'Shift', keyCode: 16, label: 'Shift', sticky: true },
   { code: 'AltLeft', key: 'Alt', keyCode: 18, label: 'Alt', sticky: true },
 ]);
+
+/**
+ * Z, for the undo chord. Deliberately NOT in `MOMENTARY_KEYS`.
+ *
+ * ⚠️ A bare Z button would be a control that does nothing: Foundry binds no plain Z, so on its own
+ * it is a button whose only honest label would be "press me with Ctrl". The chord is what has a
+ * meaning, so the chord is what gets a button.
+ */
+export const UNDO_KEY: KeyDefinition = Object.freeze({
+  code: 'KeyZ',
+  key: 'z',
+  keyCode: 90,
+  label: 'Z',
+  sticky: false,
+});
 
 export const MOMENTARY_KEYS: readonly KeyDefinition[] = Object.freeze([
   { code: 'Space', key: ' ', keyCode: 32, label: 'Space', sticky: false },
