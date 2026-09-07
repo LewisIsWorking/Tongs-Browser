@@ -3,6 +3,7 @@ import '../styles/tongs-browser.css';
 import { TongsBrowser } from './TongsBrowser.js';
 import { MODULE_ID, MODULE_TITLE } from './constants.js';
 import { logger } from './core/Logger.js';
+import { describeDeviceChoice, looksLikeTouchDevice } from './core/TouchDevice.js';
 import { ExclusionZones } from './gesture/ExclusionZones.js';
 import { buildSuppressor } from './gesture/BuildSuppressor.js';
 import { SettingKey } from './settings/SettingDefinitions.js';
@@ -31,9 +32,21 @@ Hooks.once('init', () => {
     return;
   }
 
+  /*
+   * ⚠️ Decided BEFORE registerAll, because Foundry takes a setting's default at registration and a
+   * value computed after that would never reach it.
+   *
+   * ⚠️ LOGGED either way, not only when it is interesting. "The module did nothing on my desktop"
+   * and "the module failed to load" look identical from outside, and the difference between them is
+   * this one line saying which it chose and how to override it.
+   */
+  const touch = looksLikeTouchDevice(window);
+  logger.info(describeDeviceChoice(touch));
+
   store = new SettingsStore({
     backend: settingsApi,
     logger,
+    defaults: { [SettingKey.ENABLED]: touch },
     // Read when invoked rather than captured, since neither exists yet at init.
     onChanged: (key) => {
       applySetting(key, { instance, store });
