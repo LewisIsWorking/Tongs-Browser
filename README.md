@@ -67,6 +67,7 @@ your finger is never on top of the thing you are trying to hit.
 | Two finger drag            | Pan the map                                                              |
 | Pinch                      | Zoom                                                                     |
 | Modifier bar               | Latch Ctrl, Shift or Alt, or tap Space, Delete, Escape, Enter, Tab or 🎯 |
+| Control pad                | ↶ undoes the last change on this layer, the same as Ctrl+Z               |
 
 Modifier keys are three state. Tap to latch for the next action, tap again to lock until released,
 tap a third time to clear. The three states look different from each other, and not only by colour.

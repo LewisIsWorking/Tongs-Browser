@@ -37,6 +37,8 @@ export const ROUTES: Readonly<Record<string, Route>> = Object.freeze({
   highlight: { kind: 'bar', via: 'AltLeft', note: 'Latched rather than held, which is the point.' },
   target: { kind: 'bar', via: 'KeyT', note: 'Latch Shift first to add rather than replace.' },
   characterSheet: { kind: 'tray', via: 'character' },
+  /* ⚠️ A CHORD behind one button, not a Ctrl latch plus a Z key. See src/modifiers/Chord.ts. */
+  undo: { kind: 'tray', via: 'undo', note: 'Sends Ctrl+Z as a single action.' },
   zoomIn: { kind: 'tray', via: 'zoom-in' },
   zoomOut: { kind: 'tray', via: 'zoom-out' },
   panUp: { kind: 'tray', via: 'pan-up' },
@@ -94,10 +96,6 @@ export const ROUTES: Readonly<Record<string, Route>> = Object.freeze({
    * copy tiles or send them to the back; a GM building a map on a phone would, and cannot.
    */
   selectAll: { kind: 'gap', note: 'GM. Drag-select still works, so this is bulk convenience.' },
-  undo: {
-    kind: 'gap',
-    note: 'GM. No on-screen equivalent: a mis-drag cannot be undone from a phone.',
-  },
   cut: { kind: 'gap', note: 'GM map-building. No on-screen equivalent.' },
   copy: { kind: 'gap', note: 'GM map-building. No on-screen equivalent.' },
   paste: { kind: 'gap', note: 'GM map-building. No on-screen equivalent.' },

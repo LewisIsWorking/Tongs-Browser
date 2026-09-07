@@ -174,4 +174,18 @@ export const RECORDED: readonly RecordedMutation[] = [
       'latched modifiers are released BEFORE the key they modify, so every combination sends the bare key',
     tests: ['tests/dom/targetKey.test.ts'],
   },
+  {
+    file: 'src/modifiers/Chord.ts',
+    find: '  for (const modifier of modifiers) {\n    ports.press(modifier);\n  }\n\n  ports.tap(key);',
+    replace:
+      '  ports.tap(key);\n\n  for (const modifier of modifiers) {\n    ports.press(modifier);\n  }',
+    /*
+     * ⚠️ The same defect as the one above, in the module written to avoid it. Every call still
+     * happens and the counts are identical, so only an ORDERED assertion sees it. The key goes out
+     * before the modifier is down, so Ctrl+Z becomes a bare Z: Foundry binds no plain Z, and the
+     * undo button silently does nothing at all rather than failing.
+     */
+    defect: 'a chord taps its key before holding the modifier, so Ctrl+Z is sent as a bare Z',
+    tests: ['tests/unit/chord.test.ts'],
+  },
 ];

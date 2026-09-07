@@ -81,6 +81,26 @@ export function everyTrayAction(handlers: TrayActionHandlers): readonly TrayActi
       },
       isActive: handlers.isDragging,
     },
+    /**
+     * ⚠️ Straight after grab, because it is the button wanted the instant grab went wrong. Undo is
+     * the answer to a mis-drag, and a mis-drag is the failure this pointer makes easiest: a token
+     * commits on the DROP, so the first you know of a wrong square is once it is already there.
+     *
+     * ⚠️ Sends Ctrl+Z as ONE action rather than asking for a latched Ctrl and a Z that does not
+     * exist on the bar. Nobody thinks of undo as a chord; they think of it as undo. See
+     * `modifiers/Chord.ts` for why that distinction earned its own module.
+     *
+     * ⚠️ Always offered, never gated. Foundry keeps a per-layer history and says "nothing to undo"
+     * itself when it is empty, which beats a button that is sometimes missing: a control that comes
+     * and goes cannot be learned, and the same argument is why the create button is not gated on a
+     * GM being online.
+     */
+    {
+      id: 'undo',
+      label: '↶',
+      title: 'Undo the last change on this layer, the same as Ctrl+Z',
+      activate: handlers.undo,
+    },
     {
       id: 'diagnose',
       label: '🔍',

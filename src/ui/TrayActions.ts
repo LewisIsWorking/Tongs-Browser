@@ -18,6 +18,8 @@ export interface TrayActionHandlers {
   readonly beginDrag: () => void;
   readonly endDrag: () => void;
   readonly whisperDiagnostics: () => void;
+  /** Sends Ctrl+Z as one action. See modifiers/Chord.ts for why it is not two controls. */
+  readonly undo: () => void;
   readonly zoomBy: (factor: number) => void;
   readonly panBy: (deltaX: number, deltaY: number) => void;
   readonly createSheet: () => void;

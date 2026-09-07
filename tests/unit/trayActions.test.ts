@@ -24,6 +24,8 @@ describe('buildTrayActions', () => {
       'party-access',
       'pause',
       'grab',
+      /* ⚠️ Straight after grab on purpose: undo is what a mis-drag needs. Added 2026-09-07. */
+      'undo',
       'diagnose',
       'zoom-in',
       'zoom-out',
