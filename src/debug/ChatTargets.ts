@@ -27,8 +27,25 @@ export interface ChatGlobals {
  * somebody holding a phone with no devtools.
  */
 export function readChatTargets(globals: ChatGlobals): ChatTargets {
+  const notifications = globals.ui?.notifications;
+
   return {
     createChatMessage: globals.ChatMessage?.create,
-    notify: globals.ui?.notifications?.info,
+    /*
+     * ⛔ BOUND, and it took a real party world to find out why. `ui.notifications.info` is a METHOD.
+     * Foundry implements it as `info(message, options) { return this.notify(message, "info", options) }`.
+     * Handed out detached, it was called as `readChatTargets(globalThis).notify?.(message)`, so
+     * `this` became the object literal returned right here.
+     *
+     * ⛔ That literal HAS a `notify` property, and it is THE SAME FUNCTION. So `this.notify(...)`
+     * called `info` again, forever: `RangeError: Maximum call stack size exceeded`, with a stack of
+     * nothing but `Object.info [as notify]` and not a single frame of this module in it.
+     *
+     * ⚠️ The part worth keeping is that losing `this` USUALLY throws at once and obviously. Here the
+     * accidental receiver carried a property of exactly the right name, so an ordinary mistake became
+     * infinite recursion pointing at Foundry's own source. Measured 2026-09-08 on sf2e: the first
+     * world with parties in it was the first to reach this line at all.
+     */
+    notify: notifications?.info?.bind(notifications),
   };
 }

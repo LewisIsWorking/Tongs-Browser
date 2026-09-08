@@ -17,7 +17,14 @@ describe('readChatTargets', () => {
     const targets = readChatTargets({ ChatMessage: { create }, ui: { notifications: { info } } });
 
     expect(targets.createChatMessage).toBe(create);
-    expect(targets.notify).toBe(info);
+    /*
+     * ⚠️ Asserts that calling it REACHES the notifier, not that it IS the same function object.
+     * `toBe(info)` was the original assertion and it actively forbade the fix: `notify` must be
+     * BOUND, because Foundry's `info` delegates through `this.notify` and a detached copy re-entered
+     * itself until the stack ran out. An identity check pins the mechanism and protected the bug.
+     */
+    targets.notify?.('hello');
+    expect(info).toHaveBeenCalledWith('hello');
   });
 
   /**
@@ -42,7 +49,14 @@ describe('readChatTargets', () => {
     const targets = readChatTargets({ ui: { notifications: { info } } });
 
     expect(targets.createChatMessage).toBeUndefined();
-    expect(targets.notify).toBe(info);
+    /*
+     * ⚠️ Asserts that calling it REACHES the notifier, not that it IS the same function object.
+     * `toBe(info)` was the original assertion and it actively forbade the fix: `notify` must be
+     * BOUND, because Foundry's `info` delegates through `this.notify` and a detached copy re-entered
+     * itself until the stack ran out. An identity check pins the mechanism and protected the bug.
+     */
+    targets.notify?.('hello');
+    expect(info).toHaveBeenCalledWith('hello');
   });
 
   it('reports both as absent rather than throwing when neither exists', () => {
