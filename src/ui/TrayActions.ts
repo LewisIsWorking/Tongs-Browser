@@ -41,12 +41,43 @@ export interface TrayActionHandlers {
    * both would have to be split at exactly the moment it mattered most.
    */
   readonly canManagePartyAccess: () => boolean;
+
+  /**
+   * The GM map-building commands. Added 2026-09-09; see `modifiers/MapBuilding.ts`.
+   *
+   * ⚠️ Spread in from ONE object built where the synthesizer lives, rather than six commands wired
+   * separately, for the same reason `undo` is: the tray needs commands, not a keyboard.
+   */
+  readonly selectAll: () => void;
+  readonly cut: () => void;
+  readonly copy: () => void;
+  readonly paste: () => void;
+  readonly sendToBack: () => void;
+  readonly bringToFront: () => void;
+  /**
+   * ⚠️ A THIRD gate, not a reuse of `canManagePartyAccess`, though both are GM only. They answer
+   * different questions, "may I restack tiles" and "who may add characters", and the cost of
+   * sharing one flag is that it has to be split at exactly the moment it starts mattering. That
+   * argument is written out at `canManagePartyAccess` above, and it has already paid off once, when
+   * creating opened up to players and managing access did not.
+   *
+   * ⛔ Unlike create, there is no player version of this to grow into. Foundry refuses the underlying
+   * operations to anyone who is not a GM, so a button offered to a player could only ever be silence.
+   */
+  readonly canBuildMaps: () => boolean;
 }
 
 /** Buttons that are only offered when their own gate says so. */
 const GATED: readonly { readonly id: string; readonly allowed: keyof TrayActionHandlers }[] = [
   { id: 'create-sheet', allowed: 'canCreateSheets' },
   { id: 'party-access', allowed: 'canManagePartyAccess' },
+  /* ⚠️ All six on one gate: they are one capability, and offering half of it would be worse. */
+  { id: 'select-all', allowed: 'canBuildMaps' },
+  { id: 'cut', allowed: 'canBuildMaps' },
+  { id: 'copy', allowed: 'canBuildMaps' },
+  { id: 'paste', allowed: 'canBuildMaps' },
+  { id: 'send-to-back', allowed: 'canBuildMaps' },
+  { id: 'bring-to-front', allowed: 'canBuildMaps' },
 ];
 
 /** How far one press of a pan arrow moves the view, in screen pixels. */

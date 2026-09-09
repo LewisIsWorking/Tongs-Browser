@@ -33,6 +33,17 @@ describe('buildTrayActions', () => {
       'pan-right',
       'pan-up',
       'pan-down',
+      /*
+       * ⚠️ The GM map-building cluster, LAST on purpose. Added 2026-09-09. They are the only buttons
+       * a player never sees, so putting them at the end means a player's tray is this tray with a
+       * shorter tail rather than a differently ordered one. Gating lives in `trayMapButtons`.
+       */
+      'select-all',
+      'cut',
+      'copy',
+      'paste',
+      'send-to-back',
+      'bring-to-front',
     ]);
     expect(new Set(ids).size).toBe(ids.length);
   });

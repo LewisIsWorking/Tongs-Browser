@@ -72,6 +72,13 @@ your finger is never on top of the thing you are trying to hit.
 | Pinch                      | Zoom                                                                     |
 | Modifier bar               | Latch Ctrl, Shift or Alt, or tap Space, Delete, Escape, Enter, Tab or 🎯 |
 | Control pad                | ↶ undoes the last change on this layer, the same as Ctrl+Z               |
+| Control pad, GM only       | Select all, cut, copy, paste, send to back, bring to front               |
+
+**The GM map-building cluster.** A GM building a map on a phone could not select, cut, copy, paste or
+restack anything, which was the last real gap in what a phone can reach. Six buttons now send those
+commands: `All`, `Cut`, `Copy` and `Paste` send Ctrl+A/X/C/V, while `Back` and `Front` send the bare
+`[` and `]` keys, which is what Foundry actually binds them to. They are absent rather than disabled
+for a player, because Foundry refuses these operations to anyone who is not a GM.
 
 Modifier keys are three state. Tap to latch for the next action, tap again to lock until released,
 tap a third time to clear. The three states look different from each other, and not only by colour.

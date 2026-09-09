@@ -33,6 +33,19 @@ export const parts = (over: Partial<TrayWiring> = {}): TrayWiring => ({
   document,
   creationRelay: refusingRelay(),
   undo: () => undefined,
+  /*
+   * ⚠️ Six no-ops, because these tests are about the WIRING rather than about what the keys do. What
+   * each command actually sends is asserted against an ordered key log in
+   * `tests/unit/mapBuilding.test.ts`, which is the only place that can tell Ctrl+X from a bare X.
+   */
+  mapBuilding: {
+    selectAll: () => undefined,
+    cut: () => undefined,
+    copy: () => undefined,
+    paste: () => undefined,
+    sendToBack: () => undefined,
+    bringToFront: () => undefined,
+  },
   ...over,
 });
 

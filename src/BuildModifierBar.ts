@@ -1,5 +1,6 @@
 import { ModifierBar } from './modifiers/ModifierBar.js';
 import { sendChord } from './modifiers/Chord.js';
+import { buildMapBuildingCommands } from './modifiers/MapBuilding.js';
 import { CONTROL, UNDO_KEY } from './modifiers/keyDefinitions.js';
 import { wireTrayActions } from './TrayWiring.js';
 import type { CanvasController } from './gesture/CanvasController.js';
@@ -85,6 +86,9 @@ export function buildModifierBar(deps: ModifierBarDeps): ModifierBar {
       undo: () => {
         sendChord(deps.synthesizer, [CONTROL], UNDO_KEY);
       },
+      /* ⚠️ Built here for the same reason undo is: this is where the synthesizer is, and the tray
+       * gets commands rather than a keyboard. See modifiers/MapBuilding.ts. */
+      mapBuilding: buildMapBuildingCommands(deps.synthesizer),
     }),
   });
 }

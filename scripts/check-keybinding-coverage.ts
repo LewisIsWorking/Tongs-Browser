@@ -25,6 +25,24 @@ import { barCodesFrom, trayIdsFrom } from './keybindings/parse.ts';
 import { CORE_BINDINGS, FOUNDRY_VERSION } from './keybindings/snapshot.ts';
 
 /**
+ * Every file that declares tray buttons.
+ *
+ * ⛔ A LIST, because it stopped being one file on 2026-09-09 and the guard did not know. The GM
+ * map-building cluster was extracted to its own module to keep `TrayActionList` under the size limit,
+ * and this check kept reading only the original, so it reported six buttons that exist as missing.
+ * That direction is the harmless one. The dangerous version of the same bug is a button file nobody
+ * lists, whose ids are then unroutable and whose absence reads as "not built yet".
+ *
+ * ⚠️ ADD A FILE HERE when tray buttons are declared in a new module. The size rule guarantees that
+ * keeps happening: a flat list of buttons grows until it must be split, and each split silently
+ * narrows a text-scanning guard unless it is told.
+ */
+const TRAY_BUTTON_SOURCES: readonly string[] = [
+  'src/ui/TrayActionList.ts',
+  'src/ui/MapBuildingButtons.ts',
+];
+
+/**
  * ⚠️ Proves the guard on made up input before trusting it on the repo. A check whose only evidence
  * is "the repository passes" stops proving anything the moment the repository is clean.
  */
@@ -93,7 +111,9 @@ if (process.argv.includes('--self-test')) {
   }
 } else {
   const barCodes = barCodesFrom(readFileSync('src/modifiers/keyDefinitions.ts', 'utf8'));
-  const trayIds = trayIdsFrom(readFileSync('src/ui/TrayActionList.ts', 'utf8'));
+  const trayIds = trayIdsFrom(
+    TRAY_BUTTON_SOURCES.map((path) => readFileSync(path, 'utf8')).join('\n')
+  );
   const problems = findProblems(barCodes, trayIds);
 
   if (problems.length > 0) {

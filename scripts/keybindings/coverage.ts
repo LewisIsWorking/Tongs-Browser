@@ -92,15 +92,25 @@ export const ROUTES: Readonly<Record<string, Route>> = Object.freeze({
   },
 
   /*
-   * ⛔ THE REAL GAPS, and they are GM map-building rather than play. A player at a table does not
-   * copy tiles or send them to the back; a GM building a map on a phone would, and cannot.
+   * ✅ CLOSED 2026-09-09. These were the real gaps: GM map-building rather than play. A player at a
+   * table does not copy tiles or send them to the back; a GM building a map on a phone would, and
+   * could not. All six are now buttons in a gated `map` cluster on the control pad.
+   *
+   * ⛔ FOUR ARE CHORDS AND TWO ARE NOT. selectAll/cut/copy/paste send Ctrl+A/X/C/V, while sendToBack
+   * and bringToFront send the BARE bracket keys, because that is what Foundry binds them to. Wrapping
+   * the last two in Ctrl to match their neighbours would have shipped two buttons indistinguishable
+   * from the four that work and doing nothing at all. See `src/modifiers/mapBuildingKeys.ts`.
    */
-  selectAll: { kind: 'gap', note: 'GM. Drag-select still works, so this is bulk convenience.' },
-  cut: { kind: 'gap', note: 'GM map-building. No on-screen equivalent.' },
-  copy: { kind: 'gap', note: 'GM map-building. No on-screen equivalent.' },
-  paste: { kind: 'gap', note: 'GM map-building. No on-screen equivalent.' },
-  sendToBack: { kind: 'gap', note: 'GM map-building. No on-screen equivalent.' },
-  bringToFront: { kind: 'gap', note: 'GM map-building. No on-screen equivalent.' },
+  selectAll: { kind: 'tray', via: 'select-all', note: 'Sends Ctrl+A. GM only.' },
+  cut: { kind: 'tray', via: 'cut', note: 'Sends Ctrl+X. GM only.' },
+  copy: { kind: 'tray', via: 'copy', note: 'Sends Ctrl+C. GM only.' },
+  paste: { kind: 'tray', via: 'paste', note: 'Sends Ctrl+V. GM only.' },
+  sendToBack: { kind: 'tray', via: 'send-to-back', note: 'Sends a bare [, not a chord. GM only.' },
+  bringToFront: {
+    kind: 'tray',
+    via: 'bring-to-front',
+    note: 'Sends a bare ], not a chord. GM only.',
+  },
 
   unconstrainedMovement: {
     kind: 'gap',

@@ -16,6 +16,7 @@ import { createSheetWithFoundry } from './foundry/CreateSheetDeps.js';
 import { beginPartyAccess } from './ui/PartyAccessFlow.js';
 import { setPlayerCreation } from './foundry/PartyFlag.js';
 import type { FlaggableParty } from './foundry/PartyFlag.js';
+import type { MapBuildingCommands } from './modifiers/MapBuilding.js';
 import { readChatTargets } from './debug/ChatTargets.js';
 import type { ChatGlobals } from './debug/ChatTargets.js';
 import { logger } from './core/Logger.js';
@@ -38,6 +39,8 @@ export interface TrayWiring {
   readonly creationRelay: CreationRelay;
   /** Ctrl+Z, built where the synthesizer lives. See BuildModifierBar. */
   readonly undo: () => void;
+  /** The six GM map-building commands, built alongside undo and for the same reason. */
+  readonly mapBuilding: MapBuildingCommands;
 }
 
 /**
@@ -123,6 +126,14 @@ export function wireTrayActions(
     },
     /* ⚠️ Its own gate, because create opens to players with the relay and this never does. */
     canManagePartyAccess: () => readViewer(GAME_ACCESS).isGm,
+    /*
+     * ⚠️ Spread, so the six arrive as one decision. Their ORDER of definition does not matter, but
+     * their presence does: `TrayActionHandlers` names all six, so dropping one is a type error rather
+     * than a button that renders and does nothing.
+     */
+    ...parts.mapBuilding,
+    /* ⛔ GM only, permanently. Foundry refuses these operations to a player; see TrayActions. */
+    canBuildMaps: () => readViewer(GAME_ACCESS).isGm,
   });
 }
 

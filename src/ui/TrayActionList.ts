@@ -1,4 +1,5 @@
 import type { TrayAction } from '../modifiers/ModifierBar.js';
+import { mapBuildingButtons } from './MapBuildingButtons.js';
 import { PAN_STEP, ZOOM_STEP, type TrayActionHandlers } from './TrayActions.js';
 
 /**
@@ -165,5 +166,14 @@ export function everyTrayAction(handlers: TrayActionHandlers): readonly TrayActi
         handlers.panBy(0, -PAN_STEP);
       },
     },
+    /*
+     * ⚠️ SPREAD, not conditionally appended, so this file keeps reading as "these are the buttons".
+     * Whether a GM map-building button is actually offered is decided by the gate in `TrayActions`,
+     * exactly like create-sheet, and the flatness rule at the top of this file still holds.
+     *
+     * ⚠️ LAST on purpose. They are the only cluster a player never sees, so putting them at the end
+     * means a player's bar is the same bar with a shorter tail, rather than a differently ordered one.
+     */
+    ...mapBuildingButtons(handlers),
   ];
 }

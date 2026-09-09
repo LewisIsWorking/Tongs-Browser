@@ -13,11 +13,19 @@ The floating bar: sticky modifier keys, the tray actions, and the furniture that
 | `BarAttachment.ts`       | Getting it into the document and out again          |
 | `BarDefaults.ts`         | The defaults, including whether it starts collapsed |
 | `KeyButtons.ts`          | Shift, Ctrl, Alt as latching buttons                |
-| `keyDefinitions.ts`      | Which keys exist, as data                           |
+| `keyDefinitions.ts`      | Which keys the BAR shows, as data                   |
+| `mapBuildingKeys.ts`     | The six GM map keys, none of them on the bar        |
 | `ModifierState.ts`       | Which are currently held                            |
 | `KeyboardSynthesizer.ts` | Making Foundry believe a key is down                |
+| `Chord.ts`               | Sending a modifier plus a key as ONE action         |
+| `MapBuilding.ts`         | Select, cut, copy, paste and restack as commands    |
 | `ActionButtons.ts`       | Grab, drop, and the rest of the tray                |
 | `TrayAction.ts`          | One tray action described as data                   |
+
+> ⚠️ **`Chord.ts` was missing from this table until 2026-09-09**, along with the two files added
+> beside it. A contents table that is merely incomplete reads as authoritative and stops the search,
+> which is worse than having none at all. `check-folder-readmes.ts` enforces that a README EXISTS,
+> not that it is true, so this is a habit rather than a gate. **If you add a file here, add its row.**
 
 ## The question this folder's existence depends on
 
