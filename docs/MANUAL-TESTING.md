@@ -389,6 +389,26 @@ Foundry undoes anything needs a live canvas with something on its history.
 - [ ] Tap ↶ again with nothing left to undo. Foundry says so itself, and nothing breaks.
 - [ ] Undo works on a layer other than tokens, since Foundry keeps a history per layer.
 
+### GM map building, added 2026-09-09
+
+⛔ Same split again, and this one has the widest gap between "the tests pass" and "it works". The
+unit tests assert the exact key sequence each button sends, which is the half checkable without a
+Foundry. Whether Foundry ACTS on a bare `[` is a live question, and the failure mode is silence: a
+button sending the wrong key looks identical to one whose synthesised event was ignored.
+
+⚠️ **Do these on the tiles layer, not on tokens.** Foundry's clipboard is per layer, and tiles are
+what a GM is actually copying when building a map.
+
+- [ ] Tap **All**. Everything on the layer selects, as Ctrl+A does on a desktop.
+- [ ] Select a tile, tap **Copy**, then **Paste**. A duplicate appears.
+- [ ] Select a tile, tap **Cut**. It disappears. Tap **Paste**. It comes back.
+- [ ] Overlap two tiles, select the top one, tap **Back**. It goes behind the other.
+- [ ] Tap **Front** on the same tile. It returns to the top.
+- [ ] ⛔ **Back and Front send a BARE bracket key, not a chord.** If those two do nothing while the
+      four above work, suspect a Ctrl that should not be there rather than the synthesizer.
+- [ ] Log in as a PLAYER. None of the six is present at all, and the rest of the pad is unchanged
+      apart from the shorter tail.
+
 ### Targeting, added 2026-09-07
 
 ⛔ **This is the half the unit tests deliberately do not cover.** They assert the event this module

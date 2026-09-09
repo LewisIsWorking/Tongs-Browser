@@ -27,6 +27,18 @@ export const handlers = (overrides: Partial<TrayActionHandlers> = {}): TrayActio
   canCreateSheets: () => true,
   managePartyAccess: vi.fn(),
   canManagePartyAccess: () => true,
+  /*
+   * ⚠️ `canBuildMaps` is TRUE for the same reason `canCreateSheets` is: a default of false would hide
+   * six buttons from every test that does not mention them, and their absence would look like the
+   * normal state. That is precisely the shape of a button that quietly stops existing.
+   */
+  selectAll: vi.fn(),
+  cut: vi.fn(),
+  copy: vi.fn(),
+  paste: vi.fn(),
+  sendToBack: vi.fn(),
+  bringToFront: vi.fn(),
+  canBuildMaps: () => true,
   ...overrides,
 });
 
