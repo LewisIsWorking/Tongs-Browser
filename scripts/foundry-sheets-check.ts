@@ -32,7 +32,8 @@ import {
   requireActiveWorld,
 } from './foundry-session.ts';
 import { createRecorder, describeOutcome, isFailure } from './live/recorder.ts';
-import { checkButtonsPresent, checkNoticeText, watchModuleErrors } from './sheets/sheetChecks.ts';
+import { checkButtonsPresent, watchModuleErrors } from './sheets/sheetChecks.ts';
+import { checkPress, readWorld } from './sheets/partyChecks.ts';
 
 const status = await requireActiveWorld();
 const { browser, page } = await launchBrowser({ hasTouch: true });
@@ -59,20 +60,14 @@ try {
    * "you may not create here" are the pair this feature is most likely to confuse, and a check that
    * only asked "did a notice appear" would pass with either one in either place.
    */
-  await checkNoticeText(
-    page,
-    recorder,
-    'create-sheet',
-    'Ask your GM to make one',
-    'the create button says there is no party to create in'
+  const world = await readWorld(page);
+  console.error(
+    `world holds ${String(world.parties)} party actor(s) and ${String(world.assignable)} user(s)` +
+      `${world.names.length > 0 ? `: ${world.names.join(', ')}` : ''}`
   );
-  await checkNoticeText(
-    page,
-    recorder,
-    'party-access',
-    'Make one first',
-    'the party access button says there is no party to open'
-  );
+
+  await checkPress(page, recorder, 'create-sheet', world, 'the create button');
+  await checkPress(page, recorder, 'party-access', world, 'the party access button');
 
   record(
     'no module error while the buttons were being used',
@@ -87,9 +82,24 @@ console.log(JSON.stringify({ target: status.world, core: status.version, results
 for (const result of results) {
   console.error(`${describeOutcome(result)}  ${result.name}: ${result.detail}`);
 }
+/*
+ * ⛔ MEASURED, not asserted. Until 2026-09-10 this note was an unconditional string claiming the
+ * party path was not covered, and it named `status.world` while calling it what the world "runs".
+ * Those are two different fields: `/api/status` returns BOTH `world` (the world's id) and `system`
+ * (the game system). Against a real PF2e world it printed "it needs a PF2e-family world; this one
+ * runs 'tongs-pf2e'", which is the world id, and is a PF2e world.
+ *
+ * ⚠️ A DISCLAIMER THAT CANNOT CHANGE ITS MIND READS AS A MEASUREMENT. Nothing here would ever have
+ * reported the party path as covered, however many parties the world held, so the gap could not
+ * close on its own and nobody reading the output would know it had.
+ */
+const PF2E_FAMILY = ['pf2e', 'sf2e'];
+const system = String(status.system ?? '');
 console.error(
-  '\nNOTE: the party path is NOT covered here. It needs a PF2e-family world; this one runs ' +
-    `'${String(status.world)}'.`
+  PF2E_FAMILY.includes(system)
+    ? `\nNOTE: system '${system}' is PF2e-family, so the party path above is real coverage.`
+    : `\nNOTE: the party path is NOT covered here. It needs a PF2e-family world; this world's ` +
+        `system is '${system}', where 'party' is not an actor type.`
 );
 
 const failed = results.filter(isFailure);

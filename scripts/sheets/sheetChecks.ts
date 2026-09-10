@@ -14,11 +14,15 @@ import type { Recorder } from '../live/recorder.ts';
  * - a flow that throws inside a click handler, where the error goes to a console nobody reads
  * - a notice whose text is right in the fixture and never reaches the DOM
  *
- * ⚠️ This does NOT exercise the party path, and says so rather than pretending. A `party` actor type
- * exists only in PF2e and its derivatives; the world available here runs `coo`, so there is nothing to
- * open and nothing to create in. What that leaves is still worth having: it proves the buttons exist,
- * are reachable, and say the RIGHT thing when there are no parties, which is exactly the state a real
- * user hits first.
+ * ⚠️ THE PARTY PATH MOVED OUT on 2026-09-10 and is now genuinely covered. It lives in
+ * `partyChecks.ts`, because it needs a PF2e-family world, which is what arrived that day. This file
+ * keeps what is true in every world: that the buttons exist and are reachable for whoever is looking.
+ *
+ * ⛔ `checkNoticeText` was DELETED in the same change. It hard-coded the no-party notices, which are
+ * only correct in a world holding no parties, and PF2e creates one with every new world. Run against
+ * real PF2e it failed while the module was behaving perfectly. Its replacement takes the party count
+ * and derives what to expect, so one check is right in both worlds and neither has to be the
+ * "supported" one.
  */
 /**
  * ⚠️ ONE selector, matching what `ModifierBar` actually writes, and not a list of plausible ones. An
@@ -88,52 +92,6 @@ export async function checkButtonsPresent(page: Page, recorder: Recorder): Promi
       recorder.record(expected.name, !present, `${expected.because}: ${found}`);
     }
   }
-}
-
-/**
- * ⚠️ Asserts the TEXT, not merely that something appeared. "A picker opened" is satisfied by an empty
- * box; the whole value of these two notices is that they say different things, and a wiring mistake
- * that showed `noParties` where `notAllowed` belongs would look identical to a check that only
- * counted elements.
- */
-export async function checkNoticeText(
-  page: Page,
-  recorder: Recorder,
-  id: string,
-  expected: string,
-  name: string
-): Promise<void> {
-  /*
-   * ⚠️ `.tb-choice-menu`, NOT `[data-tongs-browser="ignore"]`. The first version cleared by the
-   * attribute, which the modifier bar ALSO carries, so it deleted the bar and every button on it. The
-   * run then reported "no create-sheet button to press" one line after finding it.
-   *
-   * That contradiction was only visible because the harness SKIPPED rather than failing: a boolean
-   * would have read as the module having lost its own button, and the bug would have been hunted in
-   * the wrong repository.
-   */
-  await page.evaluate(() => {
-    document.querySelectorAll('.tb-choice-menu').forEach((node) => {
-      node.remove();
-    });
-  });
-
-  const button = page.locator(TRAY_BUTTON(id)).first();
-  if ((await button.count()) === 0) {
-    recorder.skip(name, `no ${id} button to press, so the notice could not be reached`);
-    return;
-  }
-
-  await button.click();
-  await page.waitForTimeout(300);
-
-  const text = await page.evaluate(() => document.body.textContent ?? '');
-  const found = text.includes(expected);
-  recorder.record(
-    name,
-    found,
-    found ? `said "${expected}"` : `expected "${expected}"; page did not contain it`
-  );
 }
 
 /**

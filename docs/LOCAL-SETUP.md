@@ -147,6 +147,53 @@ Only when nothing is listening on the port. During a healthy run that directory 
 there. `requireActiveWorld` in the harness checks for this and says so, so any `check:` script will
 tell you rather than leaving you to find it here.
 
+## Standing a PF2e world up from nothing
+
+Measured 2026-09-10 building one for the party checks, on Foundry **14.367** and PF2e **8.5.0**.
+Four things cost time, in the order they bite.
+
+**The install path is not always `C:\Program Files`.** On a machine where Foundry was installed
+per-user it is `%LOCALAPPDATA%\Programs\Foundry Virtual Tabletop`. The launch line above assumes the
+machine-wide path; check which you have before concluding `main.js` is missing.
+
+**A junction beats a symlink, and needs no elevation.** The symlink above wants an elevated prompt or
+Developer Mode. A directory junction does the same job for a local path with neither:
+
+```powershell
+New-Item -ItemType Junction `
+  -Path "$env:LOCALAPPDATA\FoundryVTT\Data\modules\tongs-browser" `
+  -Target "C:\Users\Lewis\WebstormProjects\Tongs-Browser"
+```
+
+**A hand-written world works.** Foundry accepts a world created by dropping a `world.json` into
+`Data\worlds\<id>\`; it needs `id`, `title`, `system`, `coreVersion` and `systemVersion`, and it
+migrates and launches normally. No Setup UI required.
+
+**⛔ But its Gamemaster has a PASSWORD, and the failure says nothing about one.** The harness logs in
+as `Gamemaster` with an empty password (`FOUNDRY_USER` / `FOUNDRY_PASSWORD`). A freshly created world
+has a hashed key on that account, so the join silently does not complete and the run dies 120 seconds
+later inside `waitForReady`:
+
+```
+page.waitForFunction: Timeout 120000ms exceeded.
+    at waitForReady (scripts/foundry/serverStatus.ts)
+```
+
+That message accuses the world of never becoming ready, which sends you looking at migrations and
+module load order. The fix is one field, and Foundry logs `Resetting all user access keys` when it
+takes:
+
+```json
+{ "resetKeys": true }
+```
+
+Set it in `world.json`, launch once, and the passwords are gone.
+
+**PF2e ships a party actor with every new world**, named "The Party". That is worth knowing before
+writing any check that assumes an empty world: the no-party branch of the sheet flow is NOT what a
+new PF2e world shows you, and one party plus one user is enough for the create button to write an
+actor on the first tap with no prompt at all. See `scripts/sheets/expectations.ts`.
+
 ## Running the browser tests locally
 
 ```
