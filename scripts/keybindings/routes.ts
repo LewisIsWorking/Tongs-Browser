@@ -105,18 +105,32 @@ export const ROUTES: Readonly<Record<string, Route>> = Object.freeze({
   moveDownRight: { kind: 'gap', note: 'Unbound in core since 14.367; drag the token instead.' },
 
   /*
-   * ⭐ ASCEND IS NEW IN 14.367 and it is a real capability, not a convenience: elevation is how a
-   * flying or climbing token is placed, and a phone has no way to send KeyE. It is a gap of the same
-   * shape as `descend`, which is why both point at the same alternative rather than one being
-   * treated as the important half of a pair.
+   * ⛔ BOTH WERE RECORDED AS GAPS AND BOTH ARE REACHABLE. Corrected 2026-09-10, hours after `ascend`
+   * was added here as a gap on the strength of "a phone cannot send KeyE". That is true, and it is
+   * not the question. This table asks whether the CAPABILITY is reachable, and Foundry's own Token
+   * HUD carries an elevation field that moves the token:
+   *
+   *     async _onSubmitElevation(event, form, formData) { ... await this.document.move(destination, ...) }
+   *     client/applications/hud/token-hud.mjs
+   *
+   * A long press is a right click in this module, a right click opens that HUD, and the field does
+   * the work. So elevation is reachable today, `descend` was reachable for every day it sat here as
+   * a gap, and a reader would have been sent to build a control for something Foundry already has.
+   *
+   * ⚠️ NOT IDENTICAL, and the note says which part differs. The keys STEP by one unit; the HUD takes
+   * an ABSOLUTE elevation. That is the relationship `ruler` has with its tool: what is missing is
+   * the convenience, not the capability. Overstating that difference invents a gap, ignoring it
+   * hides one.
    */
   ascend: {
-    kind: 'gap',
-    note: 'Added in 14.367 on KeyE. Elevation is editable on the sheet, which is the way in for now.',
+    kind: 'ui',
+    via: 'the token HUD',
+    note: 'Long press the token, type an elevation. New in 14.367 on KeyE. The key steps by one unit where the HUD takes an absolute value, so what is missing is the step, not the capability.',
   },
   descend: {
-    kind: 'gap',
-    note: 'Drag the token instead. Elevation is also editable on the sheet.',
+    kind: 'ui',
+    via: 'the token HUD',
+    note: 'The same elevation field as ascend. Recorded as a gap until 2026-09-10, when the HUD was checked rather than assumed.',
   },
 
   /*
@@ -140,13 +154,26 @@ export const ROUTES: Readonly<Record<string, Route>> = Object.freeze({
     note: 'Sends a bare ], not a chord. GM only.',
   },
 
+  /*
+   * ⛔ FOUR ENTRIES HERE ASKED THE WRONG QUESTION, corrected 2026-09-10. Each reasoned about the KEY
+   * ("a phone cannot press this, so it is a gap") when the question this table asks is whether the
+   * CAPABILITY is reachable. Checked against Foundry's own source, ascend, descend, and these two
+   * all turned out to be reachable, and had been recorded as unreachable for as long as they existed.
+   *
+   * ⚠️ THE BIAS RUNS ONE WAY, which is what makes it worth naming. Reasoning from the key can only
+   * ever invent gaps, never hide them, so the table was pessimistic rather than wrong-in-both-
+   * directions: it would send a reader to build controls for things Foundry already offers. Before
+   * writing `gap`, go and look at what the on-screen UI does.
+   */
   unconstrainedMovement: {
-    kind: 'gap',
-    note: 'Held while dragging to ignore grid and wall constraints. A held key during a drag is awkward on a phone, and the sticky bar releases on the next action rather than on drop.',
+    kind: 'ui',
+    via: 'the token scene controls',
+    note: 'A toggle tool (fa-ghost, GM only) that sets the same core setting the key does. A toggle is BETTER than the key on a phone: the key is held during a drag, and the sticky bar releases on the next action rather than on drop.',
   },
   rulerWaypoint: {
-    kind: 'gap',
-    note: 'Waypoints can already be placed by dragging the ruler out; the key is the keyboard route to the same thing.',
+    kind: 'ui',
+    via: 'the ruler, with Ctrl latched on the bar',
+    note: "Foundry's own toolclip says a waypoint is Ctrl+click and removing one is right click, both of which the bar and a long press already reach. The KeyF shortcut itself is not reachable; the capability is.",
   },
   pushToTalk: { kind: 'gap', note: 'Audio/video, which this module does not touch.' },
 });
