@@ -58,4 +58,21 @@ export const INTERACTION_MUTATIONS: readonly RecordedMutation[] = [
     defect: 'the notify port is handed out detached, so a notice recurses until the stack runs out',
     tests: ['tests/unit/chatTargetsBinding.test.ts'],
   },
+  {
+    file: 'src/debug/ChatTargets.ts',
+    find: '    createChatMessage: chatMessage?.create?.bind(chatMessage),',
+    replace: '    createChatMessage: chatMessage?.create,',
+    /*
+     * ⛔ THE SAME `.bind` AS THE ENTRY ABOVE, on the line above it in the source, and it shipped
+     * anyway. Recorded 2026-09-12. `ChatMessage` inherits `Document.create`, which begins
+     * `this.implementation.createDocuments(...)`; detached and called as `options.createChatMessage`,
+     * whispering a diagnostic report threw on every real Foundry.
+     *
+     * ⛔ Recorded because the old test FORBADE the fix rather than missing the bug. It asserted
+     * `toBe(create)`, and `.bind` returns a new function, so the correct line turned it red. A test
+     * that pins a function's identity cannot tell a bound port from a broken one.
+     */
+    defect: 'the chat message port is handed out detached, so a diagnostic report throws',
+    tests: ['tests/unit/chatTargetsBinding.test.ts'],
+  },
 ];

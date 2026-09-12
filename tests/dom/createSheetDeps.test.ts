@@ -35,6 +35,41 @@ describe('creating through Foundry', () => {
     expect(addMembers).toHaveBeenCalledWith(created);
   });
 
+  /**
+   * ⛔ THE BUG THAT MADE CREATION NEVER WORK IN A REAL FOUNDRY. Found 2026-09-12 by the first live
+   * press of the create button on PF2e, which logged "Cannot read properties of undefined (reading
+   * 'implementation')" and made nothing.
+   *
+   * Foundry's `Document.create` is a STATIC METHOD THAT USES `this`:
+   *
+   *     static async create(data={}, operation={}) {
+   *       const created = await this.implementation.createDocuments(createData, operation);
+   *
+   * The module pulled `create` off `Actor` and called it bare, so `this` was undefined. Every other
+   * stub in this file is an arrow function or a `vi.fn`, neither of which reads `this`, so a detached
+   * call works on them perfectly and the bug could not be seen from here. This stub is shaped like
+   * the real method, which is the only way a desk test can catch it.
+   *
+   * ⚠️ Same shape as #347, where `ui.notifications.info` was handed out detached and recursed until
+   * the stack ran out. That fix was made in one file; this was the same mistake in another.
+   */
+  it('calls Actor.create ON Actor, because Foundry reads this.implementation', async () => {
+    const created = { uuid: 'Actor.new' };
+    globals['Actor'] = {
+      implementation: { createDocuments: async () => Promise.resolve([created]) },
+      async create(this: { implementation: { createDocuments: () => Promise<unknown[]> } }) {
+        return (await this.implementation.createDocuments()).shift();
+      },
+    };
+    globals['fromUuid'] = vi.fn(async () =>
+      Promise.resolve({ addMembers: async () => Promise.resolve() })
+    );
+
+    const outcome = await createSheetWithFoundry(request);
+
+    expect(outcome).toEqual({ kind: 'created', sheet: created });
+  });
+
   it('looks the party up by the uuid it was given', async () => {
     const fromUuid = vi.fn(async () =>
       Promise.resolve({ addMembers: async () => Promise.resolve() })

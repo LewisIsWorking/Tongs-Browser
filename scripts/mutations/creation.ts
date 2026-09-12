@@ -132,4 +132,21 @@ export const CREATION_MUTATIONS: readonly RecordedMutation[] = [
     defect: 'a served claim is left standing, so a replayed payload creates a duplicate sheet',
     tests: ['tests/unit/requestProof.test.ts'],
   },
+  {
+    file: 'src/foundry/CreateSheetDeps.ts',
+    find: '      return actor.create(data);',
+    replace: '      const create = actor.create;\n      return create(data);',
+    /*
+     * ⛔ THE BUG THAT MEANT CREATION HAD NEVER WORKED IN A REAL FOUNDRY. Recorded 2026-09-12. This
+     * is the shape it shipped in: `create` read off `Actor`, then called bare. Foundry's
+     * `Document.create` begins `this.implementation...`, so `this` was undefined and every tap of
+     * the create button produced a notice and no character.
+     *
+     * ⛔ Recorded because every OTHER stub in that test file is an arrow function or a `vi.fn`, and
+     * neither reads `this`, so a detached call works on them perfectly. Only the one stub shaped like
+     * Foundry's real static method notices, and a tidy-up that "simplified" it would hide this again.
+     */
+    defect: 'Actor.create is called detached, so creating a sheet throws on every real Foundry',
+    tests: ['tests/dom/createSheetDeps.test.ts'],
+  },
 ];
