@@ -1,5 +1,199 @@
 # tongs-browser
 
+## 0.28.0
+
+### Minor Changes
+
+- [#349](https://github.com/LewisIsWorking/Tongs-Browser/pull/349) [`3752015`](https://github.com/LewisIsWorking/Tongs-Browser/commit/3752015f7d2898bcf8b0b6cb7b8151aee0b1c8a6) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Give a GM the six map-building commands a phone could not reach.
+
+  `selectAll`, `cut`, `copy`, `paste`, `sendToBack` and `bringToFront` were the last real gaps in the
+  keybinding coverage table. Each is now a button in a gated `map` cluster on the control pad, so the
+  control pad goes from 8 of Foundry's keybindings to 14 and the unreachable count from 19 to 13.
+
+  The nineteen were never nineteen missing features. Most were honest non-gaps already written down as
+  such: the diagonal pans compose from the straight ones, token movement is what dragging is for,
+  push-to-talk is audio this module does not touch. These six were the residue a user genuinely could
+  not do at all, and they share one description: a GM building a map on a phone could not select, cut,
+  copy, paste or restack anything.
+
+  **Four are chords and two are not, which is the part worth knowing.** Foundry binds selectAll, cut,
+  copy and paste to Ctrl+A/X/C/V, but sendToBack and bringToFront to the BARE bracket keys. The six are
+  alike in what they are for, which is exactly what invites the assumption that they are alike in how
+  they are sent. A Ctrl-wrapped bracket is a chord Foundry does not bind, so those two buttons would
+  have looked identical to the four beside them and done nothing whatsoever. The key codes come from
+  the snapshot taken from Foundry 14.366's own registration file, not from memory, and the tests assert
+  the full ordered key sequence rather than merely that a key was tapped, because an assertion that
+  only checked the tap would pass while the command was dead.
+
+  They are absent for a player rather than disabled, on their own gate. Foundry refuses these
+  operations to anyone who is not a GM, so unlike the create button there is no player version of this
+  to grow into: a control offered to a player could only ever be silence, and silence on a phone reads
+  as a broken module because there is no console to check which it was.
+
+  Also fixes the keybinding coverage guard, which read tray button ids from one file and so reported
+  all six as missing the moment they were extracted to a second one to stay under the size limit. It
+  now reads a named list of button sources. That direction of the bug was the harmless one; the
+  dangerous version is a button file nobody lists, whose absence then reads as "not built yet".
+
+### Patch Changes
+
+- [#353](https://github.com/LewisIsWorking/Tongs-Browser/pull/353) [`4728c88`](https://github.com/LewisIsWorking/Tongs-Browser/commit/4728c88f22a8ebf8175cff1b03ffb9d9e9ce53e5) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Fix creating a character sheet, which had never worked in a real Foundry, and the diagnostics button,
+  which had the same bug.
+
+  **Creating a sheet threw on every real Foundry.** The module took `create` off `Actor` and called it
+  bare. Foundry's `Document.create` is a static method that begins
+  `this.implementation.createDocuments(...)`, so a detached call left `this` undefined and threw
+  "Cannot read properties of undefined (reading 'implementation')". The module caught that and reported
+  it, so a tap produced a notice and no character. It is now called on `Actor`.
+
+  It passed every test because every stub was an arrow function or a `vi.fn`, neither of which reads
+  `this`. The test file had even written down the gap it could not close: "MISSES: whether Foundry
+  accepts the document. Only the live harness can say." It was found by the first live press of the
+  create button against real PF2e.
+
+  **Whispering a diagnostic report was broken the same way.** `createChatMessage` was
+  `globals.ChatMessage?.create`, detached, and `ChatMessage` inherits the same `Document.create`. That
+  line sat directly above the fix for `notify` ([#347](https://github.com/LewisIsWorking/Tongs-Browser/issues/347)), which bound that port and explained in its
+  comment exactly why a detached method is dangerous. It is now bound too.
+
+  It survived that fix because its test asserted `expect(targets.createChatMessage).toBe(create)`. An
+  identity check. `.bind` returns a new function, so the correct fix would have turned that assertion
+  red, and the very next line of the test was [#347](https://github.com/LewisIsWorking/Tongs-Browser/issues/347)'s comment saying an identity check "protected the
+  bug". Both identity assertions now check that the call arrives instead.
+
+  **New: `npm run check:sheets:create`.** It presses create for real in a PF2e world, judges the sheet
+  it made, and deletes it. It is separate from `check:sheets`, which promises to write nothing and still
+  does. Verified against PF2e 8.5.0 on Foundry 14.367: one tap makes exactly one `character`, it joins
+  the party, the owner can open it, and PF2e's `addMembers` takes it out of any folder.
+
+  That last one had only ever been read in PF2e's source. It has now been watched on a real actor, and
+  the check refuses to pass it for a sheet that never joined, because a new actor has no folder anyway
+  and a null folder there would prove nothing. The first live run printed exactly that coincidental
+  PASS, beside a party-membership failure that turned out to be the check reading members before the
+  second write had landed.
+
+  The check finds what to delete by diffing actor ids before and after the press, never by name, so it
+  cannot remove a real character that shares the default name, and cleans up in `finally` so a failed
+  run leaves nothing behind.
+
+- [#352](https://github.com/LewisIsWorking/Tongs-Browser/pull/352) [`3fd1186`](https://github.com/LewisIsWorking/Tongs-Browser/commit/3fd1186bcdb00d91a2be4ae4b3431c4e6c40527d) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Four keybindings recorded as unreachable are reachable, and always were.
+
+  The coverage table asks whether a phone can reach each of Foundry's capabilities. Four entries had
+  answered a different question: whether a phone can press the KEY. That is a narrower question, and
+  answering it instead produced four gaps that do not exist.
+
+  Checked against Foundry 14.367's own source, not reasoned about:
+
+  - **`ascend` and `descend`** are the Token HUD's elevation field, whose handler calls
+    `document.move(...)`. A long press is a right click in this module, and a right click opens that
+    HUD. `descend` had been recorded as a gap for as long as the table existed. `ascend` was added as
+    one earlier the same day, on the strength of "a phone cannot send KeyE", which is true and is not
+    the question.
+  - **`unconstrainedMovement`** is a toggle tool in the token scene controls (`fa-ghost`, GM only)
+    setting the same core setting the key does. The toggle is BETTER than the key on a phone: the key
+    is held during a drag, and this module's sticky bar releases on the next action rather than on drop.
+  - **`rulerWaypoint`** is Ctrl+click by Foundry's own toolclip, with right click to remove. The bar
+    latches Ctrl and a long press is a right click, so both halves are already reachable. The KeyF
+    shortcut is not reachable; the capability is, and those are different claims.
+
+  The table now reads 8 reachable through Foundry's own UI where it read 4, and 13 unreachable where it
+  read 17.
+
+  **The bias only ran one way, which is why it is worth naming rather than just fixing.** Reasoning
+  from the key can invent gaps but can never hide one, so the table was pessimistic rather than
+  unreliable. The cost is real anyway: a reader would have been sent to build controls for things
+  Foundry already offers, which is how a phone ends up with a bar full of buttons duplicating its own
+  UI. Before writing `gap`, go and look at what the on-screen UI does.
+
+  The four straight token moves are deliberately left as gaps. Dragging reaches them and the notes say
+  so, but whether freehand dragging is the same capability as a one-square keyboard step is a judgement
+  rather than something the source settles, and four corrections in one direction is where
+  over-correcting starts.
+
+- [#351](https://github.com/LewisIsWorking/Tongs-Browser/pull/351) [`8d4187c`](https://github.com/LewisIsWorking/Tongs-Browser/commit/8d4187c20165763197675e4b3e89c24c79864b5d) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Catch the keybinding snapshot going stale, instead of trusting it.
+
+  The coverage guard compares our routing table against our snapshot. Both are ours, so the strongest
+  thing it can prove is that we agree with ourselves. On a machine running Foundry 14.367 it printed:
+
+      OK: all 37 core keybinding(s) from Foundry 14.366 are accounted for.
+
+  Green, and useless. Four bindings were unaccounted for, and one key had changed hands.
+
+  **What 14.367 actually changed**, read from its own registration file:
+
+  - `ascend` is new, on `KeyE`
+  - `moveDownRight` HELD `KeyE` at 14.366 and is now registered with no default key at all
+  - `moveUpLeft`, `moveUpRight`, `moveDownLeft` are new, and all four diagonals ship unbound
+
+  A key that changes hands is worse than one that disappears. Every name was still present, every
+  count still plausible, and the routing decision about `KeyE` kept reading sensibly while pointing at
+  a different capability. The snapshot is re-taken at 14.367 and the four new bindings are routed; the
+  diagonals are gaps that say they are unbound in core, because giving a phone a control the desktop
+  does not have by default is not what this module is for.
+
+  **The freshness rule was a habit, not a gate**, and `npm run check:keybindings:live` replaces it. It
+  joins a running world, reads `game.keybindings.actions`, and compares that to the snapshot: bindings
+  Foundry has that we do not, bindings we have that it does not, and keys that moved. It is separate
+  from the CI guard on purpose, because that one must run where no Foundry exists, and it fails rather
+  than skips when it cannot find one.
+
+  It earned its keep immediately, in both directions. It found that `delete` is `Delete` uneditable
+  PLUS `Backspace` editable, and the snapshot had only ever recorded the first. It also found three
+  bugs in itself on its first run: reading `editable` while ignoring `uneditable` reported six
+  Ctrl-chords and Escape as "(unbound)"; ignoring modifiers would have called `Ctrl+C` and plain `C`
+  the same binding; and Foundry's fifteen looped registrations (`executeMacro0`..`9`,
+  `swapMacroPage1`..`5`) were reported as new on every run, which would have buried the one real
+  finding under them. A check that always fails is a check nobody reads.
+
+  Also: the snapshot claimed `docs/MANUAL-TESTING.md` told you to re-take it on a version bump. That
+  document says no such thing, so the freshness rule was a cross-reference to advice that did not
+  exist. The claim is replaced by the command that now does the work.
+
+- [#347](https://github.com/LewisIsWorking/Tongs-Browser/pull/347) [`4e133d5`](https://github.com/LewisIsWorking/Tongs-Browser/commit/4e133d589987f769eee27667af4f2899ed803622) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Fix a stack overflow when the module shows a notice.
+
+  `ui.notifications.info` is a method: Foundry implements it as
+  `info(message, options) { return this.notify(message, "info", options) }`. It was handed out
+  detached, and called straight off the object literal it was returned in, so `this` became that
+  literal. The literal has a `notify` property holding the same function, so `info` called itself until
+  the stack ran out.
+
+  Losing `this` normally throws at once and obviously. Here the accidental receiver carried a property
+  of exactly the right name, so an ordinary mistake became infinite recursion whose stack is entirely
+  Foundry's own minified source, with no frame of this module in it.
+
+  Found on the first world that ever had party actors in it, which is the first to reach that line.
+
+- [#350](https://github.com/LewisIsWorking/Tongs-Browser/pull/350) [`5c5d0fc`](https://github.com/LewisIsWorking/Tongs-Browser/commit/5c5d0fc24b710f4257129acc93aae10f1f13e88f) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Cover the party path for real, against real PF2e.
+
+  The live sheet check had carried a note since 2026-09-03 saying the party path was not covered
+  because no PF2e-family world was available. One is now. Running it against PF2e 8.5.0 on Foundry
+  14.367 turned up three things, none of which was a module bug.
+
+  **The note could never have changed its mind.** It was an unconditional string, printed on every run
+  whatever the world held, so the gap it described could not close and nobody reading the output would
+  have known if it had. It also named `status.world` while calling it what the world "runs":
+  `/api/status` returns BOTH `world` (the world's id) and `system`, and against a real PF2e world the
+  note printed "it needs a PF2e-family world; this one runs 'tongs-pf2e'", which is the world id, and
+  is a PF2e world. It now reads `system` and says which of the two cases applies.
+
+  **Two checks failed while the module was correct.** They hard-coded the no-party notices, which are
+  only right in a world holding no parties, and PF2e creates a party actor with every new world. So the
+  module rightly offered a picker and the harness called it a failure. `checkNoticeText` is deleted and
+  replaced by `pressOutcomeFor`, a pure function that takes what the world holds and derives what
+  should happen, so one check is correct in both worlds and neither has to be the "supported" one.
+
+  **A brand new PF2e world would have made the harness write to it.** `CreateSheetFlow` collapses every
+  step that has only one answer: one party skips "which party?", one assignable user skips "who plays
+  them?". A world with one of each therefore creates an actor on the FIRST TAP with nothing shown in
+  between, and a brand new PF2e world is exactly one party and one user. The harness promises in its
+  own docblock that it writes nothing, so that promise was one tap from being false in the most
+  ordinary world there is. That case is now recorded as a skip naming the reason, which is a fact worth
+  having rather than a hole: it says the module would create, and that the check declined to.
+
+  What is now genuinely proven against real PF2e, rather than against sf2e as a proxy: the party access
+  button opens a picker that lists the world's actual party actor by name. A picker built from an empty
+  array still renders, so the assertion is that the real party is named in it, not that a menu appeared.
+
 ## 0.27.0
 
 ### Minor Changes
