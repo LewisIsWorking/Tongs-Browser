@@ -40,11 +40,21 @@ export async function createSheetWithFoundry(request: {
 
   return createSheetInParty(request, {
     createActor: async (data) => {
-      const create = globals.Actor?.create;
-      if (create === undefined) {
+      /*
+       * ⛔ CALLED ON `Actor`, NEVER DETACHED. Fixed 2026-09-12. This used to read
+       * `const create = globals.Actor?.create; return create(data);`, which throws on every real
+       * Foundry: `Document.create` is a static method that begins `this.implementation...`, and a
+       * bare call leaves `this` undefined. Creating a sheet had therefore never worked outside the
+       * tests, whose stubs are arrow functions that do not read `this`.
+       *
+       * ⚠️ Same mistake as #347, which detached `ui.notifications.info`. When a Foundry method is
+       * checked for and then called, keep hold of the OBJECT and call through it.
+       */
+      const actor = globals.Actor;
+      if (actor?.create === undefined) {
         throw new Error('Foundry has no Actor.create on this client.');
       }
-      return create(data);
+      return actor.create(data);
     },
     addToParty: async (partyUuid, sheet) => {
       const resolve = globals.fromUuid;

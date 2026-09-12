@@ -16,7 +16,15 @@ describe('readChatTargets', () => {
 
     const targets = readChatTargets({ ChatMessage: { create }, ui: { notifications: { info } } });
 
-    expect(targets.createChatMessage).toBe(create);
+    /*
+     * ⛔ WAS `expect(targets.createChatMessage).toBe(create)`, directly above the comment below that
+     * explains why an identity check protects a bug. It did exactly that: `ChatMessage.create` must
+     * be BOUND for the same reason `notify` must, and `.bind` returns a new function, so this
+     * assertion failed the moment the second port was fixed. Changed 2026-09-12 to assert the call
+     * arrives, like its neighbour.
+     */
+    targets.createChatMessage?.({ content: 'hi' });
+    expect(create).toHaveBeenCalledWith({ content: 'hi' });
     /*
      * ⚠️ Asserts that calling it REACHES the notifier, not that it IS the same function object.
      * `toBe(info)` was the original assertion and it actively forbade the fix: `notify` must be
@@ -39,7 +47,9 @@ describe('readChatTargets', () => {
 
     const targets = readChatTargets({ ChatMessage: { create } });
 
-    expect(targets.createChatMessage).toBe(create);
+    /* ⚠️ Behaviour, not identity, for the reason given in the test above. */
+    targets.createChatMessage?.({ content: 'hi' });
+    expect(create).toHaveBeenCalledWith({ content: 'hi' });
     expect(targets.notify).toBeUndefined();
   });
 

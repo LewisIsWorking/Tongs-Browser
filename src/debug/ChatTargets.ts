@@ -28,9 +28,20 @@ export interface ChatGlobals {
  */
 export function readChatTargets(globals: ChatGlobals): ChatTargets {
   const notifications = globals.ui?.notifications;
+  const chatMessage = globals.ChatMessage;
 
   return {
-    createChatMessage: globals.ChatMessage?.create,
+    /*
+     * ⛔ BOUND, fixed 2026-09-12, and it sat one line above the fix explaining exactly why. Handed
+     * out detached, `ChatMessage.create` is Foundry's inherited `Document.create`, which begins
+     * `this.implementation.createDocuments(...)`; called as `options.createChatMessage(...)` its
+     * receiver was `options`, so whispering a diagnostic report threw on every real Foundry.
+     *
+     * ⛔ The `notify` fix below was made in 2026-09-08 and this line was left beside it. It survived
+     * because its test asserted `toBe(create)`, an IDENTITY check that binding would have broken, so
+     * the suite held the bug in place rather than missing it.
+     */
+    createChatMessage: chatMessage?.create?.bind(chatMessage),
     /*
      * ⛔ BOUND, and it took a real party world to find out why. `ui.notifications.info` is a METHOD.
      * Foundry implements it as `info(message, options) { return this.notify(message, "info", options) }`.

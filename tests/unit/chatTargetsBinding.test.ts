@@ -64,3 +64,62 @@ describe('the notify port', () => {
     expect(readChatTargets({ ui: { notifications: {} } }).notify).toBeUndefined();
   });
 });
+
+/**
+ * ⛔ THE SAME BUG, ONE LINE ABOVE THE FIX FOR IT. Found 2026-09-12.
+ *
+ * The fix for `notify` above bound it and left `createChatMessage: globals.ChatMessage?.create`
+ * detached on the line directly above that fix's own explanation of why detaching is dangerous.
+ * `ChatMessage` does not override `create`, so it inherits Foundry's `Document.create`, which begins
+ * `this.implementation.createDocuments(...)`. Called as `options.createChatMessage(...)`, as
+ * `DiagnosticsDelivery` does, `this` is `options`, and whispering a diagnostic report throws.
+ *
+ * ⛔ WHY IT SURVIVED THE FIX. The existing test asserted `expect(targets.createChatMessage).toBe(create)`,
+ * an IDENTITY check. `.bind` returns a new function, so binding it would have FAILED that test. The
+ * suite was not missing the bug; it was holding it in place, and fixing the second port meant
+ * contradicting a green assertion nobody had reason to doubt.
+ */
+interface DocumentLike {
+  implementation: { createDocuments: (data: unknown[]) => Promise<unknown[]> };
+}
+
+const chatMessageLike = () => {
+  const made: unknown[] = [];
+  return {
+    made,
+    ChatMessage: {
+      implementation: {
+        createDocuments: async (data: unknown[]) => {
+          made.push(...data);
+          return Promise.resolve(data);
+        },
+      },
+      async create(this: DocumentLike, data: unknown) {
+        return (await this.implementation.createDocuments([data])).shift();
+      },
+    },
+  };
+};
+
+describe('the chat message port', () => {
+  it('reaches Foundry’s ChatMessage.create with ChatMessage as its receiver', async () => {
+    const foundry = chatMessageLike();
+
+    const targets = readChatTargets({ ChatMessage: foundry.ChatMessage });
+    await targets.createChatMessage?.({ content: 'report' });
+
+    expect(foundry.made).toEqual([{ content: 'report' }]);
+  });
+
+  /** ⚠️ Called the way `DiagnosticsDelivery` calls it: as a property of a DIFFERENT object. */
+  it('survives being called as a property of an options object', async () => {
+    const foundry = chatMessageLike();
+    const options = {
+      createChatMessage: readChatTargets({ ChatMessage: foundry.ChatMessage }).createChatMessage,
+    };
+
+    await options.createChatMessage?.({ content: 'from options' });
+
+    expect(foundry.made).toEqual([{ content: 'from options' }]);
+  });
+});
