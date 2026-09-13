@@ -3,12 +3,13 @@
 The GM roll deck: swipe through the chat log one card at a time, with large buttons to apply damage
 and roll saves. GM only.
 
-| File                  | What it is                                                              |
-| --------------------- | ----------------------------------------------------------------------- |
-| `deckFacts.ts`        | What the deck knows about one message, extracted from the real one      |
-| `buildDeck.ts`        | Which messages are cards, and in what order                             |
-| `applyOptions.ts`     | The five ways to apply damage, and what each button says                |
-| `readMessageFacts.ts` | A real PF2e/SF2e chat message read into facts, against a measured shape |
+| File                    | What it is                                                                 |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `deckFacts.ts`          | What the deck knows about one message, extracted from the real one         |
+| `buildDeck.ts`          | Which messages are cards, and in what order                                |
+| `applyOptions.ts`       | The five ways to apply damage, and what each button says                   |
+| `readMessageFacts.ts`   | A real PF2e/SF2e chat message read into facts, against a measured shape    |
+| `applyThroughSystem.ts` | Applying a card by making PF2e run its own apply, aimed at the roll target |
 
 ## Decided with Lewis, 2026-09-13
 
