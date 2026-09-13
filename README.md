@@ -28,11 +28,12 @@ Foundry assumes a mouse. Touch devices do not have one, and the gap is wider tha
 Tongs Browser fixes all three by synthesising a persistent virtual mouse pointer driven by your
 finger, adding a sticky modifier key bar, and scaling the interface for small screens.
 
-Status as of **2026-08-30**: **pre-release.** The module has been exercised against a live Foundry
-**14.366** server, driving a real world through a headless browser: pointer movement, click, drag,
-double click to open a sheet, and the sidebar. It has **not** been run on a physical Android device,
-which is the gap that still matters most. See [docs/MANUAL-TESTING.md](docs/MANUAL-TESTING.md) for
-what was measured and when.
+Status as of **2026-09-13**: **pre-release.** The module has been exercised against a live Foundry
+**14.367** server with **PF2e 8.5.0**, driving a real world through a headless browser: pointer
+movement, click, drag, double click to open a sheet, the sidebar, creating a character sheet into a
+party, and the diagnostics report. It has **not** been run on a physical Android device, which is the
+gap that still matters most. See [docs/MANUAL-TESTING.md](docs/MANUAL-TESTING.md) for what was
+measured and when.
 
 ## Installation
 
@@ -50,7 +51,8 @@ users at it meant no install could ever see a new version. Corrected 2026-08-30.
 [docs/FIRST-INSTALL.md](docs/FIRST-INSTALL.md), which orders the checks cheapest and least
 destructive first, and says which actions write to the world.
 
-Compatible with Foundry **v14**. The manifest declares 14.366, which is also the build the live
+Compatible with Foundry **v14** only: the manifest's `minimum` and `maximum` are both `14`, so a v13
+world will refuse to install it. It declares 14.367 as verified, which is the build the live
 measurements were taken against.
 
 ## How it works

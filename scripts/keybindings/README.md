@@ -5,11 +5,11 @@
 What Foundry can do from a keyboard, and how a phone reaches each of it. Backs
 `npm run check:keybindings`.
 
-| File          | What it is                                                                 |
-| ------------- | -------------------------------------------------------------------------- |
-| `snapshot.ts` | Every keybinding core Foundry registers, measured from 14.366's own source |
-| `coverage.ts` | How each one is reached: the bar, the control pad, Foundry's UI, or not    |
-| `parse.ts`    | Reads the module's own key codes and tray ids out of its source            |
+| File          | What it is                                                                    |
+| ------------- | ----------------------------------------------------------------------------- |
+| `snapshot.ts` | Every keybinding core Foundry registers, re-measured from 14.367's own source |
+| `coverage.ts` | How each one is reached: the bar, the control pad, Foundry's UI, or not       |
+| `parse.ts`    | Reads the module's own key codes and tray ids out of its source               |
 
 ## Why it exists
 
