@@ -13,6 +13,8 @@ import { VirtualPointer } from './pointer/VirtualPointer.js';
 import { UiScaler } from './scaling/UiScaler.js';
 import { WindowClampBinder } from './scaling/WindowClampBinder.js';
 import { buildModuleParts } from './ModuleParts.js';
+import { RollDeck } from './deck/RollDeck.js';
+import type { DeckGlobals } from './deck/buildApplyPorts.js';
 import type { TongsBrowserOptions } from './TongsBrowserOptions.js';
 
 // Re-exported so every existing importer keeps working unchanged.
@@ -40,6 +42,8 @@ export class TongsBrowser {
   private readonly creationRelay: CreationRelay;
   /** What the tray buttons do to Foundry. See foundry/FoundryActions.ts. */
   private readonly actions: FoundryActions;
+  /** The GM roll deck. See deck/RollDeck.ts. */
+  private readonly deck: RollDeck;
 
   private enabled = false;
 
@@ -65,6 +69,7 @@ export class TongsBrowser {
     this.pauseRelay = parts.pauseRelay;
     this.creationRelay = parts.creationRelay;
     this.binder = parts.binder;
+    this.deck = new RollDeck(globalThis as DeckGlobals, options.document);
   }
 
   public enable(): void {
@@ -136,6 +141,10 @@ export class TongsBrowser {
 
   public getPointer(): VirtualPointer {
     return this.pointer;
+  }
+
+  public getDeck(): RollDeck {
+    return this.deck;
   }
 
   public getCursor(): CursorOverlay {

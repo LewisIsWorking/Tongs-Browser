@@ -11,6 +11,7 @@ and roll saves. GM only.
 | `readMessageFacts.ts`   | A real PF2e/SF2e chat message read into facts, against a measured shape    |
 | `applyThroughSystem.ts` | Applying a card by making PF2e run its own apply, aimed at the roll target |
 | `buildApplyPorts.ts`    | The real Foundry behind applying, every method called on its own object    |
+| `RollDeck.ts`           | The deck as one GM-only service, reached as `api.getDeck()`                |
 
 ## Decided with Lewis, 2026-09-13
 

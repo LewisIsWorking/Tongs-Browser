@@ -32,6 +32,7 @@ export interface DeckGlobals {
     };
   };
   readonly game?: {
+    readonly user?: { readonly isGM?: boolean };
     readonly system?: { readonly id?: string };
     readonly messages?: { get?: (id: string) => MessageDoc | undefined };
   };
