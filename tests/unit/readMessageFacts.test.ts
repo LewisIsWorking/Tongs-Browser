@@ -97,6 +97,23 @@ describe('damage', () => {
     expect(readMessageFacts(doubled, ports()).damage[0]?.types).toEqual(['fire', 'slashing']);
   });
 
+  it('is empty for a damage roll that carries no rolls or no instances', () => {
+    const bare: MessageLike = { id: 'msg2', timestamp: 1, isDamageRoll: true };
+    const hollow = measured('pf2e', { rolls: [{ total: 4, instances: [] }] });
+
+    expect(readMessageFacts(bare, ports()).damage).toEqual([]);
+    expect(readMessageFacts(hollow, ports()).damage).toEqual([]);
+  });
+
+  /** An untyped instance still counts as damage; it just names no type, and a missing total reads 0. */
+  it('keeps an untyped instance as damage without inventing a type', () => {
+    const untyped = measured('pf2e', { rolls: [{ instances: [{}] }] });
+
+    expect(readMessageFacts(untyped, ports()).damage).toEqual([
+      { rollIndex: 0, total: 0, types: [] },
+    ]);
+  });
+
   /** ⚠️ PF2e's apply takes a `rollIndex`, so a skipped roll must not renumber the ones after it. */
   it('keeps PF2e roll numbering when a roll without damage is skipped', () => {
     const mixed = measured('pf2e', {

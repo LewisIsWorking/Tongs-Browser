@@ -35,10 +35,8 @@ function describeTypes(types: readonly string[]): string {
   if (types.length === 0) {
     return 'damage';
   }
-  if (types.length === 1) {
-    return types[0] ?? 'damage';
-  }
-  return `${types.slice(0, -1).join(', ')} and ${types.at(-1) ?? ''}`;
+  const last = types.slice(-1).join('');
+  return types.length === 1 ? last : `${types.slice(0, -1).join(', ')} and ${last}`;
 }
 
 /**

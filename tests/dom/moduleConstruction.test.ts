@@ -47,13 +47,14 @@ describe('constructing the module', () => {
     }
   });
 
-  it('exposes the pointer, cursor, bar and scaler it was asked for', () => {
+  it('exposes the pointer, cursor, bar, scaler and roll deck it was asked for', () => {
     const module = build();
 
     expect(module.getPointer()).toBeDefined();
     expect(module.getCursor()).toBeDefined();
     expect(module.getModifierBar()).toBeDefined();
     expect(module.getScaler()).toBeDefined();
+    expect(module.getDeck()).toBeDefined();
   });
 });
 

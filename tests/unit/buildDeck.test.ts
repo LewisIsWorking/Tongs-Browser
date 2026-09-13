@@ -84,6 +84,12 @@ describe('order', () => {
     expect(buildDeck([...same].reverse()).map((card) => card.id)).toEqual(['a', 'b', 'c']);
   });
 
+  it('keeps a card listed twice as two cards, rather than dropping one', () => {
+    const twice = [message({ id: 'a', damage: fire }), message({ id: 'a', damage: fire })];
+
+    expect(buildDeck(twice)).toHaveLength(2);
+  });
+
   /** ⛔ The caller's list is Foundry's own collection order, which the chat log also reads. */
   it('never reorders the list it was given', () => {
     const given = [
