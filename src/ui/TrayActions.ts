@@ -65,6 +65,11 @@ export interface TrayActionHandlers {
    * operations to anyone who is not a GM, so a button offered to a player could only ever be silence.
    */
   readonly canBuildMaps: () => boolean;
+
+  /** Opens the GM roll deck. See `deck/panel/DeckPanel.ts`. Added 2026-09-14. */
+  readonly openRollDeck: () => void;
+  /** ⛔ GM only, permanently: the deck applies damage and rolls saves for creatures a player does not own. */
+  readonly canUseRollDeck: () => boolean;
 }
 
 /** Buttons that are only offered when their own gate says so. */
@@ -78,6 +83,7 @@ const GATED: readonly { readonly id: string; readonly allowed: keyof TrayActionH
   { id: 'paste', allowed: 'canBuildMaps' },
   { id: 'send-to-back', allowed: 'canBuildMaps' },
   { id: 'bring-to-front', allowed: 'canBuildMaps' },
+  { id: 'roll-deck', allowed: 'canUseRollDeck' },
 ];
 
 /** How far one press of a pan arrow moves the view, in screen pixels. */

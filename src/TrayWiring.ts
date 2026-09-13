@@ -41,6 +41,8 @@ export interface TrayWiring {
   readonly undo: () => void;
   /** The six GM map-building commands, built alongside undo and for the same reason. */
   readonly mapBuilding: MapBuildingCommands;
+  /** Opens the GM roll deck. */
+  readonly openRollDeck: () => void;
 }
 
 /**
@@ -134,6 +136,8 @@ export function wireTrayActions(
     ...parts.mapBuilding,
     /* ⛔ GM only, permanently. Foundry refuses these operations to a player; see TrayActions. */
     canBuildMaps: () => readViewer(GAME_ACCESS).isGm,
+    openRollDeck: parts.openRollDeck,
+    canUseRollDeck: () => readViewer(GAME_ACCESS).isGm,
   });
 }
 

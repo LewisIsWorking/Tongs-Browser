@@ -20,6 +20,8 @@ and roll saves. GM only.
 | `listDeckMessages.ts`      | The chat log read into facts: on the document boundary, GM and visible only |
 | `RollDeck.ts`              | The deck as one GM-only service, reached as `api.getDeck()`                 |
 
+The panel that shows the deck lives in `panel/`, with its own README.
+
 ## Decided with Lewis, 2026-09-13
 
 - **Only actionable cards**: damage to apply or a save to roll.

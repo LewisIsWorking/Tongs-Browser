@@ -391,3 +391,101 @@
   background: rgb(0 200 255 / 10%);
   box-sizing: border-box;
 }
+
+/*
+ * The GM roll deck. Added 2026-09-14.
+ *
+ * Full height and centred, capped at a readable width, so on a phone it fills the screen and on a
+ * desktop it does not stretch a button across a monitor. Above the cursor, like the sidebar picker,
+ * because it is a modal errand rather than something to point at the map through.
+ *
+ * Buttons are at least 56px tall: bigger than the 44px bar keys, because every one of these commits
+ * damage or a roll, and a mis-tap here is not undone by tapping again.
+ */
+.tb-roll-deck {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--tb-cursor-z-index) + 10);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 12px;
+  overflow-y: auto;
+  /* Opaque: at 98% Foundry's own warnings read through the buttons on a phone. Seen 2026-09-14. */
+  background: rgb(22 22 26);
+  color: rgb(255 255 255 / 92%);
+  font-family: sans-serif;
+  font-size: 17px;
+}
+
+.tb-roll-deck__header,
+.tb-roll-deck__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tb-roll-deck__header p {
+  flex: 1 1 100%;
+  margin: 0;
+  font-weight: bold;
+}
+
+.tb-roll-deck__header .tb-roll-deck__button,
+.tb-roll-deck__footer .tb-roll-deck__button {
+  flex: 1 1 0;
+}
+
+.tb-roll-deck__footer {
+  margin-top: auto;
+}
+
+.tb-roll-deck__card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tb-roll-deck__title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: bold;
+}
+
+.tb-roll-deck__status,
+.tb-roll-deck__note {
+  min-height: 1.3em;
+  margin: 0;
+  color: rgb(255 220 150 / 95%);
+}
+
+.tb-roll-deck__button {
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 6px;
+  background: rgb(120 170 255 / 18%);
+  color: inherit;
+  font-size: 17px;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tb-roll-deck__button:active {
+  background: rgb(120 170 255 / 36%);
+}
+
+.tb-roll-deck__button:disabled {
+  opacity: 0.45;
+}
+
+/* A chosen roller: border weight as well as colour, the same rule as the latched bar keys. */
+.tb-roll-deck__button[aria-pressed='true'] {
+  border: 2px solid rgb(255 208 92 / 95%);
+  background: rgb(255 208 92 / 26%);
+}

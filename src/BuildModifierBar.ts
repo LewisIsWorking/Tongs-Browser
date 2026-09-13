@@ -33,6 +33,8 @@ export interface ModifierBarDeps {
   readonly creationRelay: CreationRelay;
   /** ⚠️ A THUNK. See the note above: the pointer does not exist yet when this runs. */
   readonly pointer: () => VirtualPointer;
+  /** Opens the GM roll deck, built alongside the bar in ModuleParts. */
+  readonly openRollDeck: () => void;
 }
 
 export function buildModifierBar(deps: ModifierBarDeps): ModifierBar {
@@ -89,6 +91,7 @@ export function buildModifierBar(deps: ModifierBarDeps): ModifierBar {
       /* ⚠️ Built here for the same reason undo is: this is where the synthesizer is, and the tray
        * gets commands rather than a keyboard. See modifiers/MapBuilding.ts. */
       mapBuilding: buildMapBuildingCommands(deps.synthesizer),
+      openRollDeck: deps.openRollDeck,
     }),
   });
 }

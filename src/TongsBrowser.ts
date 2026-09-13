@@ -13,8 +13,8 @@ import { VirtualPointer } from './pointer/VirtualPointer.js';
 import { UiScaler } from './scaling/UiScaler.js';
 import { WindowClampBinder } from './scaling/WindowClampBinder.js';
 import { buildModuleParts } from './ModuleParts.js';
-import { RollDeck } from './deck/RollDeck.js';
-import type { RollDeckGlobals } from './deck/RollDeck.js';
+import type { RollDeck } from './deck/RollDeck.js';
+import type { DeckPanel } from './deck/panel/DeckPanel.js';
 import type { TongsBrowserOptions } from './TongsBrowserOptions.js';
 
 // Re-exported so every existing importer keeps working unchanged.
@@ -44,6 +44,7 @@ export class TongsBrowser {
   private readonly actions: FoundryActions;
   /** The GM roll deck. See deck/RollDeck.ts. */
   private readonly deck: RollDeck;
+  private readonly deckPanel: DeckPanel;
 
   private enabled = false;
 
@@ -69,7 +70,8 @@ export class TongsBrowser {
     this.pauseRelay = parts.pauseRelay;
     this.creationRelay = parts.creationRelay;
     this.binder = parts.binder;
-    this.deck = new RollDeck(globalThis as RollDeckGlobals, options.document);
+    this.deck = parts.rollDeck.deck;
+    this.deckPanel = parts.rollDeck.panel;
   }
 
   public enable(): void {
@@ -114,6 +116,7 @@ export class TongsBrowser {
     this.pauseRelay.unbind();
     this.creationRelay.unbind();
     this.actions.closeSidebarMenu();
+    this.deckPanel.close();
     this.debug.setEnabled(false);
     // Removes the property rather than setting it back to 1, so Foundry's own layout is restored
     // exactly and nothing is left behind.

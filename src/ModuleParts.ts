@@ -19,6 +19,7 @@ import { buildCreationRelay } from './relay/BuildCreationRelay.js';
 import { buildPauseRelay } from './relay/BuildPauseRelay.js';
 import { logger } from './core/Logger.js';
 import { vibrate } from './core/Vibrate.js';
+import { buildRollDeck, type RollDeckParts } from './deck/panel/buildDeckPanel.js';
 import type { CursorOverlay } from './pointer/CursorOverlay.js';
 import type { VirtualPointer } from './pointer/VirtualPointer.js';
 import type { TongsBrowserOptions } from './TongsBrowserOptions.js';
@@ -60,6 +61,7 @@ export interface ModuleParts {
   readonly binder: TouchBinder;
   readonly diagnostics: DragDiagnostics;
   readonly actions: FoundryActions;
+  readonly rollDeck: RollDeckParts;
 }
 
 export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf): ModuleParts {
@@ -127,6 +129,7 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
   });
 
   const creationRelay = buildCreationRelay();
+  const rollDeck = buildRollDeck(doc);
 
   const modifierBar = buildModifierBar({
     document: doc,
@@ -139,6 +142,9 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
     creationRelay,
     // A thunk, because the pointer field is not assigned until after the bar is built.
     pointer: () => stack.pointer,
+    openRollDeck: () => {
+      rollDeck.panel.open();
+    },
   });
 
   const scaler = new UiScaler({
@@ -183,5 +189,6 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
     binder,
     diagnostics,
     actions,
+    rollDeck,
   };
 }

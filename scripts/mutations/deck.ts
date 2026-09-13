@@ -87,4 +87,33 @@ export const DECK_MUTATIONS: readonly RecordedMutation[] = [
       'on a card with an Athletics check before a Reflex save, rolling the save clicks Athletics',
     tests: ['tests/dom/readSaveControls.test.ts'],
   },
+  {
+    file: 'src/deck/panel/DeckPanel.ts',
+    find: '    if (!this.ports.isGM()) {\n      return;\n    }',
+    replace: '    if (this.ports.isGM() === undefined) {\n      return;\n    }',
+    defect: 'a player who reaches the open call gets the roll deck on screen',
+    tests: ['tests/dom/deckPanel.test.ts', 'tests/dom/buildDeckPanel.test.ts'],
+  },
+  {
+    file: 'src/deck/panel/deckViews.ts',
+    find: '  title.textContent = card.title === null ? who : `${who}: ${card.title}`;',
+    replace: '  title.innerHTML = card.title === null ? who : `${who}: ${card.title}`;',
+    defect: "a player's character name is parsed as HTML in the GM's browser",
+    tests: ['tests/dom/deckPanel.test.ts'],
+  },
+  {
+    file: 'src/deck/panel/deckPanelState.ts',
+    find: '  return { ...state, cards, index, choosing: same >= 0 ? state.choosing : null };',
+    replace: '  return { ...state, cards, index };',
+    defect: 'rollers chosen for one card are confirmed against the card that replaced it',
+    tests: ['tests/unit/deckPanelState.test.ts'],
+  },
+  {
+    file: 'src/deck/panel/buildDeckPanel.ts',
+    find: '      cards: () => deck.cards(),',
+    replace: '      cards: deck.cards,',
+    defect:
+      'the panel reads the deck through a detached method, so it throws on every real Foundry',
+    tests: ['tests/dom/buildDeckPanel.test.ts'],
+  },
 ];

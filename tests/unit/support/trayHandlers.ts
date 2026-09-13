@@ -39,6 +39,9 @@ export const handlers = (overrides: Partial<TrayActionHandlers> = {}): TrayActio
   sendToBack: vi.fn(),
   bringToFront: vi.fn(),
   canBuildMaps: () => true,
+  /* ⚠️ TRUE by default, for the reason written at `canBuildMaps`. */
+  openRollDeck: vi.fn(),
+  canUseRollDeck: () => true,
   ...overrides,
 });
 

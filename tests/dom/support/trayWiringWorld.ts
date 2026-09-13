@@ -46,6 +46,7 @@ export const parts = (over: Partial<TrayWiring> = {}): TrayWiring => ({
     sendToBack: () => undefined,
     bringToFront: () => undefined,
   },
+  openRollDeck: () => undefined,
   ...over,
 });
 
