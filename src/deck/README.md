@@ -3,16 +3,21 @@
 The GM roll deck: swipe through the chat log one card at a time, with large buttons to apply damage
 and roll saves. GM only.
 
-| File                    | What it is                                                                  |
-| ----------------------- | --------------------------------------------------------------------------- |
-| `deckFacts.ts`          | What the deck knows about one message, extracted from the real one          |
-| `buildDeck.ts`          | Which messages are cards, and in what order                                 |
-| `applyOptions.ts`       | The five ways to apply damage, and what each button says                    |
-| `readMessageFacts.ts`   | A real PF2e/SF2e chat message read into facts, against a measured shape     |
-| `applyThroughSystem.ts` | Applying a card by making PF2e run its own apply, aimed at the roll target  |
-| `buildApplyPorts.ts`    | The real Foundry behind applying, every method called on its own object     |
-| `listDeckMessages.ts`   | The chat log read into facts: on the document boundary, GM and visible only |
-| `RollDeck.ts`           | The deck as one GM-only service, reached as `api.getDeck()`                 |
+| File                       | What it is                                                                  |
+| -------------------------- | --------------------------------------------------------------------------- |
+| `deckFacts.ts`             | What the deck knows about one message, extracted from the real one          |
+| `buildDeck.ts`             | Which messages are cards, and in what order                                 |
+| `applyOptions.ts`          | The five ways to apply damage, and what each button says                    |
+| `readMessageFacts.ts`      | A real PF2e/SF2e chat message read into facts, against a measured shape     |
+| `applyThroughSystem.ts`    | Applying a card by making PF2e run its own apply, aimed at the roll target  |
+| `buildApplyPorts.ts`       | The real Foundry behind applying, every method called on its own object     |
+| `readSaveControls.ts`      | The saves a card asks for, read from PF2e's own save controls in its HTML   |
+| `rollSaveThroughSystem.ts` | Rolling a card's save by clicking PF2e's own control for the chosen tokens  |
+| `buildSavePorts.ts`        | The real Foundry behind rolling a save                                      |
+| `selection.ts`             | Borrowing the GM's token selection and giving it back                       |
+| `watchMessages.ts`         | Waiting for PF2e to report, per token, that a hit landed or a save rolled   |
+| `listDeckMessages.ts`      | The chat log read into facts: on the document boundary, GM and visible only |
+| `RollDeck.ts`              | The deck as one GM-only service, reached as `api.getDeck()`                 |
 
 ## Decided with Lewis, 2026-09-13
 
@@ -28,6 +33,19 @@ the system adapter extracts. That keeps what is known about PF2e's message shape
 is also why the deck needs no PF2e and SF2e split: the two systems share their damage code and differ
 only in the flag namespace (`flags.pf2e` versus `flags.sf2e`), which the adapter reads as
 `message.flags[game.system.id]`.
+
+## Saves are rolled by clicking PF2e's own control
+
+Measured on pf2e 8.5.0, 2026-09-13. A spell card's save is `data-action="spell-save"` with `data-save`
+and `data-dc`; an enriched `@Check` is `data-pf2-check` with `data-pf2-dc`. Both are in the message's
+stored content. Neither message records a target, so the GM chooses who rolls.
+
+- PF2e's handlers for both are private and roll for the SELECTED tokens, so the deck selects the chosen
+  tokens, clicks the control on a freshly rendered card, and restores the selection.
+- ⛔ The card must be IN the document when clicked: PF2e listens for inline checks on `document`, and a
+  detached card's click never reaches it (measured: nothing rolled until it was attached).
+- ⛔ Shift is set from the GM's `showCheckDialogs`, or the roll opens a dialog nobody sees.
+- Proven live: a Quasit's Fear (Will DC 17) and Quasit Venom (Fortitude DC 17) each rolled a Xorn's save.
 
 ## PF2e's own Apply is not a model to copy blindly
 

@@ -1,4 +1,5 @@
 import { CREATION_MUTATIONS } from './creation.ts';
+import { DECK_MUTATIONS } from './deck.ts';
 import { INTERACTION_MUTATIONS } from './interaction.ts';
 import type { RecordedMutation } from './shape.ts';
 
@@ -13,4 +14,5 @@ export type { RecordedMutation } from './shape.ts';
 export const RECORDED: readonly RecordedMutation[] = [
   ...CREATION_MUTATIONS,
   ...INTERACTION_MUTATIONS,
+  ...DECK_MUTATIONS,
 ];

@@ -5,8 +5,12 @@ import type { ApplyOutcome } from './applyThroughSystem.js';
 import { buildApplyPorts } from './buildApplyPorts.js';
 import type { DeckGlobals } from './buildApplyPorts.js';
 import { buildDeck } from './buildDeck.js';
+import { buildSavePorts } from './buildSavePorts.js';
 import type { MessageFacts } from './deckFacts.js';
 import { listDeckMessages } from './listDeckMessages.js';
+import { readSaveControlsFromHtml } from './readSaveControls.js';
+import { rollSaveThroughSystem } from './rollSaveThroughSystem.js';
+import type { SaveOutcome } from './rollSaveThroughSystem.js';
 import type { DeckListGlobals } from './listDeckMessages.js';
 
 /** Everything the deck reads from Foundry: what applying needs and what listing needs. */
@@ -37,7 +41,9 @@ export class RollDeck {
    * growing while the deck is open. Empty for anyone who is not a GM; see `listDeckMessages`.
    */
   public cards(): MessageFacts[] {
-    return buildDeck(listDeckMessages(this.globals));
+    return buildDeck(
+      listDeckMessages(this.globals, (content) => readSaveControlsFromHtml(this.doc, content))
+    );
   }
 
   public async apply(
@@ -58,6 +64,31 @@ export class RollDeck {
       messageId,
       option,
       targetTokenUuid,
+    });
+  }
+
+  /**
+   * Rolls one of a card's saves for the tokens the GM chose.
+   *
+   * ⚠️ The save is looked up from the CURRENT cards, not taken from the caller, so a card handled since
+   * it was shown, or a message deleted meanwhile, is refused rather than rolled a second time.
+   */
+  public async rollSave(
+    messageId: string,
+    saveIndex: number,
+    tokenUuids: readonly string[]
+  ): Promise<SaveOutcome> {
+    if (this.globals.game?.user?.isGM !== true) {
+      return { kind: 'refused', reason: 'only a GM can roll saves from the roll deck' };
+    }
+    const save = this.cards().find((card) => card.id === messageId)?.saves[saveIndex];
+    if (save === undefined) {
+      return { kind: 'refused', reason: 'that card has been handled or no longer asks for a save' };
+    }
+    return rollSaveThroughSystem(buildSavePorts(this.globals, this.doc), {
+      messageId,
+      save,
+      tokenUuids,
     });
   }
 }

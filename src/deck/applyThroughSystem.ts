@@ -1,4 +1,8 @@
 import type { ApplyOption } from './applyOptions.js';
+import { restoreSelection } from './selection.js';
+import type { TokenLike } from './selection.js';
+
+export type { TokenLike };
 
 /**
  * Applying a damage card by making PF2e run its OWN apply, aimed at the roll's target. Added 2026-09-13.
@@ -33,11 +37,6 @@ export interface ContextEntry {
   readonly onClick: (event: Event | null, listItem: HTMLElement) => unknown;
 }
 
-export interface TokenLike {
-  readonly control: (options: { releaseOthers: boolean }) => unknown;
-  readonly release: () => unknown;
-}
-
 export interface ApplyPorts {
   readonly contextEntries: () => readonly ContextEntry[];
   readonly controlled: () => readonly TokenLike[];
@@ -70,15 +69,6 @@ export interface ApplyRequest {
   readonly messageId: string;
   readonly option: ApplyOption;
   readonly targetTokenUuid: string;
-}
-
-function restoreSelection(ports: ApplyPorts, previous: readonly TokenLike[]): void {
-  for (const token of ports.controlled()) {
-    token.release();
-  }
-  for (const token of previous) {
-    token.control({ releaseOthers: false });
-  }
 }
 
 export async function applyThroughSystem(
@@ -121,7 +111,7 @@ export async function applyThroughSystem(
     landing = ports.landed(request.targetTokenUuid);
     entry.onClick(null, listItem);
   } finally {
-    restoreSelection(ports, previous);
+    restoreSelection(ports.controlled(), previous);
   }
 
   if (!(await landing)) {

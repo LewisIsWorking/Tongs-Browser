@@ -15,7 +15,7 @@ import type { MessageFacts } from './deckFacts.js';
 
 /** A message is a card when it has damage to apply or asks for a save. */
 export function isActionable(message: MessageFacts): boolean {
-  return message.damage.length > 0 || message.save !== null;
+  return message.damage.length > 0 || message.saves.length > 0;
 }
 
 /**

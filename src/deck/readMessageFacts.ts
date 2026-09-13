@@ -1,4 +1,4 @@
-import type { DamageFacts, MessageFacts, TargetFacts } from './deckFacts.js';
+import type { DamageFacts, MessageFacts, SaveFacts, TargetFacts } from './deckFacts.js';
 
 /**
  * Turning a real PF2e or SF2e chat message into the facts the deck decides from. Added 2026-09-13.
@@ -15,8 +15,9 @@ import type { DamageFacts, MessageFacts, TargetFacts } from './deckFacts.js';
  * ⚠️ `flags[systemId]`, never `flags.pf2e`. SF2e is the same code with its flags under `sf2e`, measured
  * by diffing both installed bundles, so the system id is passed in rather than written here.
  *
- * ⚠️ SAVES ARE NOT READ YET, on purpose. No save-requesting message has been measured, and guessing its
- * shape is the exact mistake this file exists to avoid. `save` is always null until one has been.
+ * ⚠️ SAVES are read from the message's stored `content`, through a port, because finding PF2e's save
+ * controls needs an HTML parser and this file runs anywhere. See `readSaveControls.ts` for the measured
+ * shape.
  */
 
 /** The shared marker's home: this module's own flag scope, which phase 2's automation reads too. */
@@ -36,6 +37,8 @@ export interface MessageLike {
   readonly isDamageRoll?: boolean;
   readonly rolls?: readonly RollLike[];
   readonly flags?: Readonly<Record<string, unknown>>;
+  /** The stored HTML, where PF2e's save controls live. */
+  readonly content?: string;
 }
 
 export interface ReadPorts {
@@ -43,6 +46,8 @@ export interface ReadPorts {
   readonly systemId: string;
   /** The name to show for a token, or null when the token no longer resolves. */
   readonly tokenName: (tokenUuid: string) => string | null;
+  /** The saves PF2e's own controls in this HTML ask for. */
+  readonly saveControls: (content: string) => SaveFacts[];
 }
 
 interface SystemContext {
@@ -99,7 +104,7 @@ export function readMessageFacts(message: MessageLike, ports: ReadPorts): Messag
     id: message.id,
     timestamp: message.timestamp,
     damage: readDamage(message),
-    save: null,
+    saves: message.content === undefined ? [] : ports.saveControls(message.content),
     target: readTarget(systemContext(message, ports.systemId), ports),
     handled: readHandled(message),
   };

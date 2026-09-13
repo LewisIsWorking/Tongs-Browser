@@ -11,6 +11,8 @@ import type { DeckListGlobals, ListedMessage } from '../../src/deck/listDeckMess
  */
 const TOKEN = 'Scene.S1.Token.T1';
 
+const noSaves = () => [];
+
 const strike = (overrides: Partial<ListedMessage> = {}): ListedMessage => ({
   id: 'm1',
   timestamp: 1000,
@@ -33,7 +35,7 @@ const globalsWith = (
 
 describe('who gets a list', () => {
   it('gives a GM the facts of each message', () => {
-    const [facts] = listDeckMessages(globalsWith([strike()]));
+    const [facts] = listDeckMessages(globalsWith([strike()]), noSaves);
 
     expect(facts?.damage).toEqual([{ rollIndex: 0, total: 6, types: ['fire'] }]);
     expect(facts?.target).toEqual({ tokenUuid: TOKEN, name: 'Xorn' });
@@ -41,11 +43,11 @@ describe('who gets a list', () => {
 
   /** ⛔ Empty, not filtered: the player's own messages would still name targets. */
   it('gives a player nothing at all', () => {
-    expect(listDeckMessages(globalsWith([strike()], false))).toEqual([]);
+    expect(listDeckMessages(globalsWith([strike()], false), noSaves)).toEqual([]);
   });
 
   it('gives nobody anything when there is no game', () => {
-    expect(listDeckMessages({})).toEqual([]);
+    expect(listDeckMessages({}, noSaves)).toEqual([]);
   });
 });
 
@@ -53,24 +55,29 @@ describe('which messages are listed', () => {
   it('leaves out a message Foundry says is not visible', () => {
     const whispered = strike({ id: 'hidden', visible: false });
 
-    expect(listDeckMessages(globalsWith([whispered, strike()])).map((m) => m.id)).toEqual(['m1']);
+    expect(listDeckMessages(globalsWith([whispered, strike()]), noSaves).map((m) => m.id)).toEqual([
+      'm1',
+    ]);
   });
 
   /** ⛔ Fails closed: a message that cannot answer the question is not assumed visible. */
   it('leaves out a message that does not say whether it is visible', () => {
     const silent: ListedMessage = { id: 'm2', timestamp: 1, isDamageRoll: true, rolls: [] };
 
-    expect(listDeckMessages(globalsWith([silent]))).toEqual([]);
+    expect(listDeckMessages(globalsWith([silent]), noSaves)).toEqual([]);
   });
 
   it('is empty when the chat log is not there', () => {
-    expect(listDeckMessages({ game: { user: { isGM: true } } })).toEqual([]);
+    expect(listDeckMessages({ game: { user: { isGM: true } } }, noSaves)).toEqual([]);
   });
 });
 
 describe('naming the target', () => {
   it('reads a target Foundry cannot resolve as no target', () => {
-    const [facts] = listDeckMessages(globalsWith([strike()], true, () => null));
+    const [facts] = listDeckMessages(
+      globalsWith([strike()], true, () => null),
+      noSaves
+    );
 
     expect(facts?.target).toBeNull();
   });
@@ -81,7 +88,7 @@ describe('naming the target', () => {
       throw new Error('Invalid UUID');
     };
 
-    const listed = listDeckMessages(globalsWith([strike()], true, throwing));
+    const listed = listDeckMessages(globalsWith([strike()], true, throwing), noSaves);
 
     expect(listed).toHaveLength(1);
     expect(listed[0]?.target).toBeNull();

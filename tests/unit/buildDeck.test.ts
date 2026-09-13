@@ -13,14 +13,14 @@ const message = (overrides: Partial<MessageFacts> = {}): MessageFacts => ({
   id: 'm',
   timestamp: 1000,
   damage: [],
-  save: null,
+  saves: [],
   target: null,
   handled: false,
   ...overrides,
 });
 
 const fire = [{ rollIndex: 0, total: 12, types: ['fire'] }];
-const reflex = { statistic: 'reflex' as const, dc: 20 };
+const reflex = [{ statistic: 'reflex' as const, dc: 20, control: 'spell-save' as const, index: 0 }];
 
 describe('which messages are cards', () => {
   it('counts a message with damage', () => {
@@ -28,7 +28,7 @@ describe('which messages are cards', () => {
   });
 
   it('counts a message asking for a save', () => {
-    expect(isActionable(message({ save: reflex }))).toBe(true);
+    expect(isActionable(message({ saves: reflex }))).toBe(true);
   });
 
   /** ⚠️ Decided: chat, emotes and rolls with nothing to act on never appear. */

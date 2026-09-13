@@ -23,11 +23,31 @@ export interface DamageFacts {
   readonly types: readonly string[];
 }
 
-/** The saving throw a message asks for. */
+export type SaveStatistic = 'fortitude' | 'reflex' | 'will';
+
+/**
+ * Which of PF2e's own controls asks for the save. Measured 2026-09-13 on pf2e 8.5.0:
+ *
+ * - `spell-save`: the button on a spell card, `data-action="spell-save" data-save="will" data-dc="17"`
+ *   (a Quasit casting Fear).
+ * - `inline-check`: an enriched `@Check`, `data-pf2-check="fortitude" data-pf2-dc="17"` (Quasit Venom).
+ *
+ * Both were in the message's STORED content, not only in its rendered HTML.
+ */
+export type SaveControlKind = 'spell-save' | 'inline-check';
+
+/** One saving throw a message asks for. A message can ask for more than one. */
 export interface SaveFacts {
-  readonly statistic: 'fortitude' | 'reflex' | 'will';
-  /** The DC, or null when the message asks for a save without stating one. */
+  readonly statistic: SaveStatistic;
+  /** The DC, or null when the control does not state a number (a DC taken from the target, say). */
   readonly dc: number | null;
+  readonly control: SaveControlKind;
+  /**
+   * ⛔ Which control of that kind this is, counted over EVERY control of the kind in document order,
+   * including ones that are not saves (an inline Athletics check, say). Rolling clicks exactly that
+   * control, so skipping non-saves while counting would click the wrong one.
+   */
+  readonly index: number;
 }
 
 /** The token a roll was aimed at, as far as a button needs to name it. */
@@ -48,7 +68,7 @@ export interface MessageFacts {
   /** Milliseconds since the epoch, from the message's own timestamp. */
   readonly timestamp: number;
   readonly damage: readonly DamageFacts[];
-  readonly save: SaveFacts | null;
+  readonly saves: readonly SaveFacts[];
   /**
    * ⚠️ NULL IS AN ANSWER, not a missing field. Decided 2026-09-13: Apply hits the roll's target, and a
    * card with no recorded target asks the GM to pick one. It must never guess, and never fall back to

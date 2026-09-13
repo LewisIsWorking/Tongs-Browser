@@ -83,3 +83,34 @@ describe('the cards', () => {
     expect(new RollDeck(globals, doc).cards()).toEqual([]);
   });
 });
+
+describe('rolling a save', () => {
+  /** ⛔ Refused before the chat log is even read. */
+  it('refuses a player', async () => {
+    const contents = vi.fn(() => []);
+    const globals = {
+      game: {
+        user: { isGM: false },
+        messages: {
+          get contents() {
+            return contents();
+          },
+        },
+      },
+    };
+
+    const outcome = await new RollDeck(globals, doc).rollSave('m', 0, ['Scene.S.Token.T']);
+
+    expect(outcome.kind === 'refused' && outcome.reason).toContain('only a GM');
+    expect(contents).not.toHaveBeenCalled();
+  });
+
+  /** ⚠️ A card handled since it was shown is not rolled a second time. */
+  it('refuses a message that is not a current card', async () => {
+    const globals = { game: { user: { isGM: true }, messages: { contents: [] } } };
+
+    const outcome = await new RollDeck(globals, doc).rollSave('gone', 0, ['Scene.S.Token.T']);
+
+    expect(outcome.kind === 'refused' && outcome.reason).toContain('handled or no longer');
+  });
+});

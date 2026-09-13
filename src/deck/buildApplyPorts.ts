@@ -1,5 +1,7 @@
 import type { ApplyPorts, ContextEntry, TokenLike } from './applyThroughSystem.js';
 import { HANDLED_FLAG, MODULE_ID } from './readMessageFacts.js';
+import { watchMessages } from './watchMessages.js';
+import type { HooksLike } from './watchMessages.js';
 
 /**
  * The real Foundry behind `applyThroughSystem`. Added 2026-09-13.
@@ -13,13 +15,10 @@ import { HANDLED_FLAG, MODULE_ID } from './readMessageFacts.js';
  * - `message.setFlag(...)` writes through the document it is called on;
  * - `canvas.tokens.get(...)` is a collection method.
  */
-interface MessageDoc {
+export interface MessageDoc {
   readonly setFlag: (scope: string, key: string, value: unknown) => Promise<unknown>;
-}
-
-interface CreatedMessage {
-  readonly flags?: Readonly<Record<string, { readonly context?: { readonly type?: string } }>>;
-  readonly speaker?: { readonly token?: string | null };
+  /** Foundry's own render, which runs PF2e's `renderChatMessageHTML` listeners onto the element. */
+  readonly renderHTML?: () => Promise<HTMLElement>;
 }
 
 export interface DeckGlobals {
@@ -32,14 +31,14 @@ export interface DeckGlobals {
     };
   };
   readonly game?: {
-    readonly user?: { readonly isGM?: boolean };
+    readonly user?: {
+      readonly isGM?: boolean;
+      readonly settings?: { readonly showCheckDialogs?: boolean };
+    };
     readonly system?: { readonly id?: string };
     readonly messages?: { get?: (id: string) => MessageDoc | undefined };
   };
-  readonly Hooks?: {
-    on: (name: string, fn: (message: CreatedMessage) => void) => number;
-    off: (name: string, id: number) => void;
-  };
+  readonly Hooks?: HooksLike;
 }
 
 /** `Scene.<scene>.Token.<token>` split into its two ids, or null when it is not that shape. */
@@ -81,38 +80,16 @@ export function buildApplyPorts(
       return item;
     },
 
-    /*
-     * ⛔ The hook is registered INSIDE the executor, so it is live the moment `landed` is called, which
-     * is before the click. `applyThroughSystem` relies on that ordering, and a version that registered
-     * after an `await` would miss a fast `damage-taken` message.
-     */
-    landed: async (tokenUuid) =>
-      new Promise<boolean>((resolve) => {
-        const hooks = globals.Hooks;
-        const tokenId = parseTokenUuid(tokenUuid)?.tokenId;
-        if (hooks === undefined || tokenId === undefined) {
-          resolve(false);
-          return;
-        }
-        /* ⚠️ One `finish`, so the landing and the timeout can never both unhook or both resolve. */
-        const watch: { hookId?: number; timer?: ReturnType<typeof setTimeout> } = {};
-        const finish = (landed: boolean): void => {
-          if (watch.hookId !== undefined) {
-            hooks.off('createChatMessage', watch.hookId);
-          }
-          clearTimeout(watch.timer);
-          resolve(landed);
-        };
-        watch.hookId = hooks.on('createChatMessage', (message) => {
-          const type = message.flags?.[systemId]?.context?.type;
-          if (type === 'damage-taken' && message.speaker?.token === tokenId) {
-            finish(true);
-          }
-        });
-        watch.timer = setTimeout(() => {
-          finish(false);
-        }, landedTimeoutMs);
-      }),
+    /* ⛔ Watched synchronously; see `watchMessages`. `applyThroughSystem` arms this BEFORE clicking. */
+    landed: async (tokenUuid) => {
+      const tokenId = parseTokenUuid(tokenUuid)?.tokenId;
+      return watchMessages(globals.Hooks, {
+        systemId,
+        type: 'damage-taken',
+        tokenIds: tokenId === undefined ? [] : [tokenId],
+        timeoutMs: landedTimeoutMs,
+      });
+    },
 
     markHandled: async (messageId) => {
       const message = globals.game?.messages?.get?.(messageId);

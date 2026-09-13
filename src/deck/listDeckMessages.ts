@@ -1,4 +1,4 @@
-import type { MessageFacts } from './deckFacts.js';
+import type { MessageFacts, SaveFacts } from './deckFacts.js';
 import { readMessageFacts } from './readMessageFacts.js';
 import type { MessageLike } from './readMessageFacts.js';
 
@@ -42,7 +42,10 @@ function nameOf(globals: DeckListGlobals, uuid: string): string | null {
   }
 }
 
-export function listDeckMessages(globals: DeckListGlobals): MessageFacts[] {
+export function listDeckMessages(
+  globals: DeckListGlobals,
+  saveControls: (content: string) => SaveFacts[]
+): MessageFacts[] {
   const game = globals.game;
   if (game?.user?.isGM !== true) {
     return [];
@@ -50,6 +53,7 @@ export function listDeckMessages(globals: DeckListGlobals): MessageFacts[] {
   const ports = {
     systemId: game.system?.id ?? '',
     tokenName: (uuid: string) => nameOf(globals, uuid),
+    saveControls,
   };
   return (game.messages?.contents ?? [])
     .filter((message) => message.visible === true)

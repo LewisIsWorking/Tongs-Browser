@@ -37,6 +37,10 @@ const measured = (flagsScope = 'pf2e', overrides: Partial<MessageLike> = {}): Me
 const ports = (systemId = 'pf2e', names: Record<string, string> = { [TOKEN]: 'Xorn' }) => ({
   systemId,
   tokenName: (uuid: string) => names[uuid] ?? null,
+  saveControls: (content: string) =>
+    content.includes('spell-save')
+      ? [{ statistic: 'will' as const, dc: 17, control: 'spell-save' as const, index: 0 }]
+      : [],
 });
 
 describe('a measured PF2e damage message', () => {
@@ -48,9 +52,16 @@ describe('a measured PF2e damage message', () => {
     expect(facts.handled).toBe(false);
   });
 
-  /** ⚠️ Saves are not read until a save-requesting message has been measured. */
-  it('reports no save, since saves are not read yet', () => {
-    expect(readMessageFacts(measured(), ports()).save).toBeNull();
+  it('asks for no save when it has no content', () => {
+    expect(readMessageFacts(measured(), ports()).saves).toEqual([]);
+  });
+
+  it('reads saves from the stored content, through the port', () => {
+    const cast = measured('pf2e', { content: '<button data-action="spell-save">' });
+
+    expect(readMessageFacts(cast, ports()).saves).toEqual([
+      { statistic: 'will', dc: 17, control: 'spell-save', index: 0 },
+    ]);
   });
 });
 
