@@ -1,6 +1,7 @@
 # First install on a real Forge instance
 
 Written 2026-09-07, for v0.26.0, the first release carrying sheet creation, targeting and undo.
+**Updated 2026-09-13 for v0.28.0**, the first release in which sheet creation actually works (step 5).
 
 Everything before this was measured against a local Foundry through a headless browser and an
 emulator. This is the first time the module meets a real instance, a real system and a real hand, so
@@ -20,7 +21,7 @@ Paste into Foundry's **Install Module** box:
 https://github.com/LewisIsWorking/Tongs-Browser/releases/latest/download/module.json
 ```
 
-- [ ] The module list shows **0.26.0**, not `0.1.0`.
+- [ ] The module list shows **0.28.0** or later, not `0.1.0`.
 
 ⚠️ `module.json` on `main` deliberately stays at the `0.1.0` placeholder; the real version is stamped
 into the copy inside `module.zip` at release time. Seeing `0.1.0` means Foundry read the repo copy
@@ -69,13 +70,21 @@ live. `direct` means it does not and the module is writing Foundry's internal he
 
 ### 5. The biggest unknown: sheet creation
 
-⛔ **This is the part measured against the wrong system.** Everything known about parties was read
-from `sf2e` because pf2e was not installed on the development machine
-([docs/CHARACTER-SHEET-CREATION.md](CHARACTER-SHEET-CREATION.md)). Treat it as unverified.
+⛔ **Before 0.28.0, creating a sheet threw on every real Foundry.** The module called `Actor.create`
+detached from `Actor`, and Foundry's `create` begins `this.implementation...`, so every tap produced a
+notice and no character. It passed its tests because their stubs never read `this`. Fixed in #353. If
+you ever see "Cannot read properties of undefined (reading 'implementation')", an older version is
+installed.
+
+✅ **Measured on real pf2e 8.5.0 and Foundry 14.367, 2026-09-13**, in a world holding one party and one
+user, with `npm run check:sheets:create`: one tap makes exactly one `character`, it joins the party,
+PF2e's `addMembers` takes it out of any folder, and the owner can open it. This section used to say
+everything here was read from `sf2e` and should be treated as unverified; that is no longer true for
+the GM path. The player path below has still only been tested at the desk.
 
 - [ ] As a GM, **C+** offers the parties you can see, and creating puts a sheet in the chosen one.
-- [ ] ⚠️ Check the created actor's **folder**. `addMembers` sets `folder: null`, so joining a party is
-      expected to clear it. If that is not what pf2e does, this is the measurement that was wrong.
+- [ ] Check the created actor's **folder** is cleared. Verified live on 2026-09-13; confirm it on your
+      instance too, since that was a local world.
 - [ ] The sheet is owned by the user chosen, not by the GM who ran it.
 - [ ] **C🔓** lists parties and flips one open. The confirmation names the party you tapped.
 - [ ] As a player in an opened party, **C+** appears and creating works with a GM online.
