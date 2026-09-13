@@ -28,7 +28,8 @@ const card = (id: string): MessageFacts => ({
 });
 
 const [a, b, c] = [card('a'), card('b'), card('c')];
-const rollers = { kind: 'save-rollers' as const, saveIndex: 0, chosen: ['T1'] };
+const will = { statistic: 'will' as const, dc: 17, control: 'spell-save' as const, index: 0 };
+const rollers = { kind: 'save-rollers' as const, saveIndex: 0, save: will, chosen: ['T1'] };
 
 describe('re-reading the deck', () => {
   /** ⚠️ New rolls arriving must not move the GM off the card they are reading. */
@@ -101,7 +102,12 @@ describe('choosing rollers', () => {
   });
 
   it('does nothing outside a roller choice', () => {
-    const picking = choose(initialState([a]), { kind: 'apply-target', optionId: 'full' });
+    const picking = choose(initialState([a]), {
+      kind: 'apply-target',
+      option: { id: 'full', multiplier: 1, short: 'Apply' },
+      amount: 6,
+      types: ['fire'],
+    });
 
     expect(toggleRoller(picking, 'T1')).toBe(picking);
   });

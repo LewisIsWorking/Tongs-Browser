@@ -1,4 +1,3 @@
-import { APPLY_OPTIONS, applyLabel } from '../applyOptions.js';
 import type { ApplyOption } from '../applyOptions.js';
 import type { ApplyOutcome } from '../applyThroughSystem.js';
 import type { MessageFacts } from '../deckFacts.js';
@@ -92,16 +91,8 @@ export class DeckPanel {
     this.update({ ...refreshed, busy: false, status, choosing: null });
   }
 
-  private apply(card: MessageFacts, optionId: ApplyOption['id'], targetUuid: string): void {
-    const option = APPLY_OPTIONS.find((each) => each.id === optionId);
-    const roll = card.damage.find((each) => each.rollIndex === 0);
-    const amount = roll?.amounts[optionId];
-    const name = this.ports.candidates().find((c) => c.tokenUuid === targetUuid)?.name;
-    const done =
-      option === undefined || roll === undefined || amount === undefined
-        ? 'Applied.'
-        : `Done: ${applyLabel(option, amount, roll.types, name ?? card.target?.name ?? 'the target')}.`;
-    void this.run(done, async () => this.ports.deck.apply(card.id, optionId, targetUuid));
+  private apply(card: MessageFacts, optionId: ApplyOption['id'], uuid: string, label: string) {
+    void this.run(`Done: ${label}.`, async () => this.ports.deck.apply(card.id, optionId, uuid));
   }
 
   private render(): void {
@@ -144,8 +135,8 @@ export class DeckPanel {
             update: (next) => {
               this.update(next);
             },
-            applyTo: (optionId, uuid) => {
-              this.apply(card, optionId, uuid);
+            applyTo: (optionId, uuid, label) => {
+              this.apply(card, optionId, uuid, label);
             },
             rollFor: (saveIndex, save, rollers) => {
               const done = `Done: ${rollLabel(save, rollers)}.`;

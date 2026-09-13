@@ -1,5 +1,5 @@
 import type { ApplyOption } from '../applyOptions.js';
-import type { MessageFacts } from '../deckFacts.js';
+import type { MessageFacts, SaveFacts } from '../deckFacts.js';
 
 /**
  * Where the GM is in the roll deck, as plain data. Added 2026-09-14.
@@ -11,11 +11,18 @@ import type { MessageFacts } from '../deckFacts.js';
 /** A choice the GM is part way through making for the card on screen. */
 export type Choosing =
   /** A damage card with no recorded target: pick the one token that takes it. */
-  | { readonly kind: 'apply-target'; readonly optionId: ApplyOption['id'] }
+  | {
+      readonly kind: 'apply-target';
+      readonly option: ApplyOption;
+      /* ⚠️ Carried from the button that was tapped, so every row can say the same hit it did. */
+      readonly amount: number;
+      readonly types: readonly string[];
+    }
   /** A save: pick every token that rolls, then confirm. */
   | {
       readonly kind: 'save-rollers';
       readonly saveIndex: number;
+      readonly save: SaveFacts;
       readonly chosen: readonly string[];
     };
 

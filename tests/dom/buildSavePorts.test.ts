@@ -127,3 +127,28 @@ describe('knowing every save landed', () => {
     expect(Hooks.handlers.size).toBe(0);
   });
 });
+
+describe('with no game system known', () => {
+  /** ⚠️ Nothing can be read in an empty namespace, so it waits and reports false rather than true. */
+  it('never confirms a save', async () => {
+    const handlers: ((message: unknown) => void)[] = [];
+    const Hooks = {
+      on(this: unknown, _name: string, fn: (m: unknown) => void) {
+        handlers.push(fn);
+        return 1;
+      },
+      off(this: unknown) {
+        return undefined;
+      },
+    };
+
+    const landing = buildSavePorts({ Hooks } as DeckGlobals, document, 20).savesLanded([
+      'Scene.S.Token.A',
+    ]);
+    handlers.forEach((fn) => {
+      fn({ flags: { pf2e: { context: { type: 'saving-throw' } } }, speaker: { token: 'A' } });
+    });
+
+    await expect(landing).resolves.toBe(false);
+  });
+});

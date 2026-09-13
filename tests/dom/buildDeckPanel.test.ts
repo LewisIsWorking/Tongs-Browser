@@ -74,3 +74,28 @@ describe("PF2e's settings and the viewer", () => {
     expect(document.querySelector('.tb-roll-deck')).toBeNull();
   });
 });
+
+describe('rolling a save through the panel', () => {
+  it('calls rollSave on the deck object, for the token chosen from the scene', async () => {
+    const deck = new FakeDeck();
+    const saveCard = {
+      ...jaws,
+      id: 'fear',
+      damage: [],
+      saves: [{ statistic: 'will' as const, dc: 17, control: 'spell-save' as const, index: 0 }],
+    };
+    Object.assign(deck, { held: [saveCard] });
+    const globals: PanelGlobals = {
+      game: { user: { isGM: true } },
+      canvas: { tokens: { placeables: [{ document: { uuid: 'Scene.S.Token.X', name: 'Xorn' } }] } },
+    };
+    buildDeckPanel(document, deck as unknown as RollDeck, globals).open();
+
+    document.querySelector<HTMLButtonElement>('[data-deck-action="save-0"]')?.click();
+    document.querySelector<HTMLButtonElement>('[data-token-uuid="Scene.S.Token.X"]')?.click();
+    document.querySelector<HTMLButtonElement>('[data-deck-action="confirm"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(deck.applied).toEqual(['save']);
+  });
+});

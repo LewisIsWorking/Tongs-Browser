@@ -23,6 +23,14 @@ describe('with no canvas', () => {
   });
 });
 
+describe('with a scene but no token layer', () => {
+  it('finds no token rather than throwing', () => {
+    const ports = buildApplyPorts({ canvas: { scene: { id: 'S1' } } }, doc);
+
+    expect(ports.tokenFor('Scene.S1.Token.T1')).toBeNull();
+  });
+});
+
 describe('watching for damage to land', () => {
   /** ⛔ Without Foundry's hooks nothing could ever confirm it, so it must not wait or claim success. */
   it('resolves false at once when there are no hooks to watch', async () => {

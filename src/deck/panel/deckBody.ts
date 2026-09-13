@@ -1,9 +1,9 @@
-import { APPLY_OPTIONS, applyLabel } from '../applyOptions.js';
+import { applyLabel } from '../applyOptions.js';
 import type { ApplyOption } from '../applyOptions.js';
 import type { MessageFacts, SaveFacts } from '../deckFacts.js';
 import { rollLabel } from './deckLabels.js';
 import * as state from './deckPanelState.js';
-import type { DeckPanelState } from './deckPanelState.js';
+import type { Choosing, DeckPanelState } from './deckPanelState.js';
 import { buildCardView, buildPicker } from './deckViews.js';
 import type { TokenCandidate } from './tokenCandidates.js';
 
@@ -22,7 +22,8 @@ export interface BodyContext {
   readonly candidates: readonly TokenCandidate[];
   readonly offersTriple: boolean;
   readonly update: (next: DeckPanelState) => void;
-  readonly applyTo: (optionId: ApplyOption['id'], targetUuid: string) => void;
+  /** Sends one apply. `label` is the sentence the tapped control showed, reported once done. */
+  readonly applyTo: (optionId: ApplyOption['id'], targetUuid: string, label: string) => void;
   readonly rollFor: (
     saveIndex: number,
     save: SaveFacts,
@@ -32,22 +33,19 @@ export interface BodyContext {
 
 const NO_TOKENS = 'There are no tokens on this scene to choose from.';
 
-function targetPicker(ctx: BodyContext, optionId: ApplyOption['id']): HTMLElement {
-  const option = APPLY_OPTIONS.find((each) => each.id === optionId);
-  const roll = ctx.card.damage.find((each) => each.rollIndex === 0);
-  const amount = roll?.amounts[optionId];
+type ApplyChoice = Extract<Choosing, { kind: 'apply-target' }>;
+type RollerChoice = Extract<Choosing, { kind: 'save-rollers' }>;
+
+function targetPicker(ctx: BodyContext, choice: ApplyChoice): HTMLElement {
   return buildPicker(ctx.doc, {
     title: 'Who takes it?',
     /* ⚠️ Each row is the whole sentence, so the tap that decides also says what it will do. */
     rows: ctx.candidates.map((candidate) => ({
       id: candidate.tokenUuid,
-      label:
-        option === undefined || roll === undefined || amount === undefined
-          ? candidate.name
-          : applyLabel(option, amount, roll.types, candidate.name),
+      label: applyLabel(choice.option, choice.amount, choice.types, candidate.name),
     })),
-    onRow: (uuid) => {
-      ctx.applyTo(optionId, uuid);
+    onRow: (row) => {
+      ctx.applyTo(choice.option.id, row.id, row.label);
     },
     empty: NO_TOKENS,
     onCancel: () => {
@@ -56,31 +54,26 @@ function targetPicker(ctx: BodyContext, optionId: ApplyOption['id']): HTMLElemen
   });
 }
 
-function rollerPicker(ctx: BodyContext, saveIndex: number, chosenUuids: readonly string[]) {
-  const save = ctx.card.saves[saveIndex];
-  const chosen = ctx.candidates.filter((candidate) => chosenUuids.includes(candidate.tokenUuid));
+function rollerPicker(ctx: BodyContext, choice: RollerChoice): HTMLElement {
+  const chosen = ctx.candidates.filter((candidate) => choice.chosen.includes(candidate.tokenUuid));
   return buildPicker(ctx.doc, {
     title: 'Who rolls?',
     rows: ctx.candidates.map((candidate) => ({
       id: candidate.tokenUuid,
       label: candidate.name,
-      pressed: chosenUuids.includes(candidate.tokenUuid),
+      pressed: choice.chosen.includes(candidate.tokenUuid),
     })),
-    onRow: (uuid) => {
-      ctx.update(state.toggleRoller(ctx.view, uuid));
+    onRow: (row) => {
+      ctx.update(state.toggleRoller(ctx.view, row.id));
     },
     empty: NO_TOKENS,
-    ...(save === undefined
-      ? {}
-      : {
-          confirm: {
-            label: rollLabel(save, chosen),
-            enabled: chosen.length > 0,
-            onTap: () => {
-              ctx.rollFor(saveIndex, save, chosen);
-            },
-          },
-        }),
+    confirm: {
+      label: rollLabel(choice.save, chosen),
+      enabled: chosen.length > 0,
+      onTap: () => {
+        ctx.rollFor(choice.saveIndex, choice.save, chosen);
+      },
+    },
     onCancel: () => {
       ctx.update(state.choose(ctx.view, null));
     },
@@ -90,10 +83,10 @@ function rollerPicker(ctx: BodyContext, saveIndex: number, chosenUuids: readonly
 export function buildDeckBody(ctx: BodyContext): HTMLElement {
   const choosing = ctx.view.choosing;
   if (choosing?.kind === 'apply-target') {
-    return targetPicker(ctx, choosing.optionId);
+    return targetPicker(ctx, choosing);
   }
   if (choosing?.kind === 'save-rollers') {
-    return rollerPicker(ctx, choosing.saveIndex, choosing.chosen);
+    return rollerPicker(ctx, choosing);
   }
   const target = ctx.card.target;
   return buildCardView(
@@ -101,15 +94,15 @@ export function buildDeckBody(ctx: BodyContext): HTMLElement {
     ctx.card,
     {
       /* ⚠️ No recorded target means the button asks, decided 2026-09-13. It never guesses. */
-      apply: (optionId) => {
+      apply: (option, amount, types, label) => {
         if (target === null) {
-          ctx.update(state.choose(ctx.view, { kind: 'apply-target', optionId }));
+          ctx.update(state.choose(ctx.view, { kind: 'apply-target', option, amount, types }));
         } else {
-          ctx.applyTo(optionId, target.tokenUuid);
+          ctx.applyTo(option.id, target.tokenUuid, label);
         }
       },
-      chooseRollers: (saveIndex) => {
-        ctx.update(state.choose(ctx.view, { kind: 'save-rollers', saveIndex, chosen: [] }));
+      chooseRollers: (saveIndex, save) => {
+        ctx.update(state.choose(ctx.view, { kind: 'save-rollers', saveIndex, save, chosen: [] }));
       },
     },
     ctx.offersTriple

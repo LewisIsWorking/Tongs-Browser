@@ -48,17 +48,9 @@ export async function watchMessages(
       resolve(false);
       return;
     }
+    const live = hooks;
     const waiting = new Set(watch.tokenIds);
-    /* ⚠️ One `finish`, so arriving and timing out can never both unhook or both resolve. */
-    const state: { hookId?: number; timer?: ReturnType<typeof setTimeout> } = {};
-    const finish = (arrived: boolean): void => {
-      if (state.hookId !== undefined) {
-        hooks.off('createChatMessage', state.hookId);
-      }
-      clearTimeout(state.timer);
-      resolve(arrived);
-    };
-    state.hookId = hooks.on('createChatMessage', (message) => {
+    const hookId = live.on('createChatMessage', (message) => {
       const token = message.speaker?.token;
       if (
         message.flags?.[watch.systemId]?.context?.type === watch.type &&
@@ -70,8 +62,19 @@ export async function watchMessages(
         }
       }
     });
-    state.timer = setTimeout(() => {
+    const timer = setTimeout(() => {
       finish(false);
     }, watch.timeoutMs);
+
+    /*
+     * ⚠️ One `finish`, so arriving and timing out can never both unhook or both resolve. Declared last
+     * and hoisted: it only ever runs from the hook or the timer, both of which fire after `hookId` and
+     * `timer` exist, so neither needs an "is it set yet" branch that nothing could reach.
+     */
+    function finish(arrived: boolean): void {
+      live.off('createChatMessage', hookId);
+      clearTimeout(timer);
+      resolve(arrived);
+    }
   });
 }

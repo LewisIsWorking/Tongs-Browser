@@ -1,6 +1,6 @@
 import { APPLY_OPTIONS, applyLabel } from '../applyOptions.js';
 import type { ApplyOption } from '../applyOptions.js';
-import type { MessageFacts } from '../deckFacts.js';
+import type { MessageFacts, SaveFacts } from '../deckFacts.js';
 import { chooseRollersLabel } from './deckLabels.js';
 
 /**
@@ -13,8 +13,14 @@ import { chooseRollersLabel } from './deckLabels.js';
  * `rollIndex` 0 (its default, read in 8.5.0), so a button for a later roll would apply the first one.
  */
 export interface CardHandlers {
-  readonly apply: (optionId: ApplyOption['id']) => void;
-  readonly chooseRollers: (saveIndex: number) => void;
+  /** The option, what it sends, and the sentence its button showed. */
+  readonly apply: (
+    option: ApplyOption,
+    amount: number,
+    types: readonly string[],
+    label: string
+  ) => void;
+  readonly chooseRollers: (saveIndex: number, save: SaveFacts) => void;
 }
 
 export function button(doc: Document, label: string, action: string, onTap: () => void) {
@@ -63,7 +69,7 @@ export function buildCardView(
       const label = applyLabel(option, amount, roll.types, card.target?.name ?? null);
       view.append(
         button(doc, label, `apply-${option.id}`, () => {
-          handlers.apply(option.id);
+          handlers.apply(option, amount, roll.types, label);
         })
       );
     }
@@ -74,7 +80,7 @@ export function buildCardView(
   card.saves.forEach((save, saveIndex) => {
     view.append(
       button(doc, chooseRollersLabel(save), `save-${String(saveIndex)}`, () => {
-        handlers.chooseRollers(saveIndex);
+        handlers.chooseRollers(saveIndex, save);
       })
     );
   });
@@ -92,7 +98,7 @@ export interface PickerRow {
 export interface PickerOptions {
   readonly title: string;
   readonly rows: readonly PickerRow[];
-  readonly onRow: (id: string) => void;
+  readonly onRow: (row: PickerRow) => void;
   readonly empty: string;
   /** A confirm button, for a choice of several. Absent when one tap on a row decides. */
   readonly confirm?: {
@@ -116,7 +122,7 @@ export function buildPicker(doc: Document, options: PickerOptions): HTMLElement 
   }
   for (const row of options.rows) {
     const element = button(doc, row.label, 'pick', () => {
-      options.onRow(row.id);
+      options.onRow(row);
     });
     element.dataset['tokenUuid'] = row.id;
     if (row.pressed !== undefined) {

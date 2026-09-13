@@ -117,6 +117,14 @@ describe('who a GM can choose', () => {
     expect(readTokenCandidates(messy)).toEqual([{ tokenUuid: 'Scene.S1.Token.A', name: 'Goblin' }]);
   });
 
+  it('falls back to the scene when a combat here lists no combatants at all', () => {
+    const bare = { scene: { id: 'S1' } };
+
+    const names = readTokenCandidates({ ...world(), game: { user: { isGM: true }, combat: bare } });
+
+    expect(names.map((c) => c.name)).toEqual(['Goblin', 'Orc']);
+  });
+
   it('offers nobody with no canvas', () => {
     expect(readTokenCandidates({ game: { user: { isGM: true } } })).toEqual([]);
   });

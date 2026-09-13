@@ -47,10 +47,7 @@ export function buildSavePorts(
     },
 
     click: (control, shiftKey) => {
-      const MouseEventOf = doc.defaultView?.MouseEvent ?? MouseEvent;
-      control.dispatchEvent(
-        new MouseEventOf('click', { bubbles: true, cancelable: true, shiftKey })
-      );
+      control.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, shiftKey }));
     },
 
     showsCheckDialogs: () => globals.game?.user?.settings?.showCheckDialogs === true,
