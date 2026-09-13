@@ -4,6 +4,13 @@ import { applyThroughSystem } from './applyThroughSystem.js';
 import type { ApplyOutcome } from './applyThroughSystem.js';
 import { buildApplyPorts } from './buildApplyPorts.js';
 import type { DeckGlobals } from './buildApplyPorts.js';
+import { buildDeck } from './buildDeck.js';
+import type { MessageFacts } from './deckFacts.js';
+import { listDeckMessages } from './listDeckMessages.js';
+import type { DeckListGlobals } from './listDeckMessages.js';
+
+/** Everything the deck reads from Foundry: what applying needs and what listing needs. */
+export type RollDeckGlobals = DeckGlobals & DeckListGlobals;
 
 /**
  * The GM roll deck as one service the module exposes. Added 2026-09-13.
@@ -17,12 +24,20 @@ import type { DeckGlobals } from './buildApplyPorts.js';
  * that names the reason is better than PF2e's own error arriving on a player's phone.
  */
 export class RollDeck {
-  private readonly globals: DeckGlobals;
+  private readonly globals: RollDeckGlobals;
   private readonly doc: Document;
 
-  public constructor(globals: DeckGlobals, doc: Document) {
+  public constructor(globals: RollDeckGlobals, doc: Document) {
     this.globals = globals;
     this.doc = doc;
+  }
+
+  /**
+   * The cards to show, oldest unhandled first. Read fresh on every call, since the chat log keeps
+   * growing while the deck is open. Empty for anyone who is not a GM; see `listDeckMessages`.
+   */
+  public cards(): MessageFacts[] {
+    return buildDeck(listDeckMessages(this.globals));
   }
 
   public async apply(

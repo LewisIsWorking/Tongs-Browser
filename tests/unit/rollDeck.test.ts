@@ -55,3 +55,31 @@ describe('the way of applying', () => {
     expect(read).not.toHaveBeenCalled();
   });
 });
+
+describe('the cards', () => {
+  const strike = (id: string, timestamp: number) => ({
+    id,
+    timestamp,
+    visible: true,
+    isDamageRoll: true,
+    rolls: [{ total: 6, instances: [{ type: 'fire' }] }],
+  });
+
+  it('lists actionable messages oldest first, for a GM', () => {
+    const globals = {
+      game: {
+        user: { isGM: true },
+        system: { id: 'pf2e' },
+        messages: { contents: [strike('late', 2000), strike('early', 1000)] },
+      },
+    };
+
+    expect(new RollDeck(globals, doc).cards().map((card) => card.id)).toEqual(['early', 'late']);
+  });
+
+  it('lists nothing for a player', () => {
+    const globals = { game: { user: { isGM: false }, messages: { contents: [strike('a', 1)] } } };
+
+    expect(new RollDeck(globals, doc).cards()).toEqual([]);
+  });
+});

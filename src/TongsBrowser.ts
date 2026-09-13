@@ -14,7 +14,7 @@ import { UiScaler } from './scaling/UiScaler.js';
 import { WindowClampBinder } from './scaling/WindowClampBinder.js';
 import { buildModuleParts } from './ModuleParts.js';
 import { RollDeck } from './deck/RollDeck.js';
-import type { DeckGlobals } from './deck/buildApplyPorts.js';
+import type { RollDeckGlobals } from './deck/RollDeck.js';
 import type { TongsBrowserOptions } from './TongsBrowserOptions.js';
 
 // Re-exported so every existing importer keeps working unchanged.
@@ -69,7 +69,7 @@ export class TongsBrowser {
     this.pauseRelay = parts.pauseRelay;
     this.creationRelay = parts.creationRelay;
     this.binder = parts.binder;
-    this.deck = new RollDeck(globalThis as DeckGlobals, options.document);
+    this.deck = new RollDeck(globalThis as RollDeckGlobals, options.document);
   }
 
   public enable(): void {

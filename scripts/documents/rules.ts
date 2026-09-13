@@ -31,10 +31,22 @@ const ENUMERATIONS: readonly { readonly pattern: RegExp; readonly what: string }
    * exception is visible at the point that grants it.
    */
   { pattern: /\bgame\??\.\s*users\b/, what: 'game.users' },
+  /*
+   * ⚠️ Added 2026-09-13 with the GM roll deck, the first listing of chat messages. A message can be a
+   * whisper or a blind roll, so listing them can leak exactly as listing actors can.
+   */
+  { pattern: /\bgame\??\.\s*messages\b/, what: 'game.messages' },
 ];
 
 /** ⚠️ `activeGM` is a single designated user, not a list, and the pause relay cannot work without it. */
-const ALLOWED_USES: readonly RegExp[] = [/\bgame\??\.\s*users\??\.\s*activeGM\b/];
+const ALLOWED_USES: readonly RegExp[] = [
+  /\bgame\??\.\s*users\??\.\s*activeGM\b/,
+  /*
+   * ⚠️ One message by an id already in hand, which is how the roll deck marks the card it just
+   * applied. It fetches what the caller already knows exists, and renders nothing.
+   */
+  /\bgame\??\.\s*messages\??\.\s*get\b/,
+];
 
 export interface DocumentAccess {
   readonly file: string;
@@ -100,6 +112,15 @@ export function selfTest(): void {
     process.exit(1);
   }
 
+  const chatLog = findDocumentAccess('const log = game?.messages?.contents;', 'sample.ts');
+  const oneMessage = findDocumentAccess('const one = game?.messages?.get?.(id);', 'sample.ts');
+  if (chatLog.length !== 1 || oneMessage.length !== 0) {
+    console.error(
+      'SELF TEST FAILED: a message listing must be reported, one message by id must not'
+    );
+    process.exit(1);
+  }
+
   const commented = findDocumentAccess('// reads game.folders one day', 'sample.ts');
   if (commented.length !== 0) {
     console.error('SELF TEST FAILED: a comment mentioning the pattern was reported as a use');
@@ -122,5 +143,7 @@ export function selfTest(): void {
     process.exit(1);
   }
 
-  console.log('Self test passed: a real enumeration fails, activeGM and a comment do not, line 5.');
+  console.log(
+    'Self test passed: listings fail; activeGM, one message by id and a comment do not; line 5.'
+  );
 }

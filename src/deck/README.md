@@ -3,15 +3,16 @@
 The GM roll deck: swipe through the chat log one card at a time, with large buttons to apply damage
 and roll saves. GM only.
 
-| File                    | What it is                                                                 |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `deckFacts.ts`          | What the deck knows about one message, extracted from the real one         |
-| `buildDeck.ts`          | Which messages are cards, and in what order                                |
-| `applyOptions.ts`       | The five ways to apply damage, and what each button says                   |
-| `readMessageFacts.ts`   | A real PF2e/SF2e chat message read into facts, against a measured shape    |
-| `applyThroughSystem.ts` | Applying a card by making PF2e run its own apply, aimed at the roll target |
-| `buildApplyPorts.ts`    | The real Foundry behind applying, every method called on its own object    |
-| `RollDeck.ts`           | The deck as one GM-only service, reached as `api.getDeck()`                |
+| File                    | What it is                                                                  |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `deckFacts.ts`          | What the deck knows about one message, extracted from the real one          |
+| `buildDeck.ts`          | Which messages are cards, and in what order                                 |
+| `applyOptions.ts`       | The five ways to apply damage, and what each button says                    |
+| `readMessageFacts.ts`   | A real PF2e/SF2e chat message read into facts, against a measured shape     |
+| `applyThroughSystem.ts` | Applying a card by making PF2e run its own apply, aimed at the roll target  |
+| `buildApplyPorts.ts`    | The real Foundry behind applying, every method called on its own object     |
+| `listDeckMessages.ts`   | The chat log read into facts: on the document boundary, GM and visible only |
+| `RollDeck.ts`           | The deck as one GM-only service, reached as `api.getDeck()`                 |
 
 ## Decided with Lewis, 2026-09-13
 
@@ -36,10 +37,15 @@ because the brief it came from lives outside this repository.
 - **It hits the GM's SELECTED tokens**, not the roll's target (`game.user.getActiveTokens()`), except
   on persistent-damage recovery cards. A swipe deck has no selection, which is why decision four above
   exists.
-- **It is private to PF2e's bundle** and not on `game.pf2e`, so a module cannot call it. Applying
-  means calling the public `actor.applyDamage(...)` with the arguments assembled the way PF2e does.
-- ⛔ **Half, double and triple go through `roll.alter(multiplier, addend)`**, which keeps the damage
-  TYPES. Passing `total * 0.5` as a number instead silently skips per-type resistances and weaknesses.
-- **Healing is `multiplier * total + addend` with `skipIWR: true`.**
-- It also builds a contextual clone with ephemeral effects, dedupes troop tokens, and passes
-  `outcome` and `shieldBlockRequest`. Leaving any of these out is not 1:1.
+- **It is private to PF2e's bundle** and not on `game.pf2e`, so a module cannot call it.
+- ⛔ **Rebuilding it from the public `actor.applyDamage(...)` cannot be 1:1.** It calls
+  `extractEphemeralEffects`, which applies effects that depend on WHO deals the damage, and that is
+  private too. A rebuild would land some hits wrong with nothing looking wrong.
+- ✅ **So the deck makes PF2e run its own apply**: `applyThroughSystem.ts` selects the roll's target,
+  runs PF2e's chat context menu entry for that option, and restores the GM's selection. Proven live
+  against a Xorn's fire resistance on 2026-09-13.
+- For the record, what that apply does: half, double and triple go through
+  `roll.alter(multiplier, addend)`, which keeps the damage TYPES and rounds each instance down on its
+  own (measured: half of 5 piercing plus 1 fire is 2, not 3); healing is `multiplier * total + addend` with
+  `skipIWR: true`; plus a contextual clone with ephemeral effects, troop dedup, `outcome` and
+  `shieldBlockRequest`.
