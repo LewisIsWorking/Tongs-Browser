@@ -37,7 +37,9 @@ describe('who gets a list', () => {
   it('gives a GM the facts of each message', () => {
     const [facts] = listDeckMessages(globalsWith([strike()]), noSaves);
 
-    expect(facts?.damage).toEqual([{ rollIndex: 0, total: 6, types: ['fire'] }]);
+    expect(facts?.damage).toEqual([
+      { rollIndex: 0, total: 6, types: ['fire'], amounts: { full: 6, healing: 6 } },
+    ]);
     expect(facts?.target).toEqual({ tokenUuid: TOKEN, name: 'Xorn' });
   });
 

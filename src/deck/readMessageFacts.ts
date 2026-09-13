@@ -1,3 +1,5 @@
+import { damageAmounts } from './damageAmounts.js';
+import type { AlterableRoll } from './damageAmounts.js';
 import type { DamageFacts, MessageFacts, SaveFacts, TargetFacts } from './deckFacts.js';
 
 /**
@@ -25,8 +27,7 @@ export const MODULE_ID = 'tongs-browser';
 export const HANDLED_FLAG = 'handled';
 
 /** As much of a damage roll as this reads. */
-export interface RollLike {
-  readonly total?: number;
+export interface RollLike extends AlterableRoll {
   readonly instances?: readonly { readonly type?: string }[];
 }
 
@@ -39,6 +40,10 @@ export interface MessageLike {
   readonly flags?: Readonly<Record<string, unknown>>;
   /** The stored HTML, where PF2e's save controls live. */
   readonly content?: string;
+  /** Foundry's own display name for the speaker. */
+  readonly alias?: string;
+  /** PF2e's item the message came from. */
+  readonly item?: { readonly name?: string } | null;
 }
 
 export interface ReadPorts {
@@ -75,7 +80,7 @@ function readDamage(message: MessageLike): DamageFacts[] {
     const types = [
       ...new Set(roll.instances.map((instance) => instance.type ?? '').filter(Boolean)),
     ];
-    damage.push({ rollIndex, total: roll.total ?? 0, types });
+    damage.push({ rollIndex, total: roll.total ?? 0, types, amounts: damageAmounts(roll) });
   });
   return damage;
 }
@@ -102,6 +107,8 @@ function readHandled(message: MessageLike): boolean {
 export function readMessageFacts(message: MessageLike, ports: ReadPorts): MessageFacts {
   return {
     id: message.id,
+    speaker: message.alias ?? '',
+    title: message.item?.name ?? null,
     timestamp: message.timestamp,
     damage: readDamage(message),
     saves: message.content === undefined ? [] : ports.saveControls(message.content),

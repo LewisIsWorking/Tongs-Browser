@@ -47,7 +47,9 @@ describe('a measured PF2e damage message', () => {
   it('reads the damage, its types and its target', () => {
     const facts = readMessageFacts(measured(), ports());
 
-    expect(facts.damage).toEqual([{ rollIndex: 0, total: 6, types: ['piercing', 'fire'] }]);
+    expect(facts.damage).toEqual([
+      { rollIndex: 0, total: 6, types: ['piercing', 'fire'], amounts: { full: 6, healing: 6 } },
+    ]);
     expect(facts.target).toEqual({ tokenUuid: TOKEN, name: 'Xorn' });
     expect(facts.handled).toBe(false);
   });
@@ -121,7 +123,7 @@ describe('damage', () => {
     const untyped = measured('pf2e', { rolls: [{ instances: [{}] }] });
 
     expect(readMessageFacts(untyped, ports()).damage).toEqual([
-      { rollIndex: 0, total: 0, types: [] },
+      { rollIndex: 0, total: 0, types: [], amounts: { full: 0, healing: 0 } },
     ]);
   });
 
@@ -132,7 +134,7 @@ describe('damage', () => {
     });
 
     expect(readMessageFacts(mixed, ports()).damage).toEqual([
-      { rollIndex: 1, total: 6, types: ['fire'] },
+      { rollIndex: 1, total: 6, types: ['fire'], amounts: { full: 6, healing: 6 } },
     ]);
   });
 });
@@ -153,5 +155,24 @@ describe('the handled marker', () => {
     });
 
     expect(readMessageFacts(odd, ports()).handled).toBe(false);
+  });
+});
+
+describe('who and what', () => {
+  it("reads the speaker and the item's name", () => {
+    const facts = readMessageFacts(
+      measured('pf2e', { alias: 'Fire Mephit', item: { name: 'Jaws' } }),
+      ports()
+    );
+
+    expect(facts.speaker).toBe('Fire Mephit');
+    expect(facts.title).toBe('Jaws');
+  });
+
+  it('reads no item as no title, and no alias as an empty speaker', () => {
+    const facts = readMessageFacts(measured('pf2e', { item: null }), ports());
+
+    expect(facts.title).toBeNull();
+    expect(facts.speaker).toBe('');
   });
 });

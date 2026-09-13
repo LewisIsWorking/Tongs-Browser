@@ -11,6 +11,8 @@ import type { MessageFacts } from '../../src/deck/deckFacts.js';
  */
 const message = (overrides: Partial<MessageFacts> = {}): MessageFacts => ({
   id: 'm',
+  speaker: 'Goblin',
+  title: null,
   timestamp: 1000,
   damage: [],
   saves: [],
@@ -19,7 +21,7 @@ const message = (overrides: Partial<MessageFacts> = {}): MessageFacts => ({
   ...overrides,
 });
 
-const fire = [{ rollIndex: 0, total: 12, types: ['fire'] }];
+const fire = [{ rollIndex: 0, total: 12, types: ['fire'], amounts: { full: 12 } }];
 const reflex = [{ statistic: 'reflex' as const, dc: 20, control: 'spell-save' as const, index: 0 }];
 
 describe('which messages are cards', () => {

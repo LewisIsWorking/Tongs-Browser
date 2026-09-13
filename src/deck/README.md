@@ -11,6 +11,7 @@ and roll saves. GM only.
 | `readMessageFacts.ts`      | A real PF2e/SF2e chat message read into facts, against a measured shape     |
 | `applyThroughSystem.ts`    | Applying a card by making PF2e run its own apply, aimed at the roll target  |
 | `buildApplyPorts.ts`       | The real Foundry behind applying, every method called on its own object     |
+| `damageAmounts.ts`         | What each apply button would send, priced by PF2e's own `roll.alter`        |
 | `readSaveControls.ts`      | The saves a card asks for, read from PF2e's own save controls in its HTML   |
 | `rollSaveThroughSystem.ts` | Rolling a card's save by clicking PF2e's own control for the chosen tokens  |
 | `buildSavePorts.ts`        | The real Foundry behind rolling a save                                      |

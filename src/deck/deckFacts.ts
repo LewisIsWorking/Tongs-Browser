@@ -14,6 +14,8 @@
  *    otherwise the same code. The adapter reads `message.flags[game.system.id]`; nothing here has to.
  */
 
+import type { DamageAmounts } from './damageAmounts.js';
+
 /** One damage roll on a message. A message can carry more than one. */
 export interface DamageFacts {
   /** Which roll on the message this is, as PF2e numbers them (`rollIndex`). */
@@ -21,6 +23,8 @@ export interface DamageFacts {
   readonly total: number;
   /** Damage types in the roll, such as `fire` or `slashing`. Empty when untyped. */
   readonly types: readonly string[];
+  /** What each apply option would send, as PF2e prices it. An option it could not price is absent. */
+  readonly amounts: DamageAmounts;
 }
 
 export type SaveStatistic = 'fortitude' | 'reflex' | 'will';
@@ -65,6 +69,10 @@ export interface TargetFacts {
 
 export interface MessageFacts {
   readonly id: string;
+  /** Who posted it, as the chat log shows them. */
+  readonly speaker: string;
+  /** The item it came from, such as a strike or a spell, or null when there is none. */
+  readonly title: string | null;
   /** Milliseconds since the epoch, from the message's own timestamp. */
   readonly timestamp: number;
   readonly damage: readonly DamageFacts[];
