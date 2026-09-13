@@ -63,6 +63,22 @@ describe('what a damage button says', () => {
     expect(applyLabel(option('half'), 7, ['fire'], 'Goblin')).toBe('Apply 7 fire to Goblin (half)');
   });
 
+  /**
+   * ⛔ A REAL COUNTEREXAMPLE, measured 2026-09-13 on pf2e 8.5.0. A Fire Mephit's Jaws rolled 6: 5
+   * piercing and 1 fire. Half of 6 is 3, but PF2e's `roll.alter(0.5)` returned 2, because it halves
+   * each instance and rounds each down (5 to 2, 1 to 0). A label that worked out half itself would have
+   * promised 3 and PF2e would have applied 2. This is why the amount is passed in.
+   */
+  it('shows the half PF2e really applies, which is not half the total', () => {
+    const naiveHalf = 6 * 0.5;
+    const pf2eHalf = 2;
+
+    expect(naiveHalf).not.toBe(pf2eHalf);
+    expect(applyLabel(option('half'), pf2eHalf, ['piercing', 'fire'], 'Xorn')).toBe(
+      'Apply 2 piercing and fire to Xorn (half)'
+    );
+  });
+
   it('joins several damage types readably', () => {
     expect(applyLabel(option('full'), 12, ['slashing', 'fire'], 'Goblin')).toBe(
       'Apply 12 slashing and fire to Goblin'
