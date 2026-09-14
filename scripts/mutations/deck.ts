@@ -133,4 +133,18 @@ export const DECK_MUTATIONS: readonly RecordedMutation[] = [
     defect: 'a card aimed at a token whose creature is gone offers an apply that can never land',
     tests: ['tests/unit/listDeckMessages.test.ts'],
   },
+  {
+    file: 'src/deck/panel/deckSwipe.ts',
+    find: '  if (Math.abs(dx) < SWIPE_DISTANCE || Math.abs(dx) < SWIPE_RATIO * Math.abs(dy)) {',
+    replace: '  if (Math.abs(dx) < SWIPE_DISTANCE) {',
+    defect: 'scrolling a tall card with a slight sideways drift turns it to another card',
+    tests: ['tests/unit/deckSwipe.test.ts', 'tests/dom/deckPanelSwipe.test.ts'],
+  },
+  {
+    file: 'src/deck/panel/DeckPanel.ts',
+    find: '        if (!this.current.busy && this.current.choosing === null) {',
+    replace: '        if (!this.current.busy) {',
+    defect: 'a stray swipe while choosing who rolls throws the half-made choice away',
+    tests: ['tests/dom/deckPanelSwipe.test.ts'],
+  },
 ];
