@@ -90,8 +90,10 @@ export function startBands(
   hooks: HooksLike,
   settings: BandSettings,
   globals: StartGlobals,
-  client: CooClient
+  given: CooClient | null
 ): BandReporter {
+  /* The sign-in menu's client when init built one: COO rotates refresh tokens, so they must be one. */
+  const client = given ?? buildCooClient(settings, globals);
   const reporter = new BandReporter({
     role: () => automationRole(globals),
     campaign: () => {

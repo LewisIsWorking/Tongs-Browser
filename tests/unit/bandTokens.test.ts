@@ -137,13 +137,14 @@ describe('which tokens a change concerns', () => {
             contents: [
               { tokenId: 'C1', token: xorn },
               { tokenId: 'gone', token: null },
+              { tokenId: 'E', token: token('E', null) },
             ],
           },
         },
       },
     };
 
-    expect(combatSubjects(globals).map((s) => s?.segments ?? null)).toEqual([8, null]);
+    expect(combatSubjects(globals).map((s) => s?.segments ?? null)).toEqual([8, null, null]);
     expect(combatSubjects({ game: { combat: null } })).toEqual([]);
   });
 });

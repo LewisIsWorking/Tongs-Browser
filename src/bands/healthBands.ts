@@ -105,5 +105,6 @@ export function creatureKind(traits: readonly string[]): CreatureKind {
 }
 
 export function bandWord(kind: CreatureKind, segments: number): string {
-  return BAND_WORDS[kind].at(Math.max(0, Math.min(10, segments))) ?? '';
+  const index = Math.max(0, Math.min(10, segments));
+  return BAND_WORDS[kind].slice(index, index + 1).join('');
 }

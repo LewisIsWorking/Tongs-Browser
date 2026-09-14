@@ -159,7 +159,7 @@ describe('posting a band', () => {
         const body = (await response.json()) as Record<string, unknown>;
         return {
           status: response.status,
-          json: () => Promise.resolve({ ...body, accessTokenExpiresAt: 'soon' }),
+          json: () => Promise.resolve({ ...body, accessTokenExpiresAt: undefined }),
         };
       },
     });

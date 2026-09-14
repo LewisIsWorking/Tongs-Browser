@@ -173,12 +173,7 @@ Hooks.once('ready', () => {
     startSpellSaves(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals, document);
     startSpellDamage(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals);
     /* Health bands: off until the world names its campaign. See bands/startBands.ts. */
-    startBands(
-      Hooks,
-      game.settings,
-      globalThis,
-      cooClient ?? buildCooClient(game.settings, globalThis)
-    );
+    startBands(Hooks, game.settings, globalThis, cooClient);
   }
 
   const moduleEntry = game?.modules.get(MODULE_ID);
