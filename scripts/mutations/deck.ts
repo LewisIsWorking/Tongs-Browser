@@ -128,8 +128,8 @@ export const DECK_MUTATIONS: readonly RecordedMutation[] = [
   {
     /* ⛔ Found live on SF2e 2026-09-14: such a card waited ten seconds for a hit that could not land. */
     file: 'src/deck/listDeckMessages.ts',
-    find: '    return token?.actor ? (token.name ?? null) : null;',
-    replace: '    return token?.name ?? null;',
+    find: '    return token?.actor ? token.name : null;',
+    replace: '    return token ? token.name : null;',
     defect: 'a card aimed at a token whose creature is gone offers an apply that can never land',
     tests: ['tests/unit/listDeckMessages.test.ts'],
   },

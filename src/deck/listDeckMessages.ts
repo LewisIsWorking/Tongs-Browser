@@ -29,7 +29,7 @@ export interface DeckListGlobals {
   };
   readonly fromUuidSync?: (
     uuid: string
-  ) => { readonly name?: string; readonly actor?: unknown } | null | undefined;
+  ) => { readonly name: string; readonly actor?: unknown } | null | undefined;
 }
 
 /**
@@ -43,7 +43,7 @@ export interface DeckListGlobals {
 function nameOf(globals: DeckListGlobals, uuid: string): string | null {
   try {
     const token = globals.fromUuidSync?.(uuid);
-    return token?.actor ? (token.name ?? null) : null;
+    return token?.actor ? token.name : null;
   } catch {
     return null;
   }
