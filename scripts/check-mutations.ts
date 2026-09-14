@@ -89,41 +89,56 @@ function fail(why: string): never {
   process.exit(1);
 }
 
+/**
+ * The full run over every recorded mutation.
+ *
+ * ⛔ ENDS BY RETURNING, NOT `process.exit`, and the reason is measured. On 2026-09-14, with 33 recorded
+ * mutations, `--self-test` printed "Self test passed" and then crashed Node 24.19.0 on Windows as it
+ * exited (`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`, 0xC0000409), every time, so `npm
+ * run check:mutations` stopped before the real run and read as a broken guard. The self test is pure.
+ * Calling `process.exit` straight after loading this many TypeScript modules is what crashed, and with
+ * 17 entries it had never shown. Setting `process.exitCode` and letting the process end cleared it
+ * three runs out of three.
+ */
+function runAll(): void {
+  let bad = 0;
+  for (const mutation of RECORDED) {
+    const verdict = runMutation(mutation);
+    const where = `${mutation.file}: ${mutation.defect}`;
+
+    if (verdict.kind === 'killed') {
+      console.log(`✅ ${where}\n   caught by: ${verdict.by.join('; ')}`);
+      continue;
+    }
+
+    bad += 1;
+    if (verdict.kind === 'survived') {
+      console.error(
+        `❌ SURVIVED  ${where}\n   ${mutation.tests.join(', ')} all passed with it applied.`
+      );
+    } else if (verdict.kind === 'noTests') {
+      console.error(
+        `⛔ NO TESTS RAN  ${where}\n   Nothing was measured. What the run printed instead:\n${indent(verdict.output)}`
+      );
+    } else {
+      console.error(
+        `⛔ AMBIGUOUS ANCHOR  ${where}\n   Found ${String(verdict.occurrences)} times, needs exactly 1.`
+      );
+    }
+  }
+
+  if (bad > 0) {
+    console.error(
+      `\n${String(bad)} of ${String(RECORDED.length)} recorded mutations were not caught.`
+    );
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`\nAll ${String(RECORDED.length)} recorded mutations still caught.`);
+}
+
 if (process.argv.includes('--self-test')) {
   selfTest();
-  process.exit(0);
+} else {
+  runAll();
 }
-
-let bad = 0;
-for (const mutation of RECORDED) {
-  const verdict = runMutation(mutation);
-  const where = `${mutation.file}: ${mutation.defect}`;
-
-  if (verdict.kind === 'killed') {
-    console.log(`✅ ${where}\n   caught by: ${verdict.by.join('; ')}`);
-    continue;
-  }
-
-  bad += 1;
-  if (verdict.kind === 'survived') {
-    console.error(
-      `❌ SURVIVED  ${where}\n   ${mutation.tests.join(', ')} all passed with it applied.`
-    );
-  } else if (verdict.kind === 'noTests') {
-    console.error(
-      `⛔ NO TESTS RAN  ${where}\n   Nothing was measured. What the run printed instead:\n${indent(verdict.output)}`
-    );
-  } else {
-    console.error(
-      `⛔ AMBIGUOUS ANCHOR  ${where}\n   Found ${String(verdict.occurrences)} times, needs exactly 1.`
-    );
-  }
-}
-
-if (bad > 0) {
-  console.error(
-    `\n${String(bad)} of ${String(RECORDED.length)} recorded mutations were not caught.`
-  );
-  process.exit(1);
-}
-console.log(`\nAll ${String(RECORDED.length)} recorded mutations still caught.`);
