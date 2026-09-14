@@ -1,7 +1,8 @@
 # src/automation
 
-Phase 2: players' checked strike damage applied to enemies, and enemies' saves against players' spells
-rolled, without waiting for the GM. Each is off per world until a GM turns it on.
+Phase 2: players' checked strike damage applied to enemies, enemies' saves against players' spells
+rolled, and those spells' basic-save damage applied by degree of success, without waiting for the GM.
+Each is off per world until a GM turns it on.
 
 | File                      | What it is                                                                 |
 | ------------------------- | -------------------------------------------------------------------------- |
@@ -15,6 +16,10 @@ rolled, without waiting for the GM. Each is off per world until a GM turns it on
 | `spellFacts.ts`           | A spell's cast card read into facts, and the targets its caster recorded   |
 | `SpellSaves.ts`           | Rolling enemies' saves against players' spells, queued while no full GM    |
 | `startSpellSaves.ts`      | Its own world setting, recording the caster's targets, and its hooks       |
+| `spellDamageFacts.ts`     | A spell's damage card and its targets' save cards read into facts          |
+| `validateSpellDamage.ts`  | Whether spell damage follows a cast and fits it, grouped by each save      |
+| `SpellDamage.ts`          | Applying basic-save spell damage by degree, queued while no full GM        |
+| `startSpellDamage.ts`     | Its own world setting, the spell's rule at its cast rank, and its hooks    |
 | `startAutoApply.ts`       | The world setting, and connecting the automation to Foundry's hooks        |
 
 ## Decided with Lewis, 2026-09-14
@@ -26,6 +31,9 @@ rolled, without waiting for the GM. Each is off per world until a GM turns it on
   else waits in the roll deck, with the reason written on the card.
 - **Applied once.** Applying goes through `RollDeck.apply`, which refuses a card already handled or
   already under way, so the automation and the GM's own tap cannot both land one hit.
+- **Spells:** the caster's browser records its targets on the cast card, the GM's browser rolls the
+  enemies' saves, then applies a basic save's damage to each by its degree of success when the total
+  fits: half on a success, full on a failure, double on a critical failure, none on a critical success.
 
 ## Measured, not assumed (pf2e 8.5.0)
 
@@ -34,3 +42,9 @@ rolled, without waiting for the GM. Each is off per world until a GM turns it on
 - The damage card's formula equals `strike.damage({ getFormula: true })`, and the roll exposes
   `minimumValue` and `maximumValue`.
 - A player may set flags on a message they authored. One GM user cannot be joined from two browsers.
+- A heightened spell's damage depends on its cast rank: rank 5 Vampiric Feast rolls 10d6, which
+  `loadVariant({ castRank: 5 }).getDamage()` gives, while `getDamage()` on the base spell gives 6d6.
+  Every spell card carries the rank on `flags.pf2e.origin.castRank`.
+- PF2e's Half entry with two tokens selected halves the damage for each and posts one `damage-taken` per
+  token. Applying one card to a second target afterwards is refused, because the card is handled.
+- A rerolled save deletes the old save card and posts a new one marked `isReroll`.

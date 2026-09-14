@@ -1,7 +1,7 @@
 import { APPLY_OPTIONS } from './applyOptions.js';
 import type { ApplyOption } from './applyOptions.js';
-import { applyThroughSystem } from './applyThroughSystem.js';
-import type { ApplyOutcome } from './applyThroughSystem.js';
+import { applyGroupsThroughSystem, applyThroughSystem } from './applyThroughSystem.js';
+import type { ApplyGroup, ApplyOutcome } from './applyThroughSystem.js';
 import { buildApplyPorts } from './buildApplyPorts.js';
 import type { DeckGlobals } from './buildApplyPorts.js';
 import { buildDeck } from './buildDeck.js';
@@ -74,6 +74,36 @@ export class RollDeck {
         messageId,
         option,
         targetTokenUuid,
+      })
+    );
+  }
+
+  /**
+   * Applies one card to several targets, each group its own way, and marks the card handled once. Added
+   * 2026-09-14 for basic saves, where each target takes the damage by its own degree of success.
+   */
+  public async applyGroups(
+    messageId: string,
+    groups: readonly { optionId: ApplyOption['id']; targetTokenUuids: readonly string[] }[]
+  ): Promise<ApplyOutcome> {
+    if (this.globals.game?.user?.isGM !== true) {
+      return { kind: 'refused', reason: 'only a GM can apply damage from the roll deck' };
+    }
+    const resolved: ApplyGroup[] = [];
+    for (const group of groups) {
+      const option = APPLY_OPTIONS.find((each) => each.id === group.optionId);
+      if (option === undefined) {
+        return {
+          kind: 'refused',
+          reason: `there is no way to apply damage called "${group.optionId}"`,
+        };
+      }
+      resolved.push({ option, targetTokenUuids: group.targetTokenUuids });
+    }
+    return this.once(messageId, async () =>
+      applyGroupsThroughSystem(buildApplyPorts(this.globals, this.doc), {
+        messageId,
+        groups: resolved,
       })
     );
   }
