@@ -79,8 +79,10 @@ describe("recording the caster's targets", () => {
 
   it('reads a world with no system or no targets as nothing to record', () => {
     const bare = creating();
+    const users = { activeGM: null };
+    recordCastTargets(bare, 'p', { game: { user: { id: 'p', role: 1 }, users } });
     recordCastTargets(bare, 'p', {
-      game: { user: { id: 'p', role: 1 }, users: { activeGM: null } },
+      game: { user: { id: 'p', role: 1 }, users, system: { id: 'pf2e' } },
     });
     expect(bare.updateSource).not.toHaveBeenCalled();
   });
@@ -175,15 +177,21 @@ describe('the setting and the hooks', () => {
 
     enabled = true;
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
-    recent.mockImplementationOnce(() => {
-      throw new Error('log gone');
-    });
+    recent
+      .mockImplementationOnce(() => {
+        throw new Error('log gone');
+      })
+      .mockImplementationOnce(() => {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error -- a non-Error rejection is the case
+        throw 'not an error';
+      });
     handlers.get('canvasReady')?.();
     handlers.get('userConnected')?.();
     handlers.get('createChatMessage')?.({ id: 'x', timestamp: 1 });
     handlers.get('preCreateChatMessage')?.(card, {}, {}, 'gm');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('log gone'));
+    expect(warn).toHaveBeenCalledWith('Spell saves failed: not an error');
     warn.mockRestore();
   });
 });
