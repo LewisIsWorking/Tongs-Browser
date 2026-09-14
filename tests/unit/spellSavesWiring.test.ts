@@ -26,6 +26,7 @@ describe('reading a cast card', () => {
       timestamp: 3,
       actorId: 'C',
       spellUuid: 'Actor.C.Item.S',
+      castRank: null,
     });
     expect(
       readSpellCast({ id: 'c', timestamp: 3, speaker: { actor: 'C' }, flags: castFlags }, 'sf2e')

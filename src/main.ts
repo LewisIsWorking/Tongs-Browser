@@ -12,6 +12,7 @@ import { SceneControlToggle } from './settings/SceneControlToggle.js';
 import { SettingsStore } from './settings/SettingsStore.js';
 import { registerAutoApplySetting, startAutoApply } from './automation/startAutoApply.js';
 import { registerSpellSavesSetting, startSpellSaves } from './automation/startSpellSaves.js';
+import { registerSpellDamageSetting, startSpellDamage } from './automation/startSpellDamage.js';
 import type { AutoGlobals } from './automation/buildAutoApply.js';
 
 /**
@@ -58,6 +59,7 @@ Hooks.once('init', () => {
   store.registerAll();
   registerAutoApplySetting(settingsApi);
   registerSpellSavesSetting(settingsApi);
+  registerSpellDamageSetting(settingsApi);
 
   /*
    * ⚠️ Called at INIT, before Foundry builds the canvas, and nothing keeps the result. Both
@@ -160,6 +162,7 @@ Hooks.once('ready', () => {
   if (game !== undefined) {
     startAutoApply(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals);
     startSpellSaves(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals, document);
+    startSpellDamage(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals);
   }
 
   const moduleEntry = game?.modules.get(MODULE_ID);

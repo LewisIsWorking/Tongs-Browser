@@ -116,4 +116,28 @@ describe('applying one card twice', () => {
     expect(again.kind === 'refused' && again.reason).toContain('no longer on the scene');
     expect(clicks).toEqual([]);
   });
+
+  it('applies a card by groups under the same guard, for a GM, with known options only', async () => {
+    const { globals, clicks, land } = world();
+    const deck = new RollDeck(globals, doc);
+    const groups = [{ optionId: 'full' as const, targetTokenUuids: ['Scene.S1.Token.T1'] }];
+
+    expect(
+      await deck.applyGroups('m1', [{ optionId: 'nope' as 'full', targetTokenUuids: [] }])
+    ).toEqual({
+      kind: 'refused',
+      reason: 'there is no way to apply damage called "nope"',
+    });
+    const first = deck.applyGroups('m1', groups);
+    expect((await deck.applyGroups('m1', groups)).kind).toBe('refused');
+    land();
+    expect(await first).toEqual({ kind: 'applied' });
+    expect(clicks).toEqual(['m1']);
+
+    Object.assign(globals.game?.user ?? {}, { isGM: false });
+    expect(await deck.applyGroups('m1', groups)).toEqual({
+      kind: 'refused',
+      reason: 'only a GM can apply damage from the roll deck',
+    });
+  });
 });

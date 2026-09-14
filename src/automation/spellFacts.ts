@@ -21,6 +21,7 @@ export interface SpellCastFacts {
   readonly timestamp: number;
   readonly actorId: string;
   readonly spellUuid: string;
+  readonly castRank: number | null;
 }
 
 export interface CastMessage {
@@ -34,7 +35,7 @@ export interface CastMessage {
 
 interface CastFlags {
   readonly context?: { readonly type?: string };
-  readonly origin?: { readonly uuid?: string; readonly type?: string } | null;
+  readonly origin?: { readonly uuid?: string; readonly castRank?: number } | null;
 }
 
 export function readSpellCast(message: CastMessage, systemId: string): SpellCastFacts | null {
@@ -48,7 +49,14 @@ export function readSpellCast(message: CastMessage, systemId: string): SpellCast
   ) {
     return null;
   }
-  return { id: message.id, timestamp: message.timestamp, actorId, spellUuid };
+  const castRank = flags.origin?.castRank;
+  return {
+    id: message.id,
+    timestamp: message.timestamp,
+    actorId,
+    spellUuid,
+    castRank: typeof castRank === 'number' ? castRank : null,
+  };
 }
 
 /** The tokens the caster had targeted, as the caster's browser recorded them; empty when none. */

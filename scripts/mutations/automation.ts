@@ -91,4 +91,57 @@ export const AUTOMATION_MUTATIONS: readonly RecordedMutation[] = [
     defect: "every browser writes its own user's targets onto someone else's spell card",
     tests: ['tests/unit/spellSavesWiring.test.ts'],
   },
+  {
+    file: 'src/automation/SpellDamage.ts',
+    find: '    await this.ports.setFlag(message.id, CLAIMED_FLAG, true);',
+    replace: '    void CLAIMED_FLAG;',
+    defect:
+      "a GM browser that closes mid-apply lets the next GM connection apply a spell's damage again",
+    tests: ['tests/unit/spellDamage.test.ts'],
+  },
+  {
+    file: 'src/automation/SpellDamage.ts',
+    find: '      } while (this.again.has(message.id));',
+    replace: "      } while (this.again.has('never'));",
+    defect:
+      "a save arriving while its spell's damage is being decided leaves the damage waiting forever",
+    tests: ['tests/unit/spellDamageQueue.test.ts'],
+  },
+  {
+    /* ⛔ Measured: rank 5 Vampiric Feast is 10d6, the base spell 6d6. */
+    file: 'src/automation/validateSpellDamage.ts',
+    find: '  if (cast.castRank !== damage.castRank) {',
+    replace: '  if (cast.castRank === -1) {',
+    defect: 'damage rolled at a higher rank than the spell was cast at is applied automatically',
+    tests: ['tests/unit/validateSpellDamage.test.ts'],
+  },
+  {
+    file: 'src/automation/validateSpellDamage.ts',
+    find: "  ['criticalFailure', 'double'],",
+    replace: "  ['criticalFailure', 'full'],",
+    defect: 'an enemy that critically fails a basic save takes normal damage instead of double',
+    tests: ['tests/unit/validateSpellDamage.test.ts'],
+  },
+  {
+    file: 'src/automation/validateSpellDamage.ts',
+    find: '  if (rule?.basic !== true) {',
+    replace: '  if (rule === null) {',
+    defect: 'a spell whose save is not basic has its damage halved and doubled as though it were',
+    tests: ['tests/unit/validateSpellDamage.test.ts'],
+  },
+  {
+    file: 'src/automation/validateSpellDamage.ts',
+    find: '        each.timestamp < next',
+    replace: '        each.timestamp > 0',
+    defect: "a save rolled against a later cast of the same spell decides an earlier cast's damage",
+    tests: ['tests/unit/validateSpellDamage.test.ts'],
+  },
+  {
+    file: 'src/deck/applyThroughSystem.ts',
+    find: '    selectOnly(tokens);',
+    replace: '    selectOnly(tokens.slice(0, 1));',
+    defect:
+      "only the first enemy in a group takes a spell's damage, and the card is marked handled",
+    tests: ['tests/unit/applyGroupsThroughSystem.test.ts'],
+  },
 ];

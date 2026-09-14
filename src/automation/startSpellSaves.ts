@@ -46,7 +46,7 @@ export function registerSpellSavesSetting(settings: SettingsLike): void {
     name: "Auto-roll enemies' saves against players' spells",
     hint:
       "When a player casts a spell with a save at enemies they targeted, the GM's browser rolls those " +
-      "enemies' saves. Queued until a GM connects. Damage from the spell is still applied by the GM.",
+      "enemies' saves. Queued until a GM connects. Applying the spell's damage is a separate setting.",
     scope: 'world',
     config: true,
     type: Boolean,
