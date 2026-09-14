@@ -1,5 +1,25 @@
 # tongs-browser
 
+## 0.29.1
+
+### Patch Changes
+
+- [#358](https://github.com/LewisIsWorking/Tongs-Browser/pull/358) [`86aad2d`](https://github.com/LewisIsWorking/Tongs-Browser/commit/86aad2df14eaf1610a54ecd539cef8c981086cdd) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Style the pick-one pickers, and let them close without choosing.
+
+  The pickers for creating a character in a party, choosing whose character it is, and choosing which
+  parties players may add characters to had no styles at all. On a real Foundry they appeared as a small
+  unstyled button in the top corner of the page, under the size a phone needs. They are now centred above
+  everything, with rows at least 44px tall, matching the sidebar picker.
+
+  Each picker also gains a "Close without choosing" button. Until now the only way to get rid of one was
+  to pick something.
+
+- [#360](https://github.com/LewisIsWorking/Tongs-Browser/pull/360) [`d4fa93d`](https://github.com/LewisIsWorking/Tongs-Browser/commit/d4fa93d0f812d0614b0a4218df2388c610d9d529) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Swipe between cards in the GM roll deck.
+
+  Swipe left for the next card and right for the previous one. The Previous and Next buttons stay. A
+  swipe has to be clearly sideways, so scrolling a long card never turns it, and swiping does nothing
+  while you are part way through choosing who rolls a save or while PF2e is still applying something.
+
 ## 0.29.0
 
 ### Minor Changes
