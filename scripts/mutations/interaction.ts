@@ -75,4 +75,15 @@ export const INTERACTION_MUTATIONS: readonly RecordedMutation[] = [
     defect: 'the chat message port is handed out detached, so a diagnostic report throws',
     tests: ['tests/unit/chatTargetsBinding.test.ts'],
   },
+  {
+    file: 'src/ui/ChoiceMenu.ts',
+    find: '  menu.append(close);',
+    replace: '  void close;',
+    /*
+     * ⛔ Recorded 2026-09-14 with the picker's first styles. A centred picker whose only exit is
+     * choosing makes a GM who tapped by mistake change a party's access to get rid of it.
+     */
+    defect: 'a picker opened by mistake cannot be closed without choosing something',
+    tests: ['tests/dom/choiceMenu.test.ts'],
+  },
 ];

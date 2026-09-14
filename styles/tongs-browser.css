@@ -489,3 +489,78 @@
   border: 2px solid rgb(255 208 92 / 95%);
   background: rgb(255 208 92 / 26%);
 }
+
+/*
+ * The pick-one pickers: which party to create a character in, whose it is, and which parties players
+ * may add characters to. Added 2026-09-14.
+ *
+ * ⛔ These shipped in 0.28.0 and 0.29.0 with NO rules at all. Measured in a real Foundry at 1600x1000,
+ * the picker was a 61x28px button in the top right corner of the page. It still worked, which is why
+ * no test noticed; tests/unit/stylesheetCoverage.test.ts now fails on any class with no rule.
+ *
+ * Styled as the sidebar tab picker is, centred and above the cursor, with rows at least 44px tall,
+ * because that one was built for a phone and has been used on one.
+ */
+.tb-choice-menu {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: calc(var(--tb-cursor-z-index) + 10);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid rgb(0 0 0 / 60%);
+  border-radius: 8px;
+  background: rgb(28 28 32 / 97%);
+  box-shadow: 0 4px 20px rgb(0 0 0 / 60%);
+  color: rgb(255 255 255 / 92%);
+  font-family: sans-serif;
+}
+
+.tb-choice-menu__title {
+  margin: 4px 8px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.tb-choice-menu__message {
+  max-width: 320px;
+  margin: 4px 8px 8px;
+  font-size: 15px;
+}
+
+.tb-choice-menu__item {
+  min-width: 180px;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 5px;
+  background: rgb(120 170 255 / 16%);
+  color: rgb(255 255 255 / 92%);
+  font-size: 16px;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tb-choice-menu__item:active {
+  background: rgb(120 170 255 / 34%);
+}
+
+/* Set apart from the choices, so it cannot be mistaken for one. */
+.tb-choice-menu__close {
+  margin-top: 4px;
+  background: transparent;
+  text-align: center;
+}
+
+/* A notice has one way out, so its button is centred rather than read as one row of a list. */
+.tb-choice-menu--notice .tb-choice-menu__item {
+  text-align: center;
+}
