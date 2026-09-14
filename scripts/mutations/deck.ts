@@ -10,9 +10,9 @@ import type { RecordedMutation } from './shape.ts';
 export const DECK_MUTATIONS: readonly RecordedMutation[] = [
   {
     file: 'src/deck/applyThroughSystem.ts',
-    find: '    landing = ports.landed(request.targetTokenUuid);\n    entry.onClick(null, listItem);',
+    find: '      landing = Promise.all(uuids.map(async (uuid) => ports.landed(uuid)));\n      entry.onClick(null, listItem);',
     replace:
-      '    entry.onClick(null, listItem);\n    landing = ports.landed(request.targetTokenUuid);',
+      '      entry.onClick(null, listItem);\n      landing = Promise.all(uuids.map(async (uuid) => ports.landed(uuid)));',
     defect: 'a hit PF2e confirms quickly is reported unconfirmed and its card never drops out',
     tests: ['tests/unit/applyThroughSystem.test.ts'],
   },

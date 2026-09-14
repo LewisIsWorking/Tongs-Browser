@@ -143,7 +143,7 @@ describe('the setting and the hooks', () => {
     );
   });
 
-  it('acts only while switched on, and logs a failure instead of throwing', async () => {
+  it('catches up at start, acts only while switched on, and logs a failure', async () => {
     const handlers = new Map<string, (...args: unknown[]) => void>();
     const hooks = {
       on(this: unknown, name: string, fn: (...args: never[]) => unknown) {
@@ -151,7 +151,7 @@ describe('the setting and the hooks', () => {
         return handlers.size;
       },
     };
-    let enabled = false;
+    let enabled = true;
     const recent = vi.fn(() => []);
     const globals = {
       game: {
@@ -170,8 +170,10 @@ describe('the setting and the hooks', () => {
       'createChatMessage',
       'userConnected',
     ]);
+    expect(recent).toHaveBeenCalledTimes(1);
+    enabled = false;
     handlers.get('canvasReady')?.();
-    expect(recent).not.toHaveBeenCalled();
+    expect(recent).toHaveBeenCalledTimes(1);
 
     enabled = true;
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
