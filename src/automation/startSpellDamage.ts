@@ -31,8 +31,8 @@ interface SpellItem {
   readonly system?: { readonly defense?: { readonly save?: { readonly basic?: boolean } | null } };
 }
 
-interface SpellActors {
-  get?(id: string): { readonly items?: { get?(id: string): SpellItem | undefined } } | undefined;
+interface SpellOwner {
+  readonly items?: { get?(id: string): SpellItem | undefined };
 }
 
 export function registerSpellDamageSetting(settings: SettingsLike): void {
@@ -61,9 +61,11 @@ export function buildSpellDamagePorts(globals: AutoGlobals, deck: RollDeck): Spe
     spellRule: async (spellUuid, castRank) => {
       const ids = /^Actor\.([^.]+)\.Item\.([^.]+)$/.exec(spellUuid);
       try {
-        const actors = globals.game?.actors as SpellActors | undefined;
-        const spell =
-          ids === null ? undefined : actors?.get?.(String(ids[1]))?.items?.get?.(String(ids[2]));
+        const owner =
+          ids === null
+            ? undefined
+            : (globals.game?.actors?.get?.(String(ids[1])) as SpellOwner | undefined);
+        const spell = owner?.items?.get?.(String(ids?.[2]));
         if (spell === undefined) {
           return null;
         }
