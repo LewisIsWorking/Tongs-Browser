@@ -3,6 +3,7 @@ import type { ApplyOutcome } from '../applyThroughSystem.js';
 import type { MessageFacts } from '../deckFacts.js';
 import type { SaveOutcome } from '../rollSaveThroughSystem.js';
 import { buildDeckBody } from './deckBody.js';
+import { bindSwipe } from './deckSwipe.js';
 import { positionLabel, rollLabel } from './deckLabels.js';
 import * as state from './deckPanelState.js';
 import type { DeckPanelState } from './deckPanelState.js';
@@ -21,8 +22,8 @@ import type { TokenCandidate } from './tokenCandidates.js';
  * ⛔ GM ONLY, checked on open as well as by the tray button being hidden. A permission enforced only by
  * a control's visibility is not enforced, and `RollDeck` refuses a player again underneath.
  *
- * ⚠️ Swipe comes later. Big Previous and Next buttons first, because a gesture that half works on a
- * phone is worse than a button: you cannot tell whether you did it wrong.
+ * ⚠️ Swiping moves between cards as well as the Previous and Next buttons, which stay: a gesture that
+ * half works on a phone is worse than a button, and the buttons are the fallback. See `deckSwipe.ts`.
  */
 export interface DeckPanelPorts {
   readonly document: Document;
@@ -60,6 +61,12 @@ export class DeckPanel {
       this.root.setAttribute('data-tongs-browser', 'ignore');
       this.root.setAttribute('role', 'dialog');
       this.root.setAttribute('aria-label', 'GM roll deck');
+      /* ⚠️ Not mid-choice and not while PF2e works: a stray swipe must not drop a half-made choice. */
+      bindSwipe(this.root, (delta) => {
+        if (!this.current.busy && this.current.choosing === null) {
+          this.update(state.step(this.current, delta));
+        }
+      });
       doc.body.append(this.root);
     }
     this.current = state.initialState(this.ports.deck.cards());
