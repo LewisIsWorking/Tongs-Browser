@@ -89,6 +89,16 @@ describe('what a card cannot offer', () => {
   });
 });
 
+describe("the automation's note", () => {
+  it('says why a card was not applied automatically', () => {
+    panelWith([{ ...jaws, note: 'the attack did not hit (failure)' }]).panel.open();
+
+    expect(root()?.textContent).toContain(
+      'Not applied automatically: the attack did not hit (failure).'
+    );
+  });
+});
+
 describe('naming a card', () => {
   it('says so when the speaker is unknown, and shows no item when there is none', () => {
     panelWith([{ ...jaws, speaker: '', title: null }]).panel.open();

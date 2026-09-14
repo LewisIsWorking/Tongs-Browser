@@ -26,6 +26,8 @@ The module itself. Everything shipped in `dist/tongs-browser.js` comes from here
 | `scaling/`      | Making the interface usable at arm's length |
 | `core/`         | Logging and haptics                         |
 | `ui/`, `relay/` | Tray contents; other people's pause         |
+| `deck/`         | The GM roll deck: apply damage, roll saves  |
+| `automation/`   | Players' checked hits, without the GM       |
 
 ## The composition root is separate from the parts
 

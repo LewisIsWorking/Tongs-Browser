@@ -1,4 +1,5 @@
 import type { ApplyOutcome } from '../deck/applyThroughSystem.js';
+import { AUTO_NOTE_FLAG } from '../deck/readMessageFacts.js';
 import type { AutomationRole } from './automationRole.js';
 import { readStrikeAttack, readStrikeDamage } from './strikeFacts.js';
 import type { StrikeDamageFacts, StrikeMessage } from './strikeFacts.js';
@@ -26,7 +27,11 @@ import type { StrikeHistory } from './validateStrike.js';
  * the automation's business and is left exactly as it was.
  */
 export const PENDING_FLAG = 'pending';
-export const DECLINED_FLAG = 'autoDeclined';
+export const DECLINED_FLAG = AUTO_NOTE_FLAG;
+export const CLAIMED_FLAG = 'autoClaimed';
+
+const UNCONFIRMED =
+  'an automatic apply was started earlier and never confirmed; check the target before applying';
 
 export interface AutoApplyPorts {
   readonly role: () => AutomationRole;
@@ -109,6 +114,11 @@ export class AutoApply {
       return;
     }
 
+    if (this.ports.flag(message, CLAIMED_FLAG) === true) {
+      await this.decline(message, UNCONFIRMED);
+      return;
+    }
+
     const history = this.history(damage);
     /*
      * ⚠️ Two passes. The first finds the attack, with the card's own formula standing in so the formula
@@ -140,12 +150,24 @@ export class AutoApply {
       return;
     }
 
+    /*
+     * ⛔ CLAIMED BEFORE THE CLICK, and a claim is never retried. Measured live 2026-09-14: a GM browser
+     * that closed after PF2e applied a hit but before the handled marker was written left the card
+     * pending, and the next GM connection applied the same hit a second time. The claim is written
+     * (and acknowledged by the server) first, so a card found claimed but unhandled may already have
+     * landed, and only the GM can tell.
+     */
+    await this.ports.setFlag(message.id, CLAIMED_FLAG, true);
     const outcome = await this.ports.apply(message.id, token);
     if (outcome.kind === 'applied') {
       await this.ports.unsetFlag(message.id, PENDING_FLAG);
-    } else {
-      await this.decline(message, outcome.reason);
+      return;
     }
+    if (outcome.kind === 'refused') {
+      /* Refused means nothing was clicked, so nothing can have landed: the claim is lifted. */
+      await this.ports.unsetFlag(message.id, CLAIMED_FLAG);
+    }
+    await this.decline(message, outcome.reason);
   }
 
   private history(damage: StrikeDamageFacts): StrikeHistory {

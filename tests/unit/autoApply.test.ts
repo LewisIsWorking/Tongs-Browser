@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { DECLINED_FLAG, PENDING_FLAG } from '../../src/automation/AutoApply.js';
+import { CLAIMED_FLAG, DECLINED_FLAG, PENDING_FLAG } from '../../src/automation/AutoApply.js';
 import type { AutoApplyPorts } from '../../src/automation/AutoApply.js';
 import { TARGET, attack, card, damage, harness } from './support/autoApplyWorld.js';
 
@@ -9,6 +9,57 @@ import { TARGET, attack, card, damage, harness } from './support/autoApplyWorld.
  *
  * Queueing with no GM connected, and catching up when one connects, are in `autoApplyQueue.test.ts`.
  */
+describe('the claim written before clicking', () => {
+  /** ⛔ Measured live: a GM browser closing between PF2e applying and the handled marker re-applied a hit. */
+  it('is on the card before PF2e is asked to apply', async () => {
+    const order: string[] = [];
+    const { auto, flags } = harness(
+      {
+        apply: () => {
+          order.push(`apply, claimed=${String(flags.get(`d1.${CLAIMED_FLAG}`))}`);
+          return Promise.resolve({ kind: 'applied' });
+        },
+      },
+      [attack, damage]
+    );
+
+    await auto.onMessageCreated(damage);
+
+    expect(order).toEqual(['apply, claimed=true']);
+  });
+
+  it('never retries a claimed card, sending it to the deck to be checked', async () => {
+    const { auto, ports, flags } = harness({}, [attack, damage]);
+    flags.set(`d1.${CLAIMED_FLAG}`, true);
+    flags.set(`d1.${PENDING_FLAG}`, true);
+
+    await auto.catchUp();
+
+    expect(ports.apply).not.toHaveBeenCalled();
+    expect(flags.get(`d1.${DECLINED_FLAG}`)).toContain('never confirmed');
+    expect(flags.has(`d1.${PENDING_FLAG}`)).toBe(false);
+  });
+
+  it('is lifted when nothing was clicked, and kept when PF2e did not confirm', async () => {
+    const refused = harness(
+      {
+        apply: () =>
+          Promise.resolve({ kind: 'refused', reason: 'the target is no longer on the scene' }),
+      },
+      [attack, damage]
+    );
+    await refused.auto.onMessageCreated(damage);
+    expect(refused.flags.has(`d1.${CLAIMED_FLAG}`)).toBe(false);
+
+    const unconfirmed = harness(
+      { apply: () => Promise.resolve({ kind: 'unconfirmed', reason: 'never landed' }) },
+      [attack, damage]
+    );
+    await unconfirmed.auto.onMessageCreated(damage);
+    expect(unconfirmed.flags.get(`d1.${CLAIMED_FLAG}`)).toBe(true);
+  });
+});
+
 describe('the active full GM', () => {
   it('applies a checked hit to the target, and clears any pending mark', async () => {
     const { auto, ports, flags } = harness({}, [attack, damage]);

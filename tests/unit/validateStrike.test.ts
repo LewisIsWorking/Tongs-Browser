@@ -118,6 +118,14 @@ describe('what waits in the roll deck', () => {
     expect(reason(damage(), history([attack({ outcome: null })]), FORMULA)).toContain('no result');
   });
 
+  /** Found live: damage after a miss that already had damage rolled read "already rolled", not "did not hit". */
+  it('names the miss, not the earlier damage, when a missed attack was already rolled for', () => {
+    const miss = attack({ outcome: 'failure' });
+    const first = damage({ id: 'first', timestamp: 1_050 });
+
+    expect(reason(damage(), history([miss], [first]), FORMULA)).toContain('did not hit');
+  });
+
   it('a second damage roll for the same attack', () => {
     const first = damage({ id: 'first', timestamp: 1_050 });
 

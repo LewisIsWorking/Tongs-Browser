@@ -88,4 +88,6 @@ export interface MessageFacts {
    * read by both, so the deck and the automation can never both apply one hit.
    */
   readonly handled: boolean;
+  /** Why phase 2's automation did not apply this card itself, when it tried. */
+  readonly note?: string;
 }

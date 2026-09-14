@@ -50,7 +50,7 @@ function findAttack(damage: StrikeDamageFacts, history: StrikeHistory) {
       each.timestamp >= attack.timestamp &&
       each.timestamp <= damage.timestamp
   );
-  return alreadyDamaged ? 'used' : attack;
+  return { attack, alreadyDamaged };
 }
 
 export function validateStrike(
@@ -61,15 +61,17 @@ export function validateStrike(
   if (damage.targetToken === null) {
     return deck('the damage roll names no target');
   }
-  const attack = findAttack(damage, history);
-  if (attack === null) {
+  const found = findAttack(damage, history);
+  if (found === null) {
     return deck('no attack by that character on that target came just before this damage');
   }
-  if (attack === 'used') {
-    return deck('damage was already rolled for that attack');
-  }
+  const attack = found.attack;
+  /* ⚠️ Whether it hit is asked first: after a miss, "it did not hit" is the reason, not "already rolled". */
   if (attack.outcome === null || !HITS.includes(attack.outcome)) {
     return deck(`the attack did not hit (${attack.outcome ?? 'no result'})`);
+  }
+  if (found.alreadyDamaged) {
+    return deck('damage was already rolled for that attack');
   }
   if (damage.outcome !== attack.outcome) {
     return deck(
