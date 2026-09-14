@@ -23,6 +23,25 @@ beforeEach(() => {
 });
 
 describe('choosing from a list', () => {
+  /** ⛔ A centred picker with no way out forces a sheet or a permission change to get rid of it. */
+  it('closes without choosing, and is not a row a caller could pick', () => {
+    const onChosen = vi.fn();
+    const menu = buildChoiceMenu(document, {
+      title: 'Which party?',
+      choices: [{ id: 'Actor.a', label: 'The Firebrands' }],
+      onChosen,
+    });
+    document.body.append(menu);
+
+    const close = document.querySelector<HTMLButtonElement>('[data-action="close"]');
+    expect(rows()).toHaveLength(1);
+    expect(close?.textContent).toBe('Close without choosing');
+    close?.click();
+
+    expect(menu.isConnected).toBe(false);
+    expect(onChosen).not.toHaveBeenCalled();
+  });
+
   it('offers a row for every choice, labelled', () => {
     const menu = buildChoiceMenu(document, {
       title: 'Which party?',

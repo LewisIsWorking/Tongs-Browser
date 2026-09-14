@@ -65,6 +65,22 @@ export function buildChoiceMenu(doc: Document, options: ChoiceMenuOptions): HTML
     menu.append(item);
   }
 
+  /*
+   * ⛔ A WAY OUT. Added 2026-09-14 when the picker gained its styles: a centred picker whose only exit
+   * is choosing forces a GM who tapped the button by mistake to create a sheet or change a party's
+   * access to get rid of it. Deliberately NOT a `data-choice` row, because callers and tests find the
+   * rows by that attribute, and "close" is not something that can be chosen.
+   */
+  const close = doc.createElement('button');
+  close.type = 'button';
+  close.className = 'tb-choice-menu__item tb-choice-menu__close';
+  close.dataset['action'] = 'close';
+  close.textContent = 'Close without choosing';
+  close.addEventListener('click', () => {
+    menu.remove();
+  });
+  menu.append(close);
+
   return menu;
 }
 
