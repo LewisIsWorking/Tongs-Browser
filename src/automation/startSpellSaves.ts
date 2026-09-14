@@ -9,6 +9,7 @@ import type { AutoGlobals } from './buildAutoApply.js';
 import { TARGETS_FLAG } from './spellFacts.js';
 import type { CastMessage } from './spellFacts.js';
 import { SpellSaves } from './SpellSaves.js';
+import type { SpellSavePorts } from './SpellSaves.js';
 
 /**
  * Switching automatic spell saves on for a world, and connecting them to Foundry. Added 2026-09-14.
@@ -75,6 +76,20 @@ export function recordCastTargets(message: Creating, userId: string, globals: Sp
   message.updateSource({ flags: { [MODULE_ID]: { [TARGETS_FLAG]: targets, ...queued } } });
 }
 
+/** The real Foundry behind `SpellSaves`: the strike automation's ports, plus reading and rolling saves. */
+export function buildSpellSavePorts(
+  globals: SpellGlobals,
+  deck: RollDeck,
+  doc: Document
+): SpellSavePorts {
+  return {
+    ...buildAutoApply(globals, deck),
+    moduleId: MODULE_ID,
+    saveControls: (message) => readSaveControlsFromHtml(doc, message.content ?? ''),
+    rollSave: async (id, index, tokens) => deck.rollSave(id, index, tokens),
+  };
+}
+
 export function startSpellSaves(
   deck: RollDeck,
   hooks: HooksLike,
@@ -82,13 +97,7 @@ export function startSpellSaves(
   globals: SpellGlobals,
   doc: Document
 ): SpellSaves {
-  const base = buildAutoApply(globals, deck);
-  const saves = new SpellSaves({
-    ...base,
-    moduleId: MODULE_ID,
-    saveControls: (message) => readSaveControlsFromHtml(doc, message.content ?? ''),
-    rollSave: async (id, index, tokens) => deck.rollSave(id, index, tokens),
-  });
+  const saves = new SpellSaves(buildSpellSavePorts(globals, deck, doc));
   const on = () => settings.get(MODULE_ID, SPELL_SAVES_SETTING) === true;
   const run = (work: () => Promise<void>): void => {
     if (on()) {

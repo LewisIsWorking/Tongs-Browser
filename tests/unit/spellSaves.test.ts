@@ -1,70 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { CLAIMED_FLAG, DECLINED_FLAG, PENDING_FLAG } from '../../src/automation/AutoApply.js';
-import { SpellSaves } from '../../src/automation/SpellSaves.js';
 import type { SpellSavePorts } from '../../src/automation/SpellSaves.js';
-import type { CastMessage } from '../../src/automation/spellFacts.js';
-import type { TargetState } from '../../src/automation/targetCheck.js';
+import { ENEMY, X1, X2, castCard, harness } from './support/spellSavesWorld.js';
 
 /**
- * Rolling enemies' saves against players' spells. Written 2026-09-14.
- *
- * ⚠️ The cast card is the measured Daze cast: `context.type "spell-cast"`, the spell's uuid on `origin`,
- * a `spell-save` button, and the targets the caster's browser recorded.
+ * The active full GM's browser rolling enemies' saves against players' spells. Written 2026-09-14.
+ * Queueing and catching up are in `spellSavesQueue.test.ts`.
  */
-const X1 = 'Scene.S.Token.X1';
-const X2 = 'Scene.S.Token.X2';
-const ENEMY: TargetState = {
-  elsewhere: false,
-  exists: true,
-  hp: 100,
-  inCombat: true,
-  playerOwned: false,
-};
-
-const castCard = (targets: string[] = [X1, X2]): CastMessage => ({
-  id: 'c1',
-  timestamp: 1,
-  speaker: { actor: 'Caster' },
-  flags: {
-    pf2e: {
-      context: { type: 'spell-cast' },
-      origin: { uuid: 'Actor.Caster.Item.Daze', type: 'spell' },
-    },
-    'tongs-browser': { targets },
-  },
-});
-
-const harness = (
-  overrides: Partial<SpellSavePorts> = {},
-  states: Record<string, TargetState> = {}
-) => {
-  const flags = new Map<string, unknown>();
-  const ports: SpellSavePorts = {
-    role: () => 'act',
-    systemId: () => 'pf2e',
-    moduleId: 'tongs-browser',
-    recentMessages: () => [castCard()],
-    flag: (message, key) => flags.get(`${message.id}.${key}`),
-    isHandled: () => false,
-    authorIsPlayer: () => true,
-    attackerIsPlayers: () => true,
-    targetState: (token) => states[token] ?? ENEMY,
-    saveControls: () => [{ statistic: 'will', dc: 21, control: 'spell-save', index: 0 }],
-    rollSave: vi.fn(() => Promise.resolve({ kind: 'rolled' as const })),
-    setFlag: (id, key, value) => {
-      flags.set(`${id}.${key}`, value);
-      return Promise.resolve();
-    },
-    unsetFlag: (id, key) => {
-      flags.delete(`${id}.${key}`);
-      return Promise.resolve();
-    },
-    ...overrides,
-  };
-  return { saves: new SpellSaves(ports), ports, flags };
-};
-
 describe('the active full GM', () => {
   it("rolls every recorded enemy's save, claiming the card first", async () => {
     const order: string[] = [];
@@ -149,48 +92,19 @@ describe('the active full GM', () => {
     expect(unconfirmed.flags.get(`c1.${CLAIMED_FLAG}`)).toBe(true);
     expect(unconfirmed.flags.get(`c1.${DECLINED_FLAG}`)).toBe('late');
   });
-});
 
-describe('queueing and catching up', () => {
-  it('does nothing outside the active full GM', async () => {
-    const { saves, ports } = harness({ role: () => 'queue' });
+  it('writes no reason on a card that was handled while it waited', async () => {
+    let handled = false;
+    const raced = harness({
+      isHandled: () => handled,
+      rollSave: () => {
+        handled = true;
+        return Promise.resolve({ kind: 'refused', reason: 'that card is already being handled' });
+      },
+    });
 
-    await saves.onMessageCreated(castCard());
-    await saves.catchUp();
+    await raced.saves.onMessageCreated(castCard());
 
-    expect(ports.rollSave).not.toHaveBeenCalled();
-  });
-
-  it('rolls pending casts when a GM connects, and only those', async () => {
-    const pending = harness();
-    pending.flags.set(`c1.${PENDING_FLAG}`, true);
-    await pending.saves.catchUp();
-    expect(pending.ports.rollSave).toHaveBeenCalledTimes(1);
-    expect(pending.flags.has(`c1.${PENDING_FLAG}`)).toBe(false);
-
-    const quiet = harness();
-    await quiet.saves.catchUp();
-    expect(quiet.ports.rollSave).not.toHaveBeenCalled();
-  });
-
-  it('never works on one card twice at once', async () => {
-    let release: () => void = () => undefined;
-    const rollSave = vi.fn(
-      () =>
-        new Promise<{ kind: 'rolled' }>((resolve) => {
-          release = () => {
-            resolve({ kind: 'rolled' });
-          };
-        })
-    );
-    const { saves } = harness({ rollSave });
-
-    const first = saves.onMessageCreated(castCard());
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await saves.onMessageCreated(castCard());
-    release();
-    await first;
-
-    expect(rollSave).toHaveBeenCalledTimes(1);
+    expect(raced.flags.has(`c1.${DECLINED_FLAG}`)).toBe(false);
   });
 });
