@@ -66,6 +66,15 @@ describe('settings', () => {
     ).toBe('sent');
     expect(fetch.mock.calls[0]?.[0]).toBe(`${DEFAULT_SERVER}/api/auth/refresh`);
     expect(values[REFRESH_SETTING]).toBe('r2');
+    await client.postBand('C06', {
+      name: 'G',
+      segments: 1,
+      word: 'w',
+      hp: 2,
+      maxHp: 9,
+      announce: false,
+    });
+    expect(fetch).toHaveBeenCalledTimes(3);
     await expect(
       buildCooClient(settingsWith({ [REFRESH_SETTING]: 'r' }), {}).postBand('C06', {
         name: 'G',
