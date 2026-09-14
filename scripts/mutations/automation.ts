@@ -59,4 +59,36 @@ export const AUTOMATION_MUTATIONS: readonly RecordedMutation[] = [
     defect: "a player's hit on an ally is applied automatically as though it were an enemy",
     tests: ['tests/unit/automationFacts.test.ts'],
   },
+  {
+    file: 'src/automation/SpellSaves.ts',
+    find: '    await this.ports.setFlag(message.id, CLAIMED_FLAG, true);',
+    replace: '    void CLAIMED_FLAG;',
+    defect:
+      'a GM browser that closes mid-roll lets the next GM connection roll the same saves again',
+    tests: ['tests/unit/spellSaves.test.ts'],
+  },
+  {
+    file: 'src/automation/SpellSaves.ts',
+    find: "    const rollers = verdicts.filter((each) => each.verdict.kind === 'ok').map((each) => each.token);",
+    replace:
+      "    const rollers = verdicts.filter((each) => each.verdict.kind !== 'later').map((each) => each.token);",
+    defect:
+      "a player's ally caught in their spell is made to roll a save as though it were an enemy",
+    tests: ['tests/unit/spellSaves.test.ts'],
+  },
+  {
+    file: 'src/automation/SpellSaves.ts',
+    find: "    if (cast === null || this.ports.saveControls(message)[0]?.control !== 'spell-save') {",
+    replace: '    if (cast === null || this.ports.saveControls(message)[0] === undefined) {',
+    defect:
+      "an inline check in a spell's description is rolled automatically, guessing at its trigger",
+    tests: ['tests/unit/spellSaves.test.ts'],
+  },
+  {
+    file: 'src/automation/startSpellSaves.ts',
+    find: "  if (userId !== game?.user?.id || flags?.context?.type !== 'spell-cast') {",
+    replace: "  if (flags?.context?.type !== 'spell-cast') {",
+    defect: "every browser writes its own user's targets onto someone else's spell card",
+    tests: ['tests/unit/spellSavesWiring.test.ts'],
+  },
 ];

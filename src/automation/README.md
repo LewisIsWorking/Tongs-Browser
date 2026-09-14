@@ -1,7 +1,7 @@
 # src/automation
 
-Phase 2: players' checked strike damage applied to enemies without waiting for the GM. Off per world
-until a GM turns it on.
+Phase 2: players' checked strike damage applied to enemies, and enemies' saves against players' spells
+rolled, without waiting for the GM. Each is off per world until a GM turns it on.
 
 | File                      | What it is                                                                 |
 | ------------------------- | -------------------------------------------------------------------------- |
@@ -12,6 +12,9 @@ until a GM turns it on.
 | `AutoApply.ts`            | Acting, queueing and catching up, around those decisions                   |
 | `recentStrikeMessages.ts` | The recent chat log, on the document boundary: GM only, visible only       |
 | `buildAutoApply.ts`       | The real Foundry behind `AutoApply`, every method called on its own object |
+| `spellFacts.ts`           | A spell's cast card read into facts, and the targets its caster recorded   |
+| `SpellSaves.ts`           | Rolling enemies' saves against players' spells, queued while no full GM    |
+| `startSpellSaves.ts`      | Its own world setting, recording the caster's targets, and its hooks       |
 | `startAutoApply.ts`       | The world setting, and connecting the automation to Foundry's hooks        |
 
 ## Decided with Lewis, 2026-09-14
