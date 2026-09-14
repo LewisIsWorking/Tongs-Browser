@@ -31,7 +31,7 @@ export interface SpellDamageHistory {
  *
  * ⚠️ A Map, not an object: `"constructor" in {}` is true, and a save result must never match that.
  */
-export const BASIC_SAVE: ReadonlyMap<string, 'half' | 'full' | 'double' | null> = new Map([
+const BASIC_SAVE: ReadonlyMap<string, 'half' | 'full' | 'double' | null> = new Map([
   ['criticalSuccess', null],
   ['success', 'half'],
   ['failure', 'full'],
