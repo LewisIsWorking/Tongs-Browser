@@ -9,6 +9,11 @@ import type { CooClient } from './CooClient.js';
  *
  * ⚠️ Foundry opens a settings menu with `new menu.type().render(true)`, so the menu is a class whose
  * `render` opens the dialog. `restricted` keeps it to GMs, the only users bands are for.
+ *
+ * ⛔ FOUND LIVE, 2026-09-15: `registerMenu` THROWS unless the type is a FormApplication or ApplicationV2
+ * subclass ("You must provide a menu type that is a FormApplication or ApplicationV2 instance or
+ * subclass"), and a throw there aborted the REST of Tongs' init hook. A plain class passed every unit
+ * test. So the menu extends Foundry's own ApplicationV2, and registering it can never throw out of here.
  */
 const SIGN_IN_MENU = 'cooSignIn';
 
@@ -17,6 +22,7 @@ export interface SignInGlobals {
     readonly applications?: {
       readonly api?: {
         readonly DialogV2?: { input?(options: object): Promise<unknown> };
+        readonly ApplicationV2?: new (...args: never[]) => { render(...args: never[]): unknown };
       };
     };
   };
@@ -57,23 +63,33 @@ export async function signIn(client: CooClient, globals: SignInGlobals): Promise
   return ok;
 }
 
+/** True when the menu was registered. False, never a throw, when Foundry refuses or cannot. */
 export function registerSignInMenu(
   settings: MenuSettings,
   client: CooClient,
   globals: SignInGlobals
-): void {
-  class SignInMenu {
-    public render(): this {
+): boolean {
+  const Base = globals.foundry?.applications?.api?.ApplicationV2;
+  if (Base === undefined || settings.registerMenu === undefined) {
+    return false;
+  }
+  class SignInMenu extends Base {
+    public override render(): this {
       void signIn(client, globals);
       return this;
     }
   }
-  settings.registerMenu?.(MODULE_ID, SIGN_IN_MENU, {
-    name: 'ComeOnOverUno sign-in',
-    label: 'Sign in',
-    hint: 'Sign this browser in to ComeOnOverUno so it can post health bands. Only the GM needs to.',
-    icon: 'fas fa-right-to-bracket',
-    type: SignInMenu,
-    restricted: true,
-  });
+  try {
+    settings.registerMenu(MODULE_ID, SIGN_IN_MENU, {
+      name: 'ComeOnOverUno sign-in',
+      label: 'Sign in',
+      hint: 'Sign this browser in to ComeOnOverUno so it can post health bands. Only the GM needs to.',
+      icon: 'fas fa-right-to-bracket',
+      type: SignInMenu,
+      restricted: true,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
