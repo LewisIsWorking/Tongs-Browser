@@ -123,15 +123,21 @@ describe('when switched on', () => {
   it('handles new messages and connecting users, and logs a failure instead of throwing', async () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
     const { handlers, recent } = setupWith(true);
-    recent.mockImplementation(() => {
+    recent.mockImplementationOnce(() => {
       throw new Error('chat log unavailable');
+    });
+    recent.mockImplementationOnce(() => {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error -- a non-Error rejection is the case
+      throw 'socket closed';
     });
 
     handlers.get('userConnected')?.();
+    handlers.get('canvasReady')?.();
     handlers.get('createChatMessage')?.({ id: 'x', timestamp: 1 });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('chat log unavailable'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('socket closed'));
     warn.mockRestore();
   });
 });
@@ -166,5 +172,9 @@ describe('with an empty world', () => {
       max: 1,
     };
     expect(await ports.recomputeFormula(damage, 'a1')).toBeNull();
+    expect(await ports.recomputeFormula({ ...damage, targetToken: null }, 'a1')).toBeNull();
+    expect(
+      await ports.recomputeFormula({ ...damage, targetToken: 'not a token' }, 'a1')
+    ).toBeNull();
   });
 });
