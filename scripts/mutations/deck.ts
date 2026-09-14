@@ -116,4 +116,21 @@ export const DECK_MUTATIONS: readonly RecordedMutation[] = [
       'the panel reads the deck through a detached method, so it throws on every real Foundry',
     tests: ['tests/dom/buildDeckPanel.test.ts'],
   },
+  {
+    /* ⛔ Found live on SF2e 2026-09-14: two copies of one creature were two identical rows. */
+    file: 'src/deck/panel/tokenCandidates.ts',
+    find: '    if (total.get(each.name) === 1) {',
+    replace: '    if (total.get(each.name) !== undefined) {',
+    defect:
+      'four goblins of one name are four identical rows, so the GM cannot tell which is which',
+    tests: ['tests/unit/deckLabelsAndCandidates.test.ts'],
+  },
+  {
+    /* ⛔ Found live on SF2e 2026-09-14: such a card waited ten seconds for a hit that could not land. */
+    file: 'src/deck/listDeckMessages.ts',
+    find: '    return token?.actor ? (token.name ?? null) : null;',
+    replace: '    return token?.name ?? null;',
+    defect: 'a card aimed at a token whose creature is gone offers an apply that can never land',
+    tests: ['tests/unit/listDeckMessages.test.ts'],
+  },
 ];

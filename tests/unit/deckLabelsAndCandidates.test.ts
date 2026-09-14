@@ -24,9 +24,9 @@ describe('save labels name what the tap does', () => {
 
   it('names every roller on the confirm button', () => {
     const goblins = [
-      { tokenUuid: 'a', name: 'Goblin' },
-      { tokenUuid: 'b', name: 'Orc' },
-      { tokenUuid: 'c', name: 'Troll' },
+      { tokenUuid: 'a', name: 'Goblin', hp: null },
+      { tokenUuid: 'b', name: 'Orc', hp: null },
+      { tokenUuid: 'c', name: 'Troll', hp: null },
     ];
 
     expect(rollLabel(will, goblins)).toBe('Roll Will DC 17 for Goblin, Orc and Troll');
@@ -51,7 +51,11 @@ describe('save labels name what the tap does', () => {
 });
 
 describe('who a GM can choose', () => {
-  const token = (uuid: string, name: string) => ({ uuid, name });
+  const token = (uuid: string, name: string, hp = { value: 10, max: 15 }) => ({
+    uuid,
+    name,
+    actor: { system: { attributes: { hp } } },
+  });
   const world = (overrides: Partial<CandidateGlobals> = {}, isGM = true): CandidateGlobals => ({
     game: { user: { isGM } },
     canvas: {
@@ -83,7 +87,7 @@ describe('who a GM can choose', () => {
 
     const candidates = readTokenCandidates({ ...world(), game: { user: { isGM: true }, combat } });
 
-    expect(candidates).toEqual([{ tokenUuid: 'Scene.S1.Token.B', name: 'Orc' }]);
+    expect(candidates).toEqual([{ tokenUuid: 'Scene.S1.Token.B', name: 'Orc', hp: '10/15 HP' }]);
   });
 
   it('ignores a combat on another scene, or one with no tokens', () => {
@@ -114,7 +118,9 @@ describe('who a GM can choose', () => {
       },
     });
 
-    expect(readTokenCandidates(messy)).toEqual([{ tokenUuid: 'Scene.S1.Token.A', name: 'Goblin' }]);
+    expect(readTokenCandidates(messy)).toEqual([
+      { tokenUuid: 'Scene.S1.Token.A', name: 'Goblin', hp: '10/15 HP' },
+    ]);
   });
 
   it('falls back to the scene when a combat here lists no combatants at all', () => {
@@ -123,6 +129,49 @@ describe('who a GM can choose', () => {
     const names = readTokenCandidates({ ...world(), game: { user: { isGM: true }, combat: bare } });
 
     expect(names.map((c) => c.name)).toEqual(['Goblin', 'Orc']);
+  });
+
+  /**
+   * ⛔ Found live on SF2e: two copies of one creature made two identical rows and a confirm reading
+   * "for Robotic Advanced War Machine and Robotic Advanced War Machine".
+   */
+  it('numbers creatures that share a name, in scene order, and leaves unique names alone', () => {
+    const crowd = world({
+      canvas: {
+        scene: { id: 'S1' },
+        tokens: {
+          placeables: [
+            { document: token('Scene.S1.Token.A', 'Goblin') },
+            { document: token('Scene.S1.Token.B', 'Orc') },
+            { document: token('Scene.S1.Token.C', 'Goblin', { value: 3, max: 15 }) },
+          ],
+        },
+      },
+    });
+
+    expect(readTokenCandidates(crowd).map((c) => `${c.name} ${String(c.hp)}`)).toEqual([
+      'Goblin 1 10/15 HP',
+      'Orc 10/15 HP',
+      'Goblin 2 3/15 HP',
+    ]);
+  });
+
+  it('leaves out a token whose creature is gone, and shows no HP it cannot read', () => {
+    const odd = world({
+      canvas: {
+        scene: { id: 'S1' },
+        tokens: {
+          placeables: [
+            { document: { uuid: 'Scene.S1.Token.A', name: 'Ghost', actor: null } },
+            { document: { uuid: 'Scene.S1.Token.B', name: 'Hazard', actor: { system: {} } } },
+          ],
+        },
+      },
+    });
+
+    expect(readTokenCandidates(odd)).toEqual([
+      { tokenUuid: 'Scene.S1.Token.B', name: 'Hazard', hp: null },
+    ]);
   });
 
   it('offers nobody with no canvas', () => {

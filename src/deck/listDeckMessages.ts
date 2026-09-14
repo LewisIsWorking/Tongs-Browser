@@ -27,16 +27,23 @@ export interface DeckListGlobals {
     readonly system?: { readonly id?: string };
     readonly messages?: { readonly contents?: readonly ListedMessage[] };
   };
-  readonly fromUuidSync?: (uuid: string) => { readonly name?: string } | null | undefined;
+  readonly fromUuidSync?: (
+    uuid: string
+  ) => { readonly name?: string; readonly actor?: unknown } | null | undefined;
 }
 
 /**
  * ⚠️ A uuid Foundry cannot parse THROWS rather than returning null, and one malformed target recorded
  * on one old message must not take the whole deck down with it. It reads as no target.
+ *
+ * ⚠️ A token whose creature is gone is no target either. Found live on SF2e 2026-09-14: such a card
+ * still named the token, and applying waited ten seconds for damage that could never land. Reading it
+ * as no target makes the button ask who takes it instead.
  */
 function nameOf(globals: DeckListGlobals, uuid: string): string | null {
   try {
-    return globals.fromUuidSync?.(uuid)?.name ?? null;
+    const token = globals.fromUuidSync?.(uuid);
+    return token?.actor ? (token.name ?? null) : null;
   } catch {
     return null;
   }

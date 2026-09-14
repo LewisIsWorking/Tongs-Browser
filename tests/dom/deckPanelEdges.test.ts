@@ -123,3 +123,20 @@ describe('a failure that is not an Error', () => {
     expect(root()?.textContent).toContain('PF2e reported an error: socket closed');
   });
 });
+
+describe('telling creatures apart', () => {
+  it("shows each row's HP beside the name", () => {
+    const wounded = [
+      { tokenUuid: 'Scene.S.Token.G1', name: 'Goblin 1', hp: '15/15 HP' },
+      { tokenUuid: 'Scene.S.Token.G2', name: 'Goblin 2', hp: '3/15 HP' },
+    ];
+    panelWith([untargeted, fear], { candidates: () => wounded }).panel.open();
+
+    tap('Choose who takes 6 piercing and fire');
+    expect(labels()).toContain('Apply 6 piercing and fire to Goblin 2 (3/15 HP)');
+    tap('Back to the card');
+    tap('Next card');
+    tap('Choose who rolls Will DC 17');
+    expect(labels()).toContain('Goblin 1 (15/15 HP)');
+  });
+});

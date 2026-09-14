@@ -33,6 +33,10 @@ export interface BodyContext {
 
 const NO_TOKENS = 'There are no tokens on this scene to choose from.';
 
+/** A row names its creature's HP too, so two goblins of one name are still told apart. */
+const withHp = (label: string, candidate: TokenCandidate) =>
+  candidate.hp === null ? label : `${label} (${candidate.hp})`;
+
 type ApplyChoice = Extract<Choosing, { kind: 'apply-target' }>;
 type RollerChoice = Extract<Choosing, { kind: 'save-rollers' }>;
 
@@ -42,7 +46,10 @@ function targetPicker(ctx: BodyContext, choice: ApplyChoice): HTMLElement {
     /* ⚠️ Each row is the whole sentence, so the tap that decides also says what it will do. */
     rows: ctx.candidates.map((candidate) => ({
       id: candidate.tokenUuid,
-      label: applyLabel(choice.option, choice.amount, choice.types, candidate.name),
+      label: withHp(
+        applyLabel(choice.option, choice.amount, choice.types, candidate.name),
+        candidate
+      ),
     })),
     onRow: (row) => {
       ctx.applyTo(choice.option.id, row.id, row.label);
@@ -60,7 +67,7 @@ function rollerPicker(ctx: BodyContext, choice: RollerChoice): HTMLElement {
     title: 'Who rolls?',
     rows: ctx.candidates.map((candidate) => ({
       id: candidate.tokenUuid,
-      label: candidate.name,
+      label: withHp(candidate.name, candidate),
       pressed: choice.chosen.includes(candidate.tokenUuid),
     })),
     onRow: (row) => {

@@ -87,7 +87,11 @@ describe('rolling a save through the panel', () => {
     Object.assign(deck, { held: [saveCard] });
     const globals: PanelGlobals = {
       game: { user: { isGM: true } },
-      canvas: { tokens: { placeables: [{ document: { uuid: 'Scene.S.Token.X', name: 'Xorn' } }] } },
+      canvas: {
+        tokens: {
+          placeables: [{ document: { uuid: 'Scene.S.Token.X', name: 'Xorn', actor: {} } }],
+        },
+      },
     };
     buildDeckPanel(document, deck as unknown as RollDeck, globals).open();
 

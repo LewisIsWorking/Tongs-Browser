@@ -39,8 +39,8 @@ export const fear: MessageFacts = {
 };
 
 export const goblins = [
-  { tokenUuid: 'Scene.S.Token.G1', name: 'Goblin' },
-  { tokenUuid: 'Scene.S.Token.G2', name: 'Orc' },
+  { tokenUuid: 'Scene.S.Token.G1', name: 'Goblin', hp: null },
+  { tokenUuid: 'Scene.S.Token.G2', name: 'Orc', hp: null },
 ];
 
 export const panelWith = (cards: MessageFacts[], overrides: Partial<DeckPanelPorts> = {}) => {

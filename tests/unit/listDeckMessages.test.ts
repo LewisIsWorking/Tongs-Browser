@@ -27,7 +27,7 @@ const globalsWith = (
   messages: readonly ListedMessage[],
   isGM = true,
   fromUuidSync: DeckListGlobals['fromUuidSync'] = (uuid) =>
-    uuid === TOKEN ? { name: 'Xorn' } : null
+    uuid === TOKEN ? { name: 'Xorn', actor: {} } : null
 ): DeckListGlobals => ({
   game: { user: { isGM }, system: { id: 'pf2e' }, messages: { contents: messages } },
   fromUuidSync,
@@ -75,6 +75,15 @@ describe('which messages are listed', () => {
 });
 
 describe('naming the target', () => {
+  it('reads a token whose creature is gone as no target', () => {
+    const [facts] = listDeckMessages(
+      globalsWith([strike()], true, () => ({ name: 'Xorn', actor: null })),
+      noSaves
+    );
+
+    expect(facts?.target).toBeNull();
+  });
+
   it('reads a target Foundry cannot resolve as no target', () => {
     const [facts] = listDeckMessages(
       globalsWith([strike()], true, () => null),

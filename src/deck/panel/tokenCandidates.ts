@@ -10,15 +10,29 @@
  *
  * ⚠️ Only the VIEWED scene. The deck selects tokens to aim PF2e at them, and only tokens on the scene
  * being viewed can be selected.
+ *
+ * ⛔ SAME-NAMED TOKENS ARE NUMBERED, found live on SF2e 2026-09-14: two copies of one creature read
+ * "Roll Will DC 23 for Robotic Advanced War Machine and Robotic Advanced War Machine", and four
+ * "Goblin Warrior" rows would be four identical buttons. Each duplicate gets a number in scene order,
+ * and every row carries HP, which is how a GM tells the wounded goblin from the fresh one.
+ *
+ * ⚠️ A token whose creature is gone is left out. It cannot take damage or roll, so offering it could
+ * only end in a wait and "PF2e never reported", which is what the same live run did.
  */
 export interface TokenCandidate {
   readonly tokenUuid: string;
+  /** Unique among the candidates: "Goblin Warrior 2" when there is more than one. */
   readonly name: string;
+  /** "12/15 HP", or null when the creature has no hit points to show. */
+  readonly hp: string | null;
 }
 
 interface TokenDocLike {
   readonly uuid?: string;
   readonly name?: string;
+  readonly actor?: {
+    readonly system?: { readonly attributes?: { readonly hp?: { value?: number; max?: number } } };
+  } | null;
 }
 
 interface CombatLike {
@@ -39,16 +53,34 @@ export interface CandidateGlobals {
   };
 }
 
+function hpOf(doc: TokenDocLike): string | null {
+  const hp = doc.actor?.system?.attributes?.hp;
+  return typeof hp?.value === 'number' && typeof hp.max === 'number'
+    ? `${String(hp.value)}/${String(hp.max)} HP`
+    : null;
+}
+
 function asCandidates(docs: readonly (TokenDocLike | null | undefined)[]): TokenCandidate[] {
   const seen = new Set<string>();
-  const candidates: TokenCandidate[] = [];
+  const found: { tokenUuid: string; name: string; hp: string | null }[] = [];
   for (const doc of docs) {
-    if (typeof doc?.uuid === 'string' && typeof doc.name === 'string' && !seen.has(doc.uuid)) {
+    const usable = typeof doc?.uuid === 'string' && typeof doc.name === 'string' && !!doc.actor;
+    if (usable && !seen.has(doc.uuid)) {
       seen.add(doc.uuid);
-      candidates.push({ tokenUuid: doc.uuid, name: doc.name });
+      found.push({ tokenUuid: doc.uuid, name: doc.name, hp: hpOf(doc) });
     }
   }
-  return candidates;
+  const total = new Map<string, number>();
+  found.forEach((each) => total.set(each.name, (total.get(each.name) ?? 0) + 1));
+  const numbered = new Map<string, number>();
+  return found.map((each) => {
+    if (total.get(each.name) === 1) {
+      return each;
+    }
+    const n = (numbered.get(each.name) ?? 0) + 1;
+    numbered.set(each.name, n);
+    return { ...each, name: `${each.name} ${String(n)}` };
+  });
 }
 
 export function readTokenCandidates(globals: CandidateGlobals): TokenCandidate[] {
