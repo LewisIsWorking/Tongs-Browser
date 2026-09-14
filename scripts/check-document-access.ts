@@ -57,6 +57,12 @@ const BOUNDARY: readonly string[] = [
    * met by there being no output at all. If it ever grows a listing, it must grow a filter with it.
    */
   'src/relay/BuildRequestProof.ts',
+  /*
+   * ⚠️ Added 2026-09-13 with the GM roll deck, the first listing of chat messages. It returns nothing
+   * at all to a non-GM, and keeps only messages Foundry says are `visible`, which covers whispers and
+   * blind rolls. Both fail closed.
+   */
+  'src/deck/listDeckMessages.ts',
 ];
 
 const sources = listSourceFiles().filter(

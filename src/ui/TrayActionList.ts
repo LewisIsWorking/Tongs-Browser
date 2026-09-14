@@ -41,6 +41,13 @@ export function everyTrayAction(handlers: TrayActionHandlers): readonly TrayActi
       title: 'Choose which parties players may add characters to',
       activate: handlers.managePartyAccess,
     },
+    /** ⚠️ Before pause, with the other GM errands, rather than among the map controls. */
+    {
+      id: 'roll-deck',
+      label: '🎲',
+      title: 'Open the GM roll deck to apply damage and roll saves from chat',
+      activate: handlers.openRollDeck,
+    },
     {
       id: 'pause',
       label: '⏸',

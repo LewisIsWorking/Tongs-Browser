@@ -22,6 +22,7 @@ describe('buildTrayActions', () => {
       'character',
       'create-sheet',
       'party-access',
+      'roll-deck',
       'pause',
       'grab',
       /* ⚠️ Straight after grab on purpose: undo is what a mis-drag needs. Added 2026-09-07. */
