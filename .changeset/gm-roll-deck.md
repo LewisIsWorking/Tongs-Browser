@@ -17,4 +17,4 @@ between cards, and a card drops out once it is handled.
 - **Players never see it.** The button is GM only, the panel refuses to open for a player, and the
   deck lists only messages Foundry says the viewer can see.
 
-Tested live on PF2e. SF2e shares the same code and reads its own flags, but has not been tested live yet. Swiping between cards will come later.
+Tested live on both PF2e and SF2e, on an emulated phone with touch taps. Creatures that share a name are numbered in the pickers, and every row shows HP. Swiping between cards will come later.
