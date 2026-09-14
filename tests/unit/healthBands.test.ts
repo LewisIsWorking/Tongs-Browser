@@ -23,7 +23,7 @@ describe('segments', () => {
     expect(segmentsFor(40, 28)).toBe(10);
   });
 
-  /* ⚠️ 0.1 + 0.2 territory: a float version puts some exact boundaries one segment too high. */
+  /* ⚠️ Every exact boundary, so rounding the wrong way (down, or to nearest) shows up somewhere. */
   it('lands every exact tenth in its own segment for any max HP up to 1000', () => {
     for (let max = 10; max <= 1000; max += 10) {
       for (let tenth = 1; tenth <= 10; tenth += 1) {

@@ -5,8 +5,8 @@
  * 1 HP and dead never share a segment. Temporary HP is left out: current over max.
  *
  * ⚠️ ROUNDED UP, in integers. `ceil(hp * 10 / max)` puts exactly 50% in segment 5 every time, and 91-100%
- * in segment 10. Integer arithmetic, because `hp / max * 10` can land a hair above a whole number and
- * push an exact boundary into the next segment.
+ * in segment 10. Checked 2026-09-15: for whole HP up to a max of 1000, `hp * 10 / max` and
+ * `hp / max * 10` never disagree, so the order is a habit, not a fix.
  *
  * ⚠️ The words must fit the creature: a robot does not bleed. The set is chosen from its traits.
  */

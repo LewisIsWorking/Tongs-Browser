@@ -46,8 +46,9 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
   {
     file: 'src/bands/healthBands.ts',
     find: '  return Math.min(10, Math.ceil((Math.min(hp, max) * 10) / max));',
-    replace: '  return Math.min(10, Math.ceil((Math.min(hp, max) / max) * 10));',
-    defect: 'an exact tenth of max HP lands one band too high for some creatures',
+    replace: '  return Math.min(10, Math.round((Math.min(hp, max) * 10) / max));',
+    defect:
+      'an enemy at 51% is posted as a band lower than it is, rounded to nearest instead of up',
     tests: ['tests/unit/healthBands.test.ts'],
   },
 ];
