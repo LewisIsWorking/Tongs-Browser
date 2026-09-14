@@ -77,6 +77,38 @@ describe("recording the caster's targets", () => {
     });
   });
 
+  it('reads a world with no system or no targets as nothing to record', () => {
+    const bare = creating();
+    recordCastTargets(bare, 'p', {
+      game: { user: { id: 'p', role: 1 }, users: { activeGM: null } },
+    });
+    expect(bare.updateSource).not.toHaveBeenCalled();
+  });
+
+  it('catches up at once when the setting is already on', () => {
+    const recent = vi.fn(() => []);
+    const hooks = { on: () => 1 };
+    const globals = {
+      game: {
+        user: { id: 'gm', role: 4, isGM: true },
+        users: { activeGM: { id: 'gm', role: 4 } },
+        messages: {
+          get contents() {
+            return recent();
+          },
+        },
+      },
+    };
+    startSpellSaves(
+      {} as RollDeck,
+      hooks,
+      { register: vi.fn(), get: () => true },
+      globals,
+      {} as Document
+    );
+    expect(recent).toHaveBeenCalled();
+  });
+
   it("records nothing for someone else's message, a non-cast, or no targets", () => {
     for (const [message, userId, targets] of [
       [creating(), 'other', ['Scene.S.Token.A']],
@@ -138,6 +170,7 @@ describe('the setting and the hooks', () => {
 
     const card = { id: 'c', timestamp: 1, flags: castFlags, updateSource: vi.fn() };
     handlers.get('preCreateChatMessage')?.(card, {}, {}, 'gm');
+    handlers.get('canvasReady')?.();
     expect(recent).not.toHaveBeenCalled();
 
     enabled = true;

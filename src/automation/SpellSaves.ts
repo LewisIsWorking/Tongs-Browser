@@ -109,9 +109,8 @@ export class SpellSaves {
     }
     const rollers = verdicts.filter((each) => each.verdict.kind === 'ok').map((each) => each.token);
     if (rollers.length === 0) {
-      const why = verdicts
-        .map((each) => (each.verdict.kind === 'deck' ? each.verdict.reason : ''))
-        .filter(Boolean);
+      /* No roller and nothing to wait for means every verdict here is a reason to decline. */
+      const why = verdicts.map((each) => (each.verdict as { reason: string }).reason);
       await this.decline(
         message,
         recorded.length === 0
