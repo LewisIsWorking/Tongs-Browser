@@ -17,6 +17,7 @@ import type { HooksLike } from './watchMessages.js';
  */
 export interface MessageDoc {
   readonly setFlag: (scope: string, key: string, value: unknown) => Promise<unknown>;
+  readonly getFlag?: (scope: string, key: string) => unknown;
   /** Foundry's own render, which runs PF2e's `renderChatMessageHTML` listeners onto the element. */
   readonly renderHTML?: () => Promise<HTMLElement>;
 }

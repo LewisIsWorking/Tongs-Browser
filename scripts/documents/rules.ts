@@ -46,6 +46,11 @@ const ALLOWED_USES: readonly RegExp[] = [
    * applied. It fetches what the caller already knows exists, and renders nothing.
    */
   /\bgame\??\.\s*messages\??\.\s*get\b/,
+  /*
+   * ⚠️ One actor by an id already in hand, added 2026-09-14 with phase 2: the attacker named on a damage
+   * card, to recompute its weapon's formula and ask whether a player owns it. Nothing is listed or shown.
+   */
+  /\bgame\??\.\s*actors\??\.\s*get\b/,
 ];
 
 export interface DocumentAccess {
@@ -114,9 +119,10 @@ export function selfTest(): void {
 
   const chatLog = findDocumentAccess('const log = game?.messages?.contents;', 'sample.ts');
   const oneMessage = findDocumentAccess('const one = game?.messages?.get?.(id);', 'sample.ts');
-  if (chatLog.length !== 1 || oneMessage.length !== 0) {
+  const oneActor = findDocumentAccess('const one = game?.actors?.get?.(id);', 'sample.ts');
+  if (chatLog.length !== 1 || oneMessage.length !== 0 || oneActor.length !== 0) {
     console.error(
-      'SELF TEST FAILED: a message listing must be reported, one message by id must not'
+      'SELF TEST FAILED: a message listing must be reported, one message or actor by id must not'
     );
     process.exit(1);
   }

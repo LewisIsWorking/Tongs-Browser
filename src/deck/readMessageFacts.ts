@@ -25,6 +25,8 @@ import type { DamageFacts, MessageFacts, SaveFacts, TargetFacts } from './deckFa
 /** The shared marker's home: this module's own flag scope, which phase 2's automation reads too. */
 export const MODULE_ID = 'tongs-browser';
 export const HANDLED_FLAG = 'handled';
+/** Why phase 2's automation left a card for the GM, written on the card. See `automation/AutoApply.ts`. */
+export const AUTO_NOTE_FLAG = 'autoDeclined';
 
 /** As much of a damage roll as this reads. */
 export interface RollLike extends AlterableRoll {
@@ -104,6 +106,13 @@ function readHandled(message: MessageLike): boolean {
   return scope?.[HANDLED_FLAG] === true;
 }
 
+function readNote(message: MessageLike): { note?: string } {
+  const note = (message.flags?.[MODULE_ID] as Record<string, unknown> | undefined)?.[
+    AUTO_NOTE_FLAG
+  ];
+  return typeof note === 'string' ? { note } : {};
+}
+
 export function readMessageFacts(message: MessageLike, ports: ReadPorts): MessageFacts {
   return {
     id: message.id,
@@ -114,5 +123,6 @@ export function readMessageFacts(message: MessageLike, ports: ReadPorts): Messag
     saves: message.content === undefined ? [] : ports.saveControls(message.content),
     target: readTarget(systemContext(message, ports.systemId), ports),
     handled: readHandled(message),
+    ...readNote(message),
   };
 }

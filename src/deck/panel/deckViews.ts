@@ -57,6 +57,9 @@ export function buildCardView(
   const view = doc.createElement('section');
   view.className = 'tb-roll-deck__card';
   view.append(heading(doc, card));
+  if (card.note !== undefined) {
+    view.append(note(doc, `Not applied automatically: ${card.note}.`));
+  }
 
   const roll = card.damage.find((each) => each.rollIndex === 0);
   if (roll !== undefined) {

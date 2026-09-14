@@ -63,6 +63,12 @@ const BOUNDARY: readonly string[] = [
    * blind rolls. Both fail closed.
    */
   'src/deck/listDeckMessages.ts',
+  /*
+   * ⚠️ Added 2026-09-14 with phase 2's auto-apply. It reads the recent chat log to pair a damage roll
+   * with its attack and to find queued hits. GM only and `visible === true`, both failing closed, and
+   * nothing it returns is ever shown.
+   */
+  'src/automation/recentStrikeMessages.ts',
 ];
 
 const sources = listSourceFiles().filter(

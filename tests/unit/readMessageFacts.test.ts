@@ -149,6 +149,15 @@ describe('the handled marker', () => {
     expect(readMessageFacts(handled, ports()).handled).toBe(true);
   });
 
+  it("reads the automation's note, and nothing when there is none", () => {
+    const noted = measured('pf2e', {
+      flags: { 'tongs-browser': { autoDeclined: 'the attack did not hit' } },
+    });
+
+    expect(readMessageFacts(noted, ports()).note).toBe('the attack did not hit');
+    expect(readMessageFacts(measured(), ports()).note).toBeUndefined();
+  });
+
   it('does not treat a truthy non-boolean as handled', () => {
     const odd = measured('pf2e', {
       flags: { ...measured().flags, 'tongs-browser': { handled: 'yes' } },

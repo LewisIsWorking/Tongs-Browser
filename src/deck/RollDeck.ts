@@ -8,6 +8,7 @@ import { buildDeck } from './buildDeck.js';
 import { buildSavePorts } from './buildSavePorts.js';
 import type { MessageFacts } from './deckFacts.js';
 import { listDeckMessages } from './listDeckMessages.js';
+import { HANDLED_FLAG, MODULE_ID } from './readMessageFacts.js';
 import { readSaveControlsFromHtml } from './readSaveControls.js';
 import { rollSaveThroughSystem } from './rollSaveThroughSystem.js';
 import type { SaveOutcome } from './rollSaveThroughSystem.js';
@@ -30,6 +31,14 @@ export type RollDeckGlobals = DeckGlobals & DeckListGlobals;
 export class RollDeck {
   private readonly globals: RollDeckGlobals;
   private readonly doc: Document;
+  /**
+   * ⛔ Cards being applied or rolled in THIS browser right now. Added 2026-09-14 with phase 2, whose
+   * automation and the GM's own taps both come through this one service: the handled marker is only
+   * written once PF2e confirms, so without this a tap and the automation could both start on one hit
+   * in the moment before either finishes. Measured: one GM user cannot be joined from two browsers
+   * (the second never becomes ready), so this browser is the only place both can meet.
+   */
+  private readonly inFlight = new Set<string>();
 
   public constructor(globals: RollDeckGlobals, doc: Document) {
     this.globals = globals;
@@ -60,11 +69,13 @@ export class RollDeck {
       return { kind: 'refused', reason: `there is no way to apply damage called "${optionId}"` };
     }
 
-    return applyThroughSystem(buildApplyPorts(this.globals, this.doc), {
-      messageId,
-      option,
-      targetTokenUuid,
-    });
+    return this.once(messageId, async () =>
+      applyThroughSystem(buildApplyPorts(this.globals, this.doc), {
+        messageId,
+        option,
+        targetTokenUuid,
+      })
+    );
   }
 
   /**
@@ -85,10 +96,28 @@ export class RollDeck {
     if (save === undefined) {
       return { kind: 'refused', reason: 'that card has been handled or no longer asks for a save' };
     }
-    return rollSaveThroughSystem(buildSavePorts(this.globals, this.doc), {
-      messageId,
-      save,
-      tokenUuids,
-    });
+    return this.once(messageId, async () =>
+      rollSaveThroughSystem(buildSavePorts(this.globals, this.doc), { messageId, save, tokenUuids })
+    );
+  }
+
+  /** ⛔ First one wins: a card already handled, or already under way here, is refused and not sent. */
+  private async once<T>(
+    messageId: string,
+    work: () => Promise<T>
+  ): Promise<T | { readonly kind: 'refused'; readonly reason: string }> {
+    const message = this.globals.game?.messages?.get?.(messageId);
+    if (message?.getFlag?.(MODULE_ID, HANDLED_FLAG) === true) {
+      return { kind: 'refused', reason: 'that card has already been handled' };
+    }
+    if (this.inFlight.has(messageId)) {
+      return { kind: 'refused', reason: 'that card is already being handled' };
+    }
+    this.inFlight.add(messageId);
+    try {
+      return await work();
+    } finally {
+      this.inFlight.delete(messageId);
+    }
   }
 }
