@@ -10,7 +10,7 @@ import type { CooClient } from './CooClient.js';
  * ⚠️ Foundry opens a settings menu with `new menu.type().render(true)`, so the menu is a class whose
  * `render` opens the dialog. `restricted` keeps it to GMs, the only users bands are for.
  */
-export const SIGN_IN_MENU = 'cooSignIn';
+const SIGN_IN_MENU = 'cooSignIn';
 
 export interface SignInGlobals {
   readonly foundry?: {
