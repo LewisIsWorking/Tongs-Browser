@@ -45,13 +45,14 @@ describe('a genuine hit', () => {
     expect(validateStrike(damage(), history(), FORMULA)).toEqual({
       kind: 'valid',
       attackId: 'attack',
+      targetToken: TARGET,
     });
   });
 
   it('pairs with the latest matching attack, not an older one', () => {
     const older = attack({ id: 'older', timestamp: 500, outcome: 'failure' });
 
-    expect(validateStrike(damage(), history([older, attack()]), FORMULA)).toEqual({
+    expect(validateStrike(damage(), history([older, attack()]), FORMULA)).toMatchObject({
       kind: 'valid',
       attackId: 'attack',
     });

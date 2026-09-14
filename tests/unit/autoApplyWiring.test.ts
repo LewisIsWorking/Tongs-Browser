@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { buildAutoApply } from '../../src/automation/buildAutoApply.js';
 import { recentStrikeMessages, RECENT_LIMIT } from '../../src/automation/recentStrikeMessages.js';
 import {
   AUTO_APPLY_SETTING,
   registerAutoApplySetting,
   startAutoApply,
 } from '../../src/automation/startAutoApply.js';
+import { logger } from '../../src/core/Logger.js';
 import type { RollDeck } from '../../src/deck/RollDeck.js';
 
 /**
@@ -62,32 +64,34 @@ describe('the world setting', () => {
   });
 });
 
-describe('the hooks', () => {
-  const setup = (enabled: boolean) => {
-    const handlers = new Map<string, (...args: unknown[]) => void>();
-    const hooks = {
-      on(this: unknown, name: string, fn: (...args: never[]) => unknown) {
-        handlers.set(name, fn as (...args: unknown[]) => void);
-        return handlers.size;
-      },
-    };
-    const settings = { register: vi.fn(), get: vi.fn(() => enabled) };
-    const recent = vi.fn(() => []);
-    const globals = {
-      game: {
-        user: { id: 'gm', role: 4, isGM: true },
-        users: { activeGM: { id: 'gm', role: 4 } },
-        system: { id: 'pf2e' },
-        messages: {
-          get contents() {
-            return recent();
-          },
+const setupWith = (enabled: boolean) => {
+  const handlers = new Map<string, (...args: unknown[]) => void>();
+  const hooks = {
+    on(this: unknown, name: string, fn: (...args: never[]) => unknown) {
+      handlers.set(name, fn as (...args: unknown[]) => void);
+      return handlers.size;
+    },
+  };
+  const settings = { register: vi.fn(), get: vi.fn(() => enabled) };
+  const recent = vi.fn(() => []);
+  const globals = {
+    game: {
+      user: { id: 'gm', role: 4, isGM: true },
+      users: { activeGM: { id: 'gm', role: 4 } },
+      system: { id: 'pf2e' },
+      messages: {
+        get contents() {
+          return recent();
         },
       },
-    };
-    startAutoApply({} as RollDeck, hooks, settings, globals);
-    return { handlers, settings, recent };
+    },
   };
+  startAutoApply({} as RollDeck, hooks, settings, globals);
+  return { handlers, settings, recent };
+};
+
+describe('the hooks', () => {
+  const setup = setupWith;
 
   it('listens for new messages, scene changes and users connecting', () => {
     const { handlers } = setup(false);
@@ -112,5 +116,55 @@ describe('the hooks', () => {
     on.recent.mockClear();
     on.handlers.get('canvasReady')?.();
     expect(on.recent).toHaveBeenCalled();
+  });
+});
+
+describe('when switched on', () => {
+  it('handles new messages and connecting users, and logs a failure instead of throwing', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    const { handlers, recent } = setupWith(true);
+    recent.mockImplementation(() => {
+      throw new Error('chat log unavailable');
+    });
+
+    handlers.get('userConnected')?.();
+    handlers.get('createChatMessage')?.({ id: 'x', timestamp: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('chat log unavailable'));
+    warn.mockRestore();
+  });
+});
+
+describe('with an empty world', () => {
+  /** Every port answers safely when Foundry has nothing to give, rather than throwing mid-game. */
+  it('answers every question without throwing', async () => {
+    const ports = buildAutoApply({}, {} as RollDeck);
+    const card = { id: 'x', timestamp: 1 };
+
+    expect(ports.role()).toBe('queue');
+    expect(ports.myUserId()).toBeNull();
+    expect(ports.systemId()).toBe('');
+    expect(ports.recentMessages()).toEqual([]);
+    expect(ports.flag(card, 'handled')).toBeUndefined();
+    expect(ports.isHandled(card)).toBe(false);
+    expect(ports.attackerIsPlayers('A')).toBe(false);
+    expect(ports.targetState('Scene.S.Token.X')).toMatchObject({ elsewhere: true, exists: false });
+    await expect(ports.setFlag('x', 'pending', true)).resolves.toBeUndefined();
+    await expect(ports.unsetFlag('x', 'pending')).resolves.toBeUndefined();
+    const damage = {
+      ...card,
+      actorId: 'A',
+      itemUuid: 'W',
+      targetToken: 'Scene.S.Token.X',
+      outcome: 'success',
+      authorId: null,
+      strikeIndex: 0,
+      formula: 'f',
+      total: 1,
+      min: 1,
+      max: 1,
+    };
+    expect(await ports.recomputeFormula(damage, 'a1')).toBeNull();
   });
 });

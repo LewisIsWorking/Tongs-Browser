@@ -12,7 +12,7 @@ import type { StrikeAttackFacts, StrikeDamageFacts } from './strikeFacts.js';
  * Pure: every fact is handed in, so each rule is provable without a Foundry.
  */
 export type StrikeVerdict =
-  | { readonly kind: 'valid'; readonly attackId: string }
+  | { readonly kind: 'valid'; readonly attackId: string; readonly targetToken: string }
   | { readonly kind: 'deck'; readonly reason: string };
 
 export interface StrikeHistory {
@@ -87,5 +87,5 @@ export function validateStrike(
   if (damage.total < damage.min || damage.total > damage.max) {
     return deck(`a total of ${String(damage.total)} is not possible for ${damage.formula}`);
   }
-  return { kind: 'valid', attackId: attack.id };
+  return { kind: 'valid', attackId: attack.id, targetToken: damage.targetToken };
 }

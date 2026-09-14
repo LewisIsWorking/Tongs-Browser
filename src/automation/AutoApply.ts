@@ -139,7 +139,7 @@ export class AutoApply {
       return;
     }
 
-    const token = damage.targetToken ?? '';
+    const token = verdict.targetToken;
     const target = checkTarget(this.ports.targetState(token));
     if (target.kind === 'later') {
       await this.ports.setFlag(message.id, PENDING_FLAG, true);
