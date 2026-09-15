@@ -66,6 +66,35 @@ describe('the public cause', () => {
   });
 });
 
+describe('a card that names nobody', () => {
+  it('gives the GM a plain cause and the table nothing', async () => {
+    const bare = hooks();
+    const asked: string[] = [];
+    const waiting = watchCause(bare.fake, 'pf2e', 'Actor.T', 3000, names, (uuid) => {
+      asked.push(uuid);
+      return changer;
+    });
+    bare.send({
+      flags: { pf2e: { context: { type: 'damage-taken' }, appliedDamage: { uuid: 'Actor.T' } } },
+    });
+    expect(await waiting).toEqual({ gm: 'damage applied', shown: null });
+    expect(asked).toEqual([]);
+
+    const itemless = hooks();
+    const noItem = watchCause(itemless.fake, 'pf2e', 'Actor.T', 3000, names, () => changer);
+    itemless.send({
+      flags: {
+        pf2e: {
+          context: { type: 'damage-taken' },
+          appliedDamage: { uuid: 'Actor.T' },
+          origin: { actor: 'Actor.C' },
+        },
+      },
+    });
+    expect((await noItem).shown?.text).toBe('Changer');
+  });
+});
+
 describe('what the reporter sends', () => {
   it('adds the public cause and both pictures when they are known, and neither when they are not', async () => {
     const posts: BandPost[] = [];

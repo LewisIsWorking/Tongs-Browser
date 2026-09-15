@@ -63,6 +63,19 @@ describe('an attacker the players can see', () => {
     expect(readSeenAttacker(world({ ...actor, token: own }), 'Actor.A')?.name).toBe('Goblin 3');
   });
 
+  it("falls back to the actor's own picture and a plain word when the character has neither token nor name", () => {
+    const bare = creature({
+      name: undefined,
+      hasPlayerOwner: true,
+      img: 'https://assets.forge-vtt.com/u/pc.webp',
+    });
+    expect(readSeenAttacker(world(bare), 'Actor.A')).toEqual({
+      name: 'someone',
+      image: 'https://assets.forge-vtt.com/u/pc.webp',
+    });
+    expect(readSeenAttacker(world(creature({ isToken: true, token: null })), 'Actor.A')).toBeNull();
+  });
+
   it("uses PF2e's name rule: a hidden name is fine when the world does not hide names", () => {
     const actor = creature();
     const token = tokenOf(actor, { playersCanSeeName: false });
