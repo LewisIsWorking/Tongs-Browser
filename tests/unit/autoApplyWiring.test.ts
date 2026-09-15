@@ -177,4 +177,13 @@ describe('with an empty world', () => {
       await ports.recomputeFormula({ ...damage, targetToken: 'not a token' }, 'a1')
     ).toBeNull();
   });
+
+  /* A uuid Foundry refuses to resolve reads as a target that is gone, never as an exception mid-game. */
+  it('reads a target whose lookup throws as gone', () => {
+    const lookup = () => {
+      throw new Error('cannot resolve');
+    };
+    const ports = buildAutoApply({ fromUuidSync: lookup }, {} as RollDeck);
+    expect(ports.targetState('Scene.S.Token.X')).toMatchObject({ exists: false, hp: null });
+  });
 });
