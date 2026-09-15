@@ -564,3 +564,18 @@
 .tb-choice-menu--notice .tb-choice-menu__item {
   text-align: center;
 }
+
+/*
+ * The party campaigns dialog. Found live 2026-09-15: with 24 parties it grew past the window and did
+ * not scroll, so the first parties could not be reached. See bands/partyCampaignsMenu.ts.
+ */
+.tb-party-campaigns {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.tb-party-campaigns label {
+  display: block;
+  margin-bottom: 0.5rem;
+}

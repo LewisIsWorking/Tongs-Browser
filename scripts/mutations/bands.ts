@@ -97,4 +97,13 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
     defect: 'the GM is told no party has a campaign, not which character is missing from one',
     tests: ['tests/unit/combatCampaignMatch.test.ts'],
   },
+  {
+    /* ⛔ Found live: 24 parties outgrew the window and the first ones could not be reached. */
+    file: 'src/bands/partyCampaignsMenu.ts',
+    find: '    content: `<div class="${PARTY_LIST_CLASS}">${content}</div>`,',
+    replace: '    content,',
+    defect:
+      'a world with many parties gets a dialog taller than the window whose first parties cannot be reached',
+    tests: ['tests/unit/partyCampaignsMenu.test.ts'],
+  },
 ];
