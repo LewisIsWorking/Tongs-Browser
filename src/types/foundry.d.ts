@@ -43,6 +43,7 @@ declare global {
     register(namespace: string, key: string, data: FoundrySettingRegistration): void;
     get(namespace: string, key: string): unknown;
     set(namespace: string, key: string, value: unknown): Promise<unknown>;
+    registerMenu?(namespace: string, key: string, data: object): void;
   }
 
   interface FoundryModuleEntry {

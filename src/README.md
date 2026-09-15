@@ -28,6 +28,7 @@ The module itself. Everything shipped in `dist/tongs-browser.js` comes from here
 | `ui/`, `relay/` | Tray contents; other people's pause         |
 | `deck/`         | The GM roll deck: apply damage, roll saves  |
 | `automation/`   | Players' checked hits, without the GM       |
+| `bands/`        | Enemies' health bands, posted to Telegram   |
 
 ## The composition root is separate from the parts
 

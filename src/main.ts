@@ -14,6 +14,10 @@ import { registerAutoApplySetting, startAutoApply } from './automation/startAuto
 import { registerSpellSavesSetting, startSpellSaves } from './automation/startSpellSaves.js';
 import { registerSpellDamageSetting, startSpellDamage } from './automation/startSpellDamage.js';
 import type { AutoGlobals } from './automation/buildAutoApply.js';
+import { registerSignInMenu } from './bands/cooSignIn.js';
+import type { SignInGlobals } from './bands/cooSignIn.js';
+import { buildCooClient, registerBandSettings, startBands } from './bands/startBands.js';
+import type { CooClient } from './bands/CooClient.js';
 
 /**
  * Module entry point.
@@ -25,6 +29,7 @@ import type { AutoGlobals } from './automation/buildAutoApply.js';
 
 let instance: TongsBrowser | null = null;
 let store: SettingsStore | null = null;
+let cooClient: CooClient | null = null;
 const exclusions = new ExclusionZones();
 
 Hooks.once('init', () => {
@@ -60,6 +65,10 @@ Hooks.once('init', () => {
   registerAutoApplySetting(settingsApi);
   registerSpellSavesSetting(settingsApi);
   registerSpellDamageSetting(settingsApi);
+  registerBandSettings(settingsApi);
+  /* ⚠️ ONE client for the sign-in menu and the reporter: COO rotates refresh tokens. */
+  cooClient = buildCooClient(settingsApi, globalThis);
+  registerSignInMenu(settingsApi, cooClient, globalThis as SignInGlobals);
 
   /*
    * ⚠️ Called at INIT, before Foundry builds the canvas, and nothing keeps the result. Both
@@ -163,6 +172,8 @@ Hooks.once('ready', () => {
     startAutoApply(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals);
     startSpellSaves(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals, document);
     startSpellDamage(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals);
+    /* Health bands: off until the world names its campaign. See bands/startBands.ts. */
+    startBands(Hooks, game.settings, globalThis, cooClient);
   }
 
   const moduleEntry = game?.modules.get(MODULE_ID);
