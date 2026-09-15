@@ -127,11 +127,9 @@ export function subjectsForActor(actor: unknown, globals: BandGlobals): (BandSub
   const fighting = allCombatants(globals).flatMap(({ combatant }) =>
     combatant.token?.actor === doc ? [combatant.token] : []
   );
-  const tokens = new Map<string, TokenDocLike>();
-  for (const token of [...(doc.getActiveTokens?.(true, true) ?? []), ...fighting]) {
-    tokens.set(token.uuid ?? '', token);
-  }
-  return [...tokens.values()].map((token) => subjectOf(token, globals));
+  /* One token document is one object, whether the scene or an encounter handed it over. */
+  const tokens = new Set([...(doc.getActiveTokens?.(true, true) ?? []), ...fighting]);
+  return [...tokens].map((token) => subjectOf(token, globals));
 }
 
 /** Every token in every encounter, to remember its band before anything changes. */
