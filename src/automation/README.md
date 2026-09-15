@@ -4,23 +4,24 @@ Phase 2: players' checked strike damage applied to enemies, enemies' saves again
 rolled, and those spells' basic-save damage applied by degree of success, without waiting for the GM.
 Each is off per world until a GM turns it on.
 
-| File                      | What it is                                                                 |
-| ------------------------- | -------------------------------------------------------------------------- |
-| `automationRole.ts`       | Whether this browser acts, leaves it to the GM's browser, or queues        |
-| `strikeFacts.ts`          | A strike's attack and damage cards read into facts, against measured cards |
-| `validateStrike.ts`       | Whether a damage roll follows a real hit and is possible for its weapon    |
-| `targetCheck.ts`          | Whether the target is still an enemy standing in the fight on this scene   |
-| `AutoApply.ts`            | Acting, queueing and catching up, around those decisions                   |
-| `recentStrikeMessages.ts` | The recent chat log, on the document boundary: GM only, visible only       |
-| `buildAutoApply.ts`       | The real Foundry behind `AutoApply`, every method called on its own object |
-| `spellFacts.ts`           | A spell's cast card read into facts, and the targets its caster recorded   |
-| `SpellSaves.ts`           | Rolling enemies' saves against players' spells, queued while no full GM    |
-| `startSpellSaves.ts`      | Its own world setting, recording the caster's targets, and its hooks       |
-| `spellDamageFacts.ts`     | A spell's damage card and its targets' save cards read into facts          |
-| `validateSpellDamage.ts`  | Whether spell damage follows a cast and fits it, grouped by each save      |
-| `SpellDamage.ts`          | Applying basic-save spell damage by degree, queued while no full GM        |
-| `startSpellDamage.ts`     | Its own world setting, the spell's rule at its cast rank, and its hooks    |
-| `startAutoApply.ts`       | The world setting, and connecting the automation to Foundry's hooks        |
+| File                      | What it is                                                                   |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| `automationRole.ts`       | Whether this browser acts, leaves it to the GM's browser, or queues          |
+| `strikeFacts.ts`          | A strike's attack and damage cards read into facts, against measured cards   |
+| `validateStrike.ts`       | Whether a damage roll follows a real hit and is possible for its weapon      |
+| `tokenCombats.ts`         | The encounters a token is in, searched across all of them, not the tracker's |
+| `targetCheck.ts`          | Whether the target is still an enemy standing in the fight on this scene     |
+| `AutoApply.ts`            | Acting, queueing and catching up, around those decisions                     |
+| `recentStrikeMessages.ts` | The recent chat log, on the document boundary: GM only, visible only         |
+| `buildAutoApply.ts`       | The real Foundry behind `AutoApply`, every method called on its own object   |
+| `spellFacts.ts`           | A spell's cast card read into facts, and the targets its caster recorded     |
+| `SpellSaves.ts`           | Rolling enemies' saves against players' spells, queued while no full GM      |
+| `startSpellSaves.ts`      | Its own world setting, recording the caster's targets, and its hooks         |
+| `spellDamageFacts.ts`     | A spell's damage card and its targets' save cards read into facts            |
+| `validateSpellDamage.ts`  | Whether spell damage follows a cast and fits it, grouped by each save        |
+| `SpellDamage.ts`          | Applying basic-save spell damage by degree, queued while no full GM          |
+| `startSpellDamage.ts`     | Its own world setting, the spell's rule at its cast rank, and its hooks      |
+| `startAutoApply.ts`       | The world setting, and connecting the automation to Foundry's hooks          |
 
 ## Decided with Lewis, 2026-09-14
 

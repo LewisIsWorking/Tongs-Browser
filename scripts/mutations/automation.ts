@@ -144,4 +144,25 @@ export const AUTOMATION_MUTATIONS: readonly RecordedMutation[] = [
       "only the first enemy in a group takes a spell's damage, and the card is marked handled",
     tests: ['tests/unit/applyGroupsThroughSystem.test.ts'],
   },
+  {
+    /* ⛔ Found live on Forge: the tracker showed encounter 1 while the enemy fought in encounter 4. */
+    file: 'src/automation/tokenCombats.ts',
+    find: '  return (globals.game?.combats?.contents ?? []).flatMap((combat) =>',
+    replace: '  return (globals.game?.combats?.contents ?? []).slice(0, 1).flatMap((combat) =>',
+    defect:
+      'a hit on an enemy in any encounter but the first goes to the roll deck as out of combat, and its band is never posted',
+    tests: [
+      'tests/unit/tokenCombats.test.ts',
+      'tests/unit/buildAutoApply.test.ts',
+      'tests/unit/bandEncounters.test.ts',
+    ],
+  },
+  {
+    file: 'src/automation/tokenCombats.ts',
+    find: '        (combatant.sceneId === undefined || combatant.sceneId === sceneId)',
+    replace: '        true',
+    defect:
+      'a token on one scene is read as fighting because a token with the same id fights on another',
+    tests: ['tests/unit/tokenCombats.test.ts'],
+  },
 ];

@@ -14,9 +14,7 @@ const kibwe: PartyCampaignEntry = {
   campaign: 'C06',
   members: ['Actor.Changer'],
 };
-const inCombat = (...combatants: object[]) => ({
-  game: { combat: { combatants: { contents: combatants } } },
-});
+const inCombat = (...combatants: object[]) => ({ combatants: { contents: combatants } });
 const character = (uuid: string, name = 'Changer') => ({
   uuid,
   name,

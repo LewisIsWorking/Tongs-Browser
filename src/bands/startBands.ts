@@ -4,7 +4,7 @@ import { MODULE_ID } from '../constants.js';
 import { logger } from '../core/Logger.js';
 import { BandReporter } from './BandReporter.js';
 import { MANUAL_CAUSE } from './bandCause.js';
-import { combatSubjects, subjectsForActor } from './bandTokens.js';
+import { combatOfToken, combatSubjects, subjectsForActor } from './bandTokens.js';
 import { combatCampaign } from './combatCampaign.js';
 import { registerSignInMenu } from './cooSignIn.js';
 import type { SignInGlobals } from './cooSignIn.js';
@@ -13,7 +13,6 @@ import type { FoundryGame } from '../foundry/PartyAccess.js';
 import { registerPartyCampaignsMenu } from './partyCampaignsMenu.js';
 import type { PartyCampaignGlobals } from './partyCampaignsMenu.js';
 import type { MenuSettings } from './settingsMenu.js';
-import type { CampaignGlobals } from './combatCampaign.js';
 import type { BandGlobals } from './bandTokens.js';
 import { CooClient } from './CooClient.js';
 import type { CooPorts } from './CooClient.js';
@@ -47,7 +46,6 @@ interface HooksLike {
 const CAUSE_WINDOW_MS = 3000;
 
 export type StartGlobals = BandGlobals &
-  CampaignGlobals &
   RoleGlobals & {
     readonly game?: { readonly system?: { readonly id?: string } };
     readonly fetch?: CooPorts['fetch'];
@@ -118,9 +116,9 @@ export function startBands(
   const client = given ?? buildCooClient(settings, globals);
   const reporter = new BandReporter({
     role: () => automationRole(globals),
-    campaign: () =>
+    campaign: (tokenUuid) =>
       combatCampaign(
-        globals,
+        combatOfToken(globals, tokenUuid),
         readPartyCampaigns({ getGame: () => globals.game as FoundryGame | undefined })
       ),
     subjectsFor: (actor) => subjectsForActor(actor, globals),

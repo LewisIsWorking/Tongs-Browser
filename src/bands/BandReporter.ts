@@ -28,11 +28,11 @@ import type { CampaignChoice } from './partyCampaign.js';
  */
 export interface BandPorts {
   readonly role: () => AutomationRole;
-  /** The campaign of the combat being viewed; see `combatCampaign.ts`. */
-  readonly campaign: () => CampaignChoice;
+  /** The campaign of the encounter this token is fighting in; see `combatCampaign.ts`. */
+  readonly campaign: (tokenUuid: string) => CampaignChoice;
   /** Every token whose actor this is, read as players would be told about it; null entries are skipped. */
   readonly subjectsFor: (actor: unknown) => readonly (BandSubject | null)[];
-  /** Every token in the running combat on the viewed scene. */
+  /** Every token in every encounter in the world. */
   readonly combatSubjects: () => readonly (BandSubject | null)[];
   readonly post: (campaign: string, post: BandPost) => Promise<PostOutcome>;
   /** Why this actor's HP changed, for the GM's DM; see `causeWatch.ts`. Called at once, awaited later. */
@@ -73,7 +73,6 @@ export class BandReporter {
       return;
     }
     const cause = this.ports.causeFor(actor);
-    const choice = this.ports.campaign();
     for (const subject of this.ports.subjectsFor(actor)) {
       if (subject === null) {
         continue;
@@ -83,6 +82,7 @@ export class BandReporter {
         continue;
       }
       this.told.set(subject.tokenUuid, { segments: subject.segments, hp: subject.hp });
+      const choice = this.ports.campaign(subject.tokenUuid);
       if (choice.kind !== 'one') {
         this.warnProblem(choice);
         continue;

@@ -3,7 +3,7 @@ import { campaignForCombat, normalizeCampaign } from './partyCampaign.js';
 import type { CampaignChoice } from './partyCampaign.js';
 
 /**
- * The campaign of the combat being viewed, from the player characters fighting in it. Added
+ * The campaign of an encounter, from the player characters fighting in it. Added
  * 2026-09-15.
  *
  * ⛔ MEMBERSHIP IS READ FROM EACH PARTY'S OWN MEMBER LIST, NOT FROM `actor.parties`. Found live
@@ -28,25 +28,22 @@ interface CombatantActor {
   readonly hasPlayerOwner?: boolean;
 }
 
-interface CombatantLike {
+export interface CampaignCombatant {
   readonly actor?: CombatantActor | null;
   readonly token?: { readonly baseActor?: { readonly uuid?: string } | null } | null;
 }
 
-export interface CampaignGlobals {
-  readonly game?: {
-    readonly combat?: {
-      readonly combatants?: { readonly contents?: readonly CombatantLike[] };
-    } | null;
-  };
+/** The encounter the band's creature is fighting in; see `bandTokens.combatOfToken`. */
+export interface CampaignCombat {
+  readonly combatants?: { readonly contents?: readonly CampaignCombatant[] };
 }
 
 export function combatCampaign(
-  globals: CampaignGlobals,
+  combat: CampaignCombat | undefined,
   parties: readonly PartyCampaignEntry[]
 ): CampaignChoice {
   return campaignForCombat(
-    (globals.game?.combat?.combatants?.contents ?? []).flatMap((combatant) => {
+    (combat?.combatants?.contents ?? []).flatMap((combatant) => {
       const actor = combatant.actor;
       if (actor?.type !== 'character' || actor.hasPlayerOwner !== true) {
         return [];

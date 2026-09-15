@@ -55,12 +55,11 @@ const world = () => {
             : undefined;
         },
       },
-      combat: {
-        combatants: {
-          some(this: unknown, test: (c: { tokenId?: string }) => boolean) {
-            return [{ tokenId: 'X' }].some(test);
-          },
-        },
+      combats: {
+        contents: [
+          { started: true, combatants: { contents: [{ tokenId: 'Other', sceneId: 'S' }] } },
+          { started: true, combatants: { contents: [{ tokenId: 'X', sceneId: 'S' }] } },
+        ],
       },
     },
     canvas: {
@@ -169,7 +168,8 @@ describe("PF2e's own formula", () => {
 });
 
 describe('the target as it is now', () => {
-  it('reads an enemy standing in the combat on this scene', () => {
+  /* ⛔ Found live: the tracker showed encounter 1 while the enemy fought in encounter 4. */
+  it('reads an enemy standing in any encounter on this scene, not only the one the tracker shows', () => {
     expect(world().ports.targetState('Scene.S.Token.X')).toEqual({
       elsewhere: false,
       exists: true,
