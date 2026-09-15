@@ -32,7 +32,16 @@ export const world = (campaign: unknown = 'C06') => {
   const warn = vi.fn();
   const globals = {
     game: {
-      user: { id: 'gm', role: 4 },
+      user: { id: 'gm', role: 4, isGM: true },
+      actors: [
+        {
+          type: 'party',
+          uuid: 'Actor.Party',
+          name: 'Party',
+          getFlag: () => campaign,
+          system: { details: { members: [{ uuid: 'Actor.PC' }] } },
+        },
+      ],
       users: { activeGM: { id: 'gm', role: 4 } },
       combat: {
         combatants: {
@@ -41,11 +50,7 @@ export const world = (campaign: unknown = 'C06') => {
             {
               tokenId: 'P',
               token: null,
-              actor: {
-                type: 'character',
-                hasPlayerOwner: true,
-                parties: [{ getFlag: () => campaign }],
-              },
+              actor: { uuid: 'Actor.PC', type: 'character', hasPlayerOwner: true },
             },
           ],
         },

@@ -15,9 +15,9 @@ import type { PartyCampaignEntry } from '../../src/foundry/PartyAccess.js';
  * ⚠️ Party fakes read `this`, so writing a flag through a detached `setFlag` fails here.
  */
 const PARTIES: PartyCampaignEntry[] = [
-  { uuid: 'Actor.Kibwe', name: 'Kibwe <The Brave>', campaign: 'C06' },
-  { uuid: 'Actor.Metal', name: 'Metal City', campaign: undefined },
-  { uuid: 'Actor.Theria', name: 'Theria', campaign: 'C08' },
+  { uuid: 'Actor.Kibwe', name: 'Kibwe <The Brave>', campaign: 'C06', members: [] },
+  { uuid: 'Actor.Metal', name: 'Metal City', campaign: undefined, members: [] },
+  { uuid: 'Actor.Theria', name: 'Theria', campaign: 'C08', members: [] },
 ];
 
 const world = (answer: unknown) => {

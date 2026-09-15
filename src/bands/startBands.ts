@@ -118,7 +118,11 @@ export function startBands(
   const client = given ?? buildCooClient(settings, globals);
   const reporter = new BandReporter({
     role: () => automationRole(globals),
-    campaign: () => combatCampaign(globals),
+    campaign: () =>
+      combatCampaign(
+        globals,
+        readPartyCampaigns({ getGame: () => globals.game as FoundryGame | undefined })
+      ),
     subjectsFor: (actor) => subjectsForActor(actor, globals),
     combatSubjects: () => combatSubjects(globals),
     post: async (campaign, post) => client.postBand(campaign, post),

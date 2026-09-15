@@ -43,7 +43,8 @@ ComeOnOverUno server. Off until a party has a campaign.
 - PF2e updates the actor BEFORE it creates the damage-taken card, whose `appliedDamage.uuid` is the actor's
   uuid and whose `origin` is the item's `getOriginData()` (`{ actor, uuid }`); the IWR is JSON in
   `.iwr[data-applications]`. So the cause is watched for from the moment of the update.
-- A party's `prepareBaseData` adds itself to each member's `actor.parties`, a Set, so a character knows
-  every party it is in (pf2e 8.5.0).
+- A party adds itself to its members' `actor.parties` only when it is already in the world's actor list,
+  so a party created mid-session is in none of them until something updates it (found live, pf2e 8.5.0).
+  Membership is therefore read from each party's own `system.details.members`.
 - SF2e robots carry `construct` and `robot`. `tech` is also on androids and a metal elemental, so it is
   not read as a construct.

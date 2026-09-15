@@ -30,6 +30,10 @@ export interface ActorLike {
   readonly isOwner?: boolean;
   testUserPermission?: (user: unknown, level: string) => boolean;
   getFlag?: (scope: string, key: string) => unknown;
+  /** A party's own member list: `system.details.members`, each `{ uuid }`. */
+  readonly system?: {
+    readonly details?: { readonly members?: readonly { readonly uuid?: unknown }[] };
+  };
 }
 
 export interface UserLike {
@@ -60,11 +64,13 @@ export const PLAYER_CREATION_FLAG = 'allowPlayerCreation';
 /** The flag a GM sets to name the Path Wars campaign a party plays in; see `bands/partyCampaign.ts`. */
 export const PARTY_CAMPAIGN_FLAG = 'bandsCampaign';
 
-/** A party and the campaign code its flag holds, raw: `bands` decides what counts as a code. */
+/** A party, the campaign code its flag holds (raw: `bands` decides what counts as a code), and its members. */
 export interface PartyCampaignEntry {
   readonly uuid: string;
   readonly name: string;
   readonly campaign: unknown;
+  /** Actor uuids from the party's own `system.details.members`. */
+  readonly members: readonly string[];
 }
 
 /**
@@ -145,6 +151,9 @@ export function readPartyCampaigns(options: PartyAccessOptions): PartyCampaignEn
         uuid: actor.uuid,
         name: actor.name,
         campaign: actor.getFlag?.(MODULE_ID, PARTY_CAMPAIGN_FLAG),
+        members: (actor.system?.details?.members ?? []).flatMap((member) =>
+          typeof member.uuid === 'string' ? [member.uuid] : []
+        ),
       });
     }
   }

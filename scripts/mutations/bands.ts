@@ -72,4 +72,13 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
     defect: "an enemy's party, or a companion's, decides which campaign hears about the fight",
     tests: ['tests/unit/partyCampaign.test.ts'],
   },
+  {
+    /* ⛔ Found live: reading membership from actor.parties missed a party made mid-session. */
+    file: 'src/bands/combatCampaign.ts',
+    find: '        .filter((party) => actor.uuid !== undefined && party.members.includes(actor.uuid))',
+    replace: '        .filter(() => actor.uuid !== undefined)',
+    defect:
+      "every party's campaign is counted for every character, so one campaign's fight reads as mixed",
+    tests: ['tests/unit/partyCampaign.test.ts'],
+  },
 ];
