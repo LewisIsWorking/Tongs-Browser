@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.37.0
+
+### Minor Changes
+
+- [#381](https://github.com/LewisIsWorking/Tongs-Browser/pull/381) [`ef00d51`](https://github.com/LewisIsWorking/Tongs-Browser/commit/ef00d51df57f79a1a798479573aa2ba0c78ca06c) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Health bands posted to the combat topic can now say what hit the creature ("Turret Disintegrator from Changer") and carry the attacker's and the creature's token pictures as a two-photo album. The weapon and attacker are named only when players can see the attacker: not hidden, not invisible or undetected, and with a name players can read. The creature's picture is sent only when players can see its name. Resistances and weaknesses stay in the GM's message.
+
 ## 0.36.0
 
 ### Minor Changes
