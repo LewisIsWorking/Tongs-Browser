@@ -43,17 +43,22 @@ export const world = (campaign: unknown = 'C06') => {
         },
       ],
       users: { activeGM: { id: 'gm', role: 4 } },
-      combat: {
-        combatants: {
-          contents: [
-            { tokenId: 'G', token: goblin.token as never, actor: goblin as never },
-            {
-              tokenId: 'P',
-              token: null,
-              actor: { uuid: 'Actor.PC', type: 'character', hasPlayerOwner: true },
+      combats: {
+        contents: [
+          {
+            started: true,
+            combatants: {
+              contents: [
+                { tokenId: 'G', token: goblin.token as never, actor: goblin as never },
+                {
+                  tokenId: 'P',
+                  token: null,
+                  actor: { uuid: 'Actor.PC', type: 'character', hasPlayerOwner: true },
+                },
+              ],
             },
-          ],
-        },
+          },
+        ],
       },
     },
     ui: { notifications: { warn } },
