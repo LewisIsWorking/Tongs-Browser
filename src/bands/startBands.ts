@@ -3,10 +3,12 @@ import type { RoleGlobals } from '../automation/automationRole.js';
 import { MODULE_ID } from '../constants.js';
 import { logger } from '../core/Logger.js';
 import { BandReporter } from './BandReporter.js';
+import { MANUAL_CAUSE } from './bandCause.js';
 import { combatSubjects, subjectsForActor } from './bandTokens.js';
 import type { BandGlobals } from './bandTokens.js';
 import { CooClient } from './CooClient.js';
 import type { CooPorts } from './CooClient.js';
+import { watchCause } from './causeWatch.js';
 
 /**
  * Health bands' settings, and connecting them to Foundry. Added 2026-09-14.
@@ -29,11 +31,17 @@ export interface BandSettings {
 
 interface HooksLike {
   on(name: string, fn: (...args: never[]) => unknown): number;
+  off(name: string, id: number): void;
 }
+
+/** How long to wait for PF2e's damage-taken card after an HP change before calling it manual. */
+const CAUSE_WINDOW_MS = 3000;
 
 export type StartGlobals = BandGlobals &
   RoleGlobals & {
+    readonly game?: { readonly system?: { readonly id?: string } };
     readonly fetch?: CooPorts['fetch'];
+    readonly fromUuidSync?: (uuid: string) => { readonly name?: string } | null | undefined;
     readonly ui?: { readonly notifications?: { warn?(message: string): unknown } };
   };
 
@@ -103,6 +111,19 @@ export function startBands(
     subjectsFor: (actor) => subjectsForActor(actor, globals),
     combatSubjects: () => combatSubjects(globals),
     post: async (campaign, post) => client.postBand(campaign, post),
+    causeFor: async (actor) => {
+      const uuid = (actor as { uuid?: unknown } | null)?.uuid;
+      if (typeof uuid !== 'string') {
+        return MANUAL_CAUSE;
+      }
+      return watchCause(hooks, globals.game?.system?.id ?? '', uuid, CAUSE_WINDOW_MS, (ref) => {
+        try {
+          return globals.fromUuidSync?.(ref)?.name ?? null;
+        } catch {
+          return null;
+        }
+      });
+    },
     warn: (message) => {
       globals.ui?.notifications?.warn?.(message);
     },

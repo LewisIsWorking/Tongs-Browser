@@ -26,6 +26,8 @@ export interface BandPost {
   readonly hp: number;
   readonly maxHp: number;
   readonly announce: boolean;
+  /** For the GM's DM only; COO never puts it on the public line. */
+  readonly cause: string;
 }
 
 export type PostOutcome = 'sent' | 'signed-out' | 'failed';

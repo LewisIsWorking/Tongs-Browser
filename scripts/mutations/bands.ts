@@ -51,4 +51,11 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
       'an enemy at 51% is posted as a band lower than it is, rounded to nearest instead of up',
     tests: ['tests/unit/healthBands.test.ts'],
   },
+  {
+    file: 'src/bands/causeWatch.ts',
+    find: "      if (flags.context?.type === 'damage-taken' && flags.appliedDamage?.uuid === actorUuid) {",
+    replace: "      if (flags.context?.type === 'damage-taken') {",
+    defect: "one enemy's HP change is blamed on the weapon that hit a different enemy",
+    tests: ['tests/unit/bandCause.test.ts'],
+  },
 ];

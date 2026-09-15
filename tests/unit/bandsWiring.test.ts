@@ -61,6 +61,7 @@ describe('settings', () => {
         hp: 1,
         maxHp: 9,
         announce: false,
+        cause: 'manual change',
       })
     ).toBe('sent');
     expect(fetch.mock.calls[0]?.[0]).toBe(`${DEFAULT_SERVER}/api/auth/refresh`);
@@ -72,6 +73,7 @@ describe('settings', () => {
       hp: 2,
       maxHp: 9,
       announce: false,
+      cause: 'manual change',
     });
     expect(fetch).toHaveBeenCalledTimes(3);
     await expect(
@@ -82,6 +84,7 @@ describe('settings', () => {
         hp: 1,
         maxHp: 9,
         announce: false,
+        cause: 'manual change',
       })
     ).rejects.toThrow('cannot make requests');
     expect(
@@ -92,6 +95,7 @@ describe('settings', () => {
         hp: 1,
         maxHp: 9,
         announce: false,
+        cause: 'manual change',
       })
     ).toBe('signed-out');
   });
@@ -105,6 +109,7 @@ describe('hooks', () => {
         handlers.set(name, [...(handlers.get(name) ?? []), fn as (...args: unknown[]) => void]);
         return handlers.size;
       },
+      off: vi.fn(),
     };
     const globals = {
       game: { user: { id: 'gm', role: 4 }, users: { activeGM: { id: 'gm', role: 4 } } },
