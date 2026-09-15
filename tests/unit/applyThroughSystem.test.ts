@@ -3,14 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { APPLY_OPTIONS } from '../../src/deck/applyOptions.js';
 import type { ApplyOption } from '../../src/deck/applyOptions.js';
 import { ENTRY_LABEL, applyThroughSystem } from '../../src/deck/applyThroughSystem.js';
-import type { ApplyPorts, ContextEntry, TokenLike } from '../../src/deck/applyThroughSystem.js';
+import type { ApplyPorts, ContextEntry } from '../../src/deck/applyThroughSystem.js';
 
 /**
- * Applying a card by making PF2e run its own apply, aimed at the roll's target. Written 2026-09-13.
+ * Applying a card by making PF2e run its own apply, aimed at the roll's target. Written 2026-09-13;
+ * aimed rather than selected since 2026-09-15.
  *
- * ⚠️ The fake keeps ONE selection set and ONE ordered log, because the contract is about order and about
- * which token is selected at the instant PF2e reads the selection. Counting calls would pass a version
- * that selected the target after PF2e had already read the old selection.
+ * ⚠️ The fake keeps ONE aim and ONE ordered log, because the contract is about order and about which
+ * token PF2e reads at the instant it runs. Counting calls would pass a version that aimed after PF2e had
+ * already read its tokens.
  */
 const option = (id: ApplyOption['id']): ApplyOption => {
   const found = APPLY_OPTIONS.find((each) => each.id === id);
@@ -21,60 +22,56 @@ const option = (id: ApplyOption['id']): ApplyOption => {
 interface World {
   ports: ApplyPorts;
   log: string[];
-  selected: Set<string>;
-  seenAtClick: string[];
+  aimed: { now: readonly object[] | null };
+  seenAtClick: (readonly object[] | null)[];
   handled: string[];
 }
 
 const world = (
   opts: {
     landed?: boolean;
-    visible?: boolean;
     targetExists?: boolean;
-    entries?: string[];
-    initial?: string[];
+    entries?: readonly string[];
+    triple?: boolean;
+    canAim?: boolean;
   } = {}
 ): World => {
   const log: string[] = [];
-  const selected = new Set<string>(opts.initial ?? ['mine']);
-  const seenAtClick: string[] = [];
+  const aimed: World['aimed'] = { now: null };
+  const seenAtClick: (readonly object[] | null)[] = [];
   const handled: string[] = [];
-  let armed = false;
-
-  const token = (id: string): TokenLike => ({
-    control: ({ releaseOthers }) => {
-      if (releaseOthers) selected.clear();
-      selected.add(id);
-      log.push(`control ${id}`);
-    },
-    release: () => {
-      selected.delete(id);
-      log.push(`release ${id}`);
-    },
-  });
 
   const labels = opts.entries ?? Object.values(ENTRY_LABEL);
   const entries: ContextEntry[] = labels.map((label) => ({
     label,
-    visible: () => opts.visible ?? true,
     onClick: () => {
-      seenAtClick.push(...selected);
+      seenAtClick.push(aimed.now);
       log.push(`click ${label}`);
     },
   }));
 
   return {
     log,
-    selected,
+    aimed,
     seenAtClick,
     handled,
     ports: {
       contextEntries: () => entries,
-      controlled: () => [...selected].map(token),
-      tokenFor: (uuid) => ((opts.targetExists ?? true) ? token(uuid) : null),
+      tokenFor: (uuid) => ((opts.targetExists ?? true) ? { uuid } : null),
+      canAim: () => opts.canAim ?? true,
+      aimAt: (tokens, click) => {
+        aimed.now = tokens;
+        log.push('aim');
+        try {
+          click();
+        } finally {
+          aimed.now = null;
+        }
+      },
+      offersTriple: () => opts.triple ?? true,
       listItemFor: (messageId) => ({ dataset: { messageId } }) as unknown as HTMLElement,
       landed: async () => {
-        armed = log.every((line) => !line.startsWith('click'));
+        const armed = log.every((line) => !line.startsWith('click'));
         log.push('watch');
         return Promise.resolve((opts.landed ?? true) && armed);
       },
@@ -93,21 +90,14 @@ const request = (id: ApplyOption['id'] = 'full') => ({
 });
 
 describe('aiming at the roll target', () => {
-  /** ⛔ PF2e applies to the CONTROLLED tokens, read the instant it runs. Only the target may be there. */
-  it('has only the target selected at the moment PF2e runs', async () => {
+  /** ⛔ PF2e applies to the tokens it reads the instant it runs. Only the target may be there. */
+  it('has PF2e reading only the target, on whatever scene, at the moment it runs', async () => {
     const w = world();
 
     await applyThroughSystem(w.ports, request());
 
-    expect(w.seenAtClick).toEqual(['Scene.S.Token.xorn']);
-  });
-
-  it('puts the GM own selection back afterwards', async () => {
-    const w = world({ initial: ['mine', 'also-mine'] });
-
-    await applyThroughSystem(w.ports, request());
-
-    expect([...w.selected].sort()).toEqual(['also-mine', 'mine']);
+    expect(w.seenAtClick).toEqual([[{ uuid: 'Scene.S.Token.xorn' }]]);
+    expect(w.aimed.now).toBeNull();
   });
 
   it.each(APPLY_OPTIONS.map((each) => [each.id, ENTRY_LABEL[each.id]] as const))(
@@ -158,33 +148,30 @@ describe('confirming it landed', () => {
 });
 
 describe('refusing without touching anything', () => {
-  it('refuses when the target is no longer on the scene', async () => {
-    const w = world({ targetExists: false });
+  it.each([
+    ['the target no longer exists', { targetExists: false }, 'full', 'no longer on the scene'],
+    [
+      'the system offers no such entry',
+      { entries: [ENTRY_LABEL.full] },
+      'triple',
+      'does not offer',
+    ],
+    /* ⚠️ Triple is hidden unless PF2e crit and fumble buttons are on. The deck follows PF2e, not a list. */
+    ['PF2e hides Triple', { triple: false }, 'triple', 'does not offer that option'],
+    ['there is no user to aim as', { canAim: false }, 'full', 'no user'],
+  ] as const)('refuses when %s', async (_name, opts, id, reason) => {
+    const w = world(opts);
 
-    const outcome = await applyThroughSystem(w.ports, request());
+    const outcome = await applyThroughSystem(w.ports, request(id));
 
-    expect(outcome.kind).toBe('refused');
-    expect(w.log.some((line) => line.startsWith('click'))).toBe(false);
-    expect([...w.selected]).toEqual(['mine']);
-  });
-
-  it('refuses when the system offers no such entry', async () => {
-    const w = world({ entries: [ENTRY_LABEL.full] });
-
-    const outcome = await applyThroughSystem(w.ports, request('triple'));
-
-    expect(outcome.kind).toBe('refused');
+    expect(outcome).toMatchObject({ kind: 'refused' });
+    expect(outcome.kind === 'refused' ? outcome.reason : '').toContain(reason);
+    expect(w.log).toEqual([]);
     expect(w.handled).toEqual([]);
   });
 
-  /** ⚠️ Triple is hidden unless PF2e crit and fumble buttons are on. The deck follows PF2e, not a list. */
-  it('refuses, and restores the selection, when PF2e hides the option', async () => {
-    const w = world({ visible: false });
-
-    const outcome = await applyThroughSystem(w.ports, request('triple'));
-
-    expect(outcome.kind).toBe('refused');
-    expect(w.log.some((line) => line.startsWith('click'))).toBe(false);
-    expect([...w.selected]).toEqual(['mine']);
+  it('still offers Triple when PF2e does', async () => {
+    const w = world({ triple: true });
+    expect((await applyThroughSystem(w.ports, request('triple'))).kind).toBe('applied');
   });
 });

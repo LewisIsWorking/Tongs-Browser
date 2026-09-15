@@ -8,8 +8,9 @@ import type { SavePorts } from '../../src/deck/rollSaveThroughSystem.js';
  * Rolling a card's save through PF2e's own control. Written 2026-09-13.
  *
  * ⛔ The ORDER is what these assert, because the order is what the live proof depended on: the card is
- * rendered before the selection is borrowed, the watch is armed before the click, the chosen tokens
- * are the selection AT the click, and the GM's selection is back afterwards, even if the click throws.
+ * rendered before PF2e is aimed, the watch is armed before the click, the chosen tokens are what PF2e
+ * reads AT the click, and the aim is gone afterwards. Aimed rather than selected since 2026-09-15; the
+ * aim coming off even when PF2e throws is `aimAt.ts`'s, tested in `aimAt.test.ts`.
  */
 const FEAR = '<button data-action="spell-save" data-save="will" data-dc="17">Will</button>';
 const TWO_CHECKS = '<a data-pf2-check="athletics">A</a><a data-pf2-check="reflex">R</a>';
@@ -19,24 +20,27 @@ const fear: SaveFacts = { statistic: 'will', dc: 17, control: 'spell-save', inde
 interface Harness {
   readonly ports: SavePorts;
   readonly log: string[];
-  readonly selected: () => string[];
+  readonly aimed: () => string[];
 }
 
 const harness = (html: string, overrides: Partial<SavePorts> = {}): Harness => {
   const log: string[] = [];
-  let selection: string[] = ['gm-pick'];
-  const token = (name: string) => ({
-    control: ({ releaseOthers }: { releaseOthers: boolean }) => {
-      selection = releaseOthers ? [name] : [...selection.filter((n) => n !== name), name];
-    },
-    release: () => {
-      selection = selection.filter((n) => n !== name);
-    },
-  });
-  const tokens = new Map(['gm-pick', 'goblin-1', 'goblin-2'].map((n) => [n, token(n)]));
+  let aimed: string[] = [];
+  const known = ['goblin-1', 'goblin-2'];
   const ports: SavePorts = {
-    controlled: () => selection.map((n) => tokens.get(n)!),
-    tokenFor: (uuid) => tokens.get(uuid.replace('Scene.S.Token.', '')) ?? null,
+    tokenFor: (uuid) => {
+      const name = uuid.replace('Scene.S.Token.', '');
+      return known.includes(name) ? { name } : null;
+    },
+    canAim: () => true,
+    aimAt: (tokens, click) => {
+      aimed = tokens.map((token) => (token as { name: string }).name);
+      try {
+        click();
+      } finally {
+        aimed = [];
+      }
+    },
     renderCard: () => {
       log.push('render');
       const card = document.createElement('li');
@@ -48,9 +52,7 @@ const harness = (html: string, overrides: Partial<SavePorts> = {}): Harness => {
       return () => log.push('detach');
     },
     click: (control, shiftKey) => {
-      log.push(
-        `click ${control.textContent} shift=${String(shiftKey)} as [${selection.join(',')}]`
-      );
+      log.push(`click ${control.textContent} shift=${String(shiftKey)} as [${aimed.join(',')}]`);
     },
     showsCheckDialogs: () => true,
     savesLanded: () => {
@@ -63,14 +65,14 @@ const harness = (html: string, overrides: Partial<SavePorts> = {}): Harness => {
     },
     ...overrides,
   };
-  return { ports, log, selected: () => selection };
+  return { ports, log, aimed: () => aimed };
 };
 
 const goblins = ['Scene.S.Token.goblin-1', 'Scene.S.Token.goblin-2'];
 
 describe('rolling', () => {
   it('renders, watches, clicks as the chosen tokens, then marks the card handled', async () => {
-    const { ports, log, selected } = harness(FEAR);
+    const { ports, log, aimed } = harness(FEAR);
 
     const outcome = await rollSaveThroughSystem(ports, {
       messageId: 'm',
@@ -87,7 +89,7 @@ describe('rolling', () => {
       'detach',
       'handled',
     ]);
-    expect(selected()).toEqual(['gm-pick']);
+    expect(aimed()).toEqual([]);
   });
 
   /** ⛔ The index counts every inline check, so index 1 is the Reflex link, not the Athletics one. */
@@ -108,9 +110,9 @@ describe('rolling', () => {
     expect(log.find((line) => line.startsWith('click'))).toContain('shift=false');
   });
 
-  /** ⛔ The GM's selection comes back even when PF2e's handler throws. */
-  it('restores the selection and detaches the card when the click throws', async () => {
-    const { ports, log, selected } = harness(FEAR, {
+  /** ⛔ The card comes out of the document, and PF2e is un-aimed, even when PF2e's handler throws. */
+  it('un-aims and detaches the card when the click throws', async () => {
+    const { ports, log, aimed } = harness(FEAR, {
       click: () => {
         throw new Error('PF2e broke');
       },
@@ -119,7 +121,7 @@ describe('rolling', () => {
     await expect(
       rollSaveThroughSystem(ports, { messageId: 'm', save: fear, tokenUuids: goblins })
     ).rejects.toThrow('PF2e broke');
-    expect(selected()).toEqual(['gm-pick']);
+    expect(aimed()).toEqual([]);
     expect(log).toContain('detach');
   });
 });
@@ -145,7 +147,7 @@ describe('refusing before anything is clicked', () => {
     const ports = { ...harnessed.ports, click };
     const outcome = await rollSaveThroughSystem(ports, { messageId: 'm', save, tokenUuids });
     expect(click).not.toHaveBeenCalled();
-    expect(harnessed.selected()).toEqual(['gm-pick']);
+    expect(harnessed.aimed()).toEqual([]);
     return outcome.kind === 'refused' ? outcome.reason : `not refused: ${outcome.kind}`;
   };
 
@@ -163,6 +165,10 @@ describe('refusing before anything is clicked', () => {
     const gone = harness(FEAR, { renderCard: () => Promise.resolve(null) });
 
     expect(await refusedWith(gone, goblins)).toContain('no longer asks');
+  });
+
+  it('refuses when there is no user to roll as', async () => {
+    expect(await refusedWith(harness(FEAR, { canAim: () => false }), goblins)).toContain('no user');
   });
 
   it('refuses when the card no longer has that control', async () => {

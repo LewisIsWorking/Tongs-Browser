@@ -1,4 +1,6 @@
-import type { ApplyPorts, ContextEntry, TokenLike } from './applyThroughSystem.js';
+import { aimAt } from './aimAt.js';
+import type { AimableUser } from './aimAt.js';
+import type { ApplyPorts, ContextEntry } from './applyThroughSystem.js';
 import { HANDLED_FLAG, MODULE_ID } from './readMessageFacts.js';
 import { watchMessages } from './watchMessages.js';
 import type { HooksLike } from './watchMessages.js';
@@ -13,7 +15,7 @@ import type { HooksLike } from './watchMessages.js';
  *
  * - `ui.chat._getEntryContextOptions()` calls `super` and reads `this`;
  * - `message.setFlag(...)` writes through the document it is called on;
- * - `canvas.tokens.get(...)` is a collection method.
+ * - `fromUuidSync` is a global function; `game.user.getActiveTokens` is shadowed ON the user (`aimAt.ts`).
  */
 export interface MessageDoc {
   readonly setFlag: (scope: string, key: string, value: unknown) => Promise<unknown>;
@@ -24,17 +26,15 @@ export interface MessageDoc {
 
 export interface DeckGlobals {
   readonly ui?: { readonly chat?: { _getEntryContextOptions?: () => readonly ContextEntry[] } };
-  readonly canvas?: {
-    readonly scene?: { readonly id?: string } | null;
-    readonly tokens?: {
-      readonly controlled?: readonly TokenLike[];
-      get?: (id: string) => TokenLike | undefined;
-    };
-  };
+  /** Foundry's own lookup: a token document on ANY scene of the world, by its uuid. */
+  readonly fromUuidSync?: (uuid: string) => unknown;
   readonly game?: {
-    readonly user?: {
+    readonly user?: AimableUser & {
       readonly isGM?: boolean;
       readonly settings?: { readonly showCheckDialogs?: boolean };
+    };
+    readonly pf2e?: {
+      readonly settings?: { readonly critFumble?: { readonly buttons?: boolean } };
     };
     readonly system?: { readonly id?: string };
     readonly messages?: { get?: (id: string) => MessageDoc | undefined };
@@ -59,20 +59,31 @@ export function buildApplyPorts(
 
   return {
     contextEntries: () => globals.ui?.chat?._getEntryContextOptions?.() ?? [],
-    controlled: () => globals.canvas?.tokens?.controlled ?? [],
 
     /*
-     * ⚠️ A token on ANOTHER scene is treated as gone. PF2e applies to controlled tokens, which only
-     * exist on the scene being viewed, so a target recorded on a different scene cannot be selected and
-     * must not be reported as a success.
+     * ⚠️ ANY SCENE, since 2026-09-15: PF2e is aimed at the document, not a controlled token (`aimAt.ts`).
+     * Only a scene token counts, and only one with an actor: a token whose actor was deleted takes no hit.
      */
     tokenFor: (tokenUuid) => {
-      const ids = parseTokenUuid(tokenUuid);
-      if (ids === null || globals.canvas?.scene?.id !== ids.sceneId) {
+      if (parseTokenUuid(tokenUuid) === null) {
         return null;
       }
-      return globals.canvas.tokens?.get?.(ids.tokenId) ?? null;
+      try {
+        const found = globals.fromUuidSync?.(tokenUuid) as
+          { readonly actor?: unknown } | null | undefined;
+        return found?.actor ? found : null;
+      } catch {
+        return null;
+      }
     },
+    canAim: () => globals.game?.user !== undefined,
+    aimAt: (tokens, click) => {
+      const user = globals.game?.user;
+      if (user !== undefined) {
+        aimAt(user, tokens, click);
+      }
+    },
+    offersTriple: () => globals.game?.pf2e?.settings?.critFumble?.buttons === true,
 
     /* PF2e's `onClick` reads `li.dataset.messageId` and nothing else from the element. */
     listItemFor: (messageId) => {

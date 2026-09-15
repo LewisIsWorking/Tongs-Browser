@@ -67,7 +67,7 @@ export function startAutoApply(
   hooks.on('createChatMessage', (message: StrikeMessage) => {
     run('on a new message', async () => auto.onMessageCreated(message));
   });
-  /* A scene change can bring queued targets into view; a GM connecting or leaving can make this browser the one that acts. */
+  /* The canvas coming up and a GM connecting or leaving can each make this browser the one that acts. */
   hooks.on('canvasReady', () => {
     run('catch-up', async () => auto.catchUp());
   });

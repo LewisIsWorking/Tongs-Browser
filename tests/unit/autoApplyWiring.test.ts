@@ -155,7 +155,7 @@ describe('with an empty world', () => {
     expect(ports.flag(card, 'handled')).toBeUndefined();
     expect(ports.isHandled(card)).toBe(false);
     expect(ports.attackerIsPlayers('A')).toBe(false);
-    expect(ports.targetState('Scene.S.Token.X')).toMatchObject({ elsewhere: true, exists: false });
+    expect(ports.targetState('Scene.S.Token.X')).toMatchObject({ exists: false, inCombat: false });
     await expect(ports.setFlag('x', 'pending', true)).resolves.toBeUndefined();
     await expect(ports.unsetFlag('x', 'pending')).resolves.toBeUndefined();
     const damage = {

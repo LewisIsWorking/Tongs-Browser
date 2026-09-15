@@ -49,31 +49,6 @@ describe('the context menu entries', () => {
   });
 });
 
-describe('finding the target token', () => {
-  const tokens = {
-    store: new Map([['T1', { control: () => undefined, release: () => undefined }]]),
-    get(this: { store: Map<string, unknown> }, id: string) {
-      return this.store.get(id);
-    },
-  };
-
-  it('finds a token on the scene being viewed, calling get on the collection', () => {
-    const ports = buildApplyPorts({ canvas: { scene: { id: 'S1' }, tokens } } as DeckGlobals, doc);
-
-    expect(ports.tokenFor('Scene.S1.Token.T1')).not.toBeNull();
-  });
-
-  /** ⚠️ PF2e applies to controlled tokens, which only exist on the viewed scene. */
-  it('treats a token on another scene as gone', () => {
-    const ports = buildApplyPorts(
-      { canvas: { scene: { id: 'OTHER' }, tokens } } as DeckGlobals,
-      doc
-    );
-
-    expect(ports.tokenFor('Scene.S1.Token.T1')).toBeNull();
-  });
-});
-
 describe('the list item PF2e reads', () => {
   it('carries the message id where PF2e looks for it', () => {
     const ports = buildApplyPorts({}, doc);

@@ -123,7 +123,6 @@ describe("reading a strike's cards", () => {
 
 describe('whether the target still qualifies', () => {
   const fine: TargetState = {
-    elsewhere: false,
     exists: true,
     hp: 20,
     inCombat: true,
@@ -136,11 +135,6 @@ describe('whether the target still qualifies', () => {
 
   it('an enemy still standing in the fight', () => {
     expect(reason({})).toBe('ok');
-  });
-
-  /** ⚠️ A GM viewing another map has not decided anything: try again later. */
-  it('waits when the target is on a scene this browser is not viewing', () => {
-    expect(reason({ elsewhere: true, exists: false })).toBe('later');
   });
 
   it('sends gone, friendly, down and out-of-combat targets to the deck', () => {

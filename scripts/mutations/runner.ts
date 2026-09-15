@@ -11,7 +11,11 @@ import type { RecordedMutation } from './recorded.ts';
  * test matched, vitest exited 1, and the loop read that as the mutation being caught. A non-zero exit
  * means "something went wrong", and "no tests ran at all" is the most likely something.
  */
-const SUMMARY = /^\s*Tests\s+(?:(\d+) failed \| )?(\d+) passed/m;
+/*
+ * ⛔ "failed" with NO "passed" is a kill too. Found 2026-09-15: a mutation that failed every test in its
+ * file printed `Tests  3 failed (3)`, which the old pattern (it required "passed") read as no tests run.
+ */
+const SUMMARY = /^\s*Tests\s+(?:(\d+) failed)?(?: \| )?(?:(\d+) passed)?/m;
 
 /**
  * ⚠️ Colour codes are STRIPPED before anything is matched, and this was a real CI-only failure on
@@ -118,7 +122,7 @@ function runVitest(tests: readonly string[]): string {
 export function readVerdict(raw: string): Verdict {
   const output = stripAnsi(raw);
   const summary = SUMMARY.exec(output);
-  if (summary === null) {
+  if (summary?.[1] === undefined && summary?.[2] === undefined) {
     return { kind: 'noTests', output: lastLines(output) };
   }
 

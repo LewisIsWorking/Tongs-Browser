@@ -10,26 +10,36 @@ import type { RecordedMutation } from './shape.ts';
 export const DECK_MUTATIONS: readonly RecordedMutation[] = [
   {
     file: 'src/deck/applyThroughSystem.ts',
-    find: '      landing = Promise.all(uuids.map(async (uuid) => ports.landed(uuid)));\n      entry.onClick(null, listItem);',
+    find: '    const landing = Promise.all(uuids.map(async (uuid) => ports.landed(uuid)));\n    ports.aimAt(tokens, () => {\n      entry.onClick(null, listItem);\n    });',
     replace:
-      '      entry.onClick(null, listItem);\n      landing = Promise.all(uuids.map(async (uuid) => ports.landed(uuid)));',
+      '    ports.aimAt(tokens, () => {\n      entry.onClick(null, listItem);\n    });\n    const landing = Promise.all(uuids.map(async (uuid) => ports.landed(uuid)));',
     defect: 'a hit PF2e confirms quickly is reported unconfirmed and its card never drops out',
     tests: ['tests/unit/applyThroughSystem.test.ts'],
   },
   {
     file: 'src/deck/rollSaveThroughSystem.ts',
-    find: '    landing = ports.savesLanded(request.tokenUuids);\n    ports.click(control, ports.showsCheckDialogs());',
+    find: '    landing = ports.savesLanded(request.tokenUuids);\n    ports.aimAt(tokens as TargetToken[], () => {\n      ports.click(control, ports.showsCheckDialogs());\n    });',
     replace:
-      '    ports.click(control, ports.showsCheckDialogs());\n    landing = ports.savesLanded(request.tokenUuids);',
+      '    ports.aimAt(tokens as TargetToken[], () => {\n      ports.click(control, ports.showsCheckDialogs());\n    });\n    landing = ports.savesLanded(request.tokenUuids);',
     defect: 'a save PF2e posts quickly is missed, so a rolled card stays and invites a second roll',
     tests: ['tests/dom/rollSaveThroughSystem.test.ts'],
   },
   {
-    file: 'src/deck/rollSaveThroughSystem.ts',
-    find: '    detach();\n    restoreSelection(ports.controlled(), previous);',
-    replace: '    detach();',
-    defect: "rolling a save leaves the enemies selected instead of the GM's own tokens",
-    tests: ['tests/dom/rollSaveThroughSystem.test.ts'],
+    /* ⛔ Since 2026-09-15 the deck aims PF2e for one click instead of borrowing the selection. */
+    file: 'src/deck/aimAt.ts',
+    find: '      Reflect.deleteProperty(owner, key);',
+    replace: '      void owner;',
+    defect:
+      "PF2e stays aimed at the automation's last target, so the GM's next apply by hand lands on the wrong creature",
+    tests: ['tests/unit/aimAt.test.ts'],
+  },
+  {
+    file: 'src/deck/applyThroughSystem.ts',
+    find: "    if (group.option.id === 'triple' && !ports.offersTriple()) {",
+    replace: "    if (group.option.id === 'triple' && Date.now() < 0) {",
+    defect:
+      "triple damage is sent when PF2e does not offer it, so PF2e's own error reaches the GM instead of a reason",
+    tests: ['tests/unit/applyThroughSystem.test.ts'],
   },
   {
     /*

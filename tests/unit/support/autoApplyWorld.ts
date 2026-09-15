@@ -57,7 +57,6 @@ export const harness = (overrides: Partial<AutoApplyPorts> = {}, log: StrikeMess
     attackerIsPlayers: () => true,
     recomputeFormula: () => Promise.resolve('1d8 + 3 bludgeoning'),
     targetState: () => ({
-      elsewhere: false,
       exists: true,
       hp: 100,
       inCombat: true,

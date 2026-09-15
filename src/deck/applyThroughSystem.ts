@@ -1,8 +1,7 @@
+import type { TargetToken } from './aimAt.js';
 import type { ApplyOption } from './applyOptions.js';
-import { restoreSelection, selectOnly } from './selection.js';
-import type { TokenLike } from './selection.js';
 
-export type { TokenLike };
+export type { TargetToken };
 
 /**
  * Applying a damage card by making PF2e run its OWN apply, aimed at the roll's target. Added 2026-09-13.
@@ -16,14 +15,13 @@ export type { TokenLike };
  * entries whose `onClick` calls that private function with the right multiplier. SF2e's are identical,
  * labels included. Calling the entry runs PF2e's whole path, IWR and ephemeral effects included.
  *
- * ⛔ THE TARGET IS SELECTED FIRST, then restored. PF2e applies to `game.user.getActiveTokens()`, the
- * CONTROLLED tokens, and `canApplyDamage` refuses outright with none controlled. The deck applies to the
- * roll's target (decided with Lewis), so it controls exactly that token, runs the entry, then puts the
- * GM's own selection back.
+ * ⛔ AIMED, NOT SELECTED (since 2026-09-15). PF2e applies to `game.user.getActiveTokens()`, so for the one
+ * synchronous `onClick` that answers exactly the roll's target, on whatever scene it stands; see `aimAt.ts`.
+ * PF2e reads it before its first `await`, so the target list is captured by the time `onClick` returns.
  *
- * ⚠️ RESTORING STRAIGHT AFTER `onClick` IS SAFE, and the reason is load-bearing. `applyDamageFromMessage`
- * reads the controlled tokens synchronously, before its first `await`, so the target list is captured
- * by the time `onClick` returns. Restoring any earlier, or reading tokens later, would aim elsewhere.
+ * ⚠️ PF2e's own `visible` test for these entries is "a token is controlled, and the card has a damage
+ * roll", plus the crit and fumble buttons setting for Triple. Nothing is controlled any more, so the deck
+ * asks the setting itself; the card being damage is what put it in the deck.
  *
  * ⛔ HANDLED ONLY ONCE IT LANDED. `onClick` returns nothing (PF2e does not return the promise), so there
  * is no completion to await. The caller confirms by watching for PF2e's own `damage-taken` message about
@@ -33,15 +31,19 @@ export type { TokenLike };
 /** Only what this reads of one context menu entry. */
 export interface ContextEntry {
   readonly label: string;
-  readonly visible?: (listItem: HTMLElement) => boolean;
   readonly onClick: (event: Event | null, listItem: HTMLElement) => unknown;
 }
 
 export interface ApplyPorts {
   readonly contextEntries: () => readonly ContextEntry[];
-  readonly controlled: () => readonly TokenLike[];
-  /** The token on the current scene, or null when it is no longer there. */
-  readonly tokenFor: (tokenUuid: string) => TokenLike | null;
+  /** The token document, on ANY scene, or null when it no longer exists. */
+  readonly tokenFor: (tokenUuid: string) => TargetToken | null;
+  /** Whether this browser has a user to aim PF2e through. */
+  readonly canAim: () => boolean;
+  /** Runs `click` with PF2e reading exactly these tokens as the GM's; see `aimAt.ts`. */
+  readonly aimAt: (tokens: readonly TargetToken[], click: () => void) => void;
+  /** PF2e offers Triple only with its crit and fumble buttons on. */
+  readonly offersTriple: () => boolean;
   /** An element carrying `dataset.messageId`, which is all PF2e's `onClick` reads. */
   readonly listItemFor: (messageId: string) => HTMLElement;
   /** Resolves true once PF2e posts `damage-taken` for this token, false if it never does. */
@@ -126,40 +128,31 @@ export async function applyGroupsThroughSystem(
         reason: 'this game system does not offer that way of applying damage',
       };
     }
+    if (group.option.id === 'triple' && !ports.offersTriple()) {
+      return { kind: 'refused', reason: 'PF2e does not offer that option for this message' };
+    }
     const tokens = group.targetTokenUuids.map((uuid) => ports.tokenFor(uuid));
     if (tokens.length === 0 || tokens.some((token) => token === null)) {
       return { kind: 'refused', reason: 'the target is no longer on the scene' };
     }
-    planned.push({ entry, tokens: tokens as TokenLike[], uuids: group.targetTokenUuids });
+    planned.push({ entry, tokens: tokens as TargetToken[], uuids: group.targetTokenUuids });
+  }
+  if (!ports.canAim()) {
+    return { kind: 'refused', reason: 'this browser has no user to apply damage as' };
   }
 
   const listItem = ports.listItemFor(request.messageId);
   let sent = 0;
   for (const { entry, tokens, uuids } of planned) {
-    const previous = [...ports.controlled()];
-    let landing: Promise<boolean[]>;
-    selectOnly(tokens);
-
-    try {
-      /*
-       * ⚠️ Asked AFTER selecting, because PF2e's `visible` checks for controlled tokens itself. Triple is
-       * hidden unless PF2e's crit and fumble buttons are enabled; the deck must follow that, not offer it.
-       */
-      if (entry.visible !== undefined && !entry.visible(listItem)) {
-        return sent === 0
-          ? { kind: 'refused', reason: 'PF2e does not offer that option for this message' }
-          : { kind: 'unconfirmed', reason: PART_APPLIED };
-      }
-      /*
-       * ⛔ WATCH BEFORE CLICKING. PF2e can post `damage-taken` before a watcher armed afterwards has
-       * subscribed, and a missed message would report a hit that landed as unconfirmed. The same ordering
-       * bug was fixed once already in `CreationRelay.ask()`, which now starts waiting before it sends.
-       */
-      landing = Promise.all(uuids.map(async (uuid) => ports.landed(uuid)));
+    /*
+     * ⛔ WATCH BEFORE CLICKING. PF2e can post `damage-taken` before a watcher armed afterwards has
+     * subscribed, and a missed message would report a hit that landed as unconfirmed. The same ordering
+     * bug was fixed once already in `CreationRelay.ask()`, which now starts waiting before it sends.
+     */
+    const landing = Promise.all(uuids.map(async (uuid) => ports.landed(uuid)));
+    ports.aimAt(tokens, () => {
       entry.onClick(null, listItem);
-    } finally {
-      restoreSelection(ports.controlled(), previous);
-    }
+    });
 
     if (!(await landing).every(Boolean)) {
       return {

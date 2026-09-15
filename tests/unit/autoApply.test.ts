@@ -108,33 +108,10 @@ describe('the active full GM', () => {
     expect(ports.apply).not.toHaveBeenCalled();
   });
 
-  /** ⚠️ A GM viewing another map has not decided anything: keep it queued and try again later. */
-  it('keeps a hit queued when the target is on a scene not being viewed', async () => {
-    const { auto, ports, flags } = harness(
-      {
-        targetState: () => ({
-          elsewhere: true,
-          exists: false,
-          hp: null,
-          inCombat: false,
-          playerOwned: false,
-        }),
-      },
-      [attack, damage]
-    );
-
-    await auto.onMessageCreated(damage);
-
-    expect(ports.apply).not.toHaveBeenCalled();
-    expect(flags.get(`d1.${PENDING_FLAG}`)).toBe(true);
-    expect(flags.has(`d1.${DECLINED_FLAG}`)).toBe(false);
-  });
-
   it('sends a hit on a target that left the fight to the deck', async () => {
     const { auto, flags } = harness(
       {
         targetState: () => ({
-          elsewhere: false,
           exists: true,
           hp: 10,
           inCombat: false,

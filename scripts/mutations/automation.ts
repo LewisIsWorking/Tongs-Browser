@@ -70,8 +70,7 @@ export const AUTOMATION_MUTATIONS: readonly RecordedMutation[] = [
   {
     file: 'src/automation/SpellSaves.ts',
     find: "    const rollers = verdicts.filter((each) => each.verdict.kind === 'ok').map((each) => each.token);",
-    replace:
-      "    const rollers = verdicts.filter((each) => each.verdict.kind !== 'later').map((each) => each.token);",
+    replace: '    const rollers = verdicts.filter(() => true).map((each) => each.token);',
     defect:
       "a player's ally caught in their spell is made to roll a save as though it were an enemy",
     tests: ['tests/unit/spellSaves.test.ts'],
@@ -138,8 +137,8 @@ export const AUTOMATION_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/deck/applyThroughSystem.ts',
-    find: '    selectOnly(tokens);',
-    replace: '    selectOnly(tokens.slice(0, 1));',
+    find: '    ports.aimAt(tokens, () => {',
+    replace: '    ports.aimAt(tokens.slice(0, 1), () => {',
     defect:
       "only the first enemy in a group takes a spell's damage, and the card is marked handled",
     tests: ['tests/unit/applyGroupsThroughSystem.test.ts'],
@@ -164,5 +163,14 @@ export const AUTOMATION_MUTATIONS: readonly RecordedMutation[] = [
     defect:
       'a token on one scene is read as fighting because a token with the same id fights on another',
     tests: ['tests/unit/tokenCombats.test.ts'],
+  },
+  {
+    /* ⛔ PF2e reads (target ?? game.user.targets.first()), so an omitted target became the GM's own. */
+    file: 'src/automation/buildAutoApply.ts',
+    find: '        const params = { getFormula: true, target, checkContext: context };',
+    replace: '        const params = { getFormula: true, checkContext: context };',
+    defect:
+      "a hit's formula is checked against whatever the GM has targeted instead of the creature it hit",
+    tests: ['tests/unit/buildAutoApply.test.ts'],
   },
 ];

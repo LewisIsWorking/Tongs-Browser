@@ -37,6 +37,12 @@ function selfTest(): void {
     fail(`a run with a failure read as ${killed.kind}, not killed`);
   }
 
+  /* ⛔ Every test failing prints no "passed" at all; that was once read as no tests. */
+  const allFailed = readVerdict('  Tests  3 failed (3)');
+  if (allFailed.kind !== 'killed') {
+    fail(`a run where every test failed read as ${allFailed.kind}, not killed`);
+  }
+
   const survived = readVerdict('  Tests  11 passed (11)');
   if (survived.kind !== 'survived') {
     fail(`a run where everything passed read as ${survived.kind}, not survived`);
