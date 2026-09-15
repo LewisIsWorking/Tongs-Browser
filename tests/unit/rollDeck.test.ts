@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { RollDeck } from '../../src/deck/RollDeck.js';
-import type { DeckGlobals } from '../../src/deck/buildApplyPorts.js';
+import type { RollDeckGlobals } from '../../src/deck/RollDeck.js';
 
 /**
  * The roll deck service the module exposes. Written 2026-09-13.
@@ -13,7 +13,7 @@ const doc = { createElement: () => ({ dataset: {} }) } as unknown as Document;
 
 const globalsFor = (isGM: boolean) => {
   const read = vi.fn(() => []);
-  const globals: DeckGlobals = {
+  const globals: RollDeckGlobals = {
     game: { user: { isGM } },
     ui: { chat: { _getEntryContextOptions: read } },
   };

@@ -60,16 +60,11 @@ describe('the active full GM', () => {
     expect(ally.ports.applyGroups).not.toHaveBeenCalled();
   });
 
-  it('waits, with a note, for saves not rolled yet, and for a target on another scene', async () => {
+  it('waits, with a note, for saves not rolled yet', async () => {
     const early = harness({}, [cast, SAVES[0] ?? cast, damageCard]);
     await early.damage.onMessageCreated(damageCard);
     expect(early.flags.get(`d1.${PENDING_FLAG}`)).toBe(true);
     expect(early.flags.get(`d1.${DECLINED_FLAG}`)).toContain('waiting for 1');
-
-    const away = harness({}, undefined, { [X1]: { ...ENEMY, elsewhere: true } });
-    await away.damage.onMessageCreated(damageCard);
-    expect(away.flags.get(`d1.${PENDING_FLAG}`)).toBe(true);
-    expect(away.ports.applyGroups).not.toHaveBeenCalled();
   });
 
   it('leaves alone a card that is not spell damage, a GM card, an NPC caster and a handled card', async () => {

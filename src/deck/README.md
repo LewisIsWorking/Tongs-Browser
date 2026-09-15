@@ -15,7 +15,7 @@ and roll saves. GM only.
 | `readSaveControls.ts`      | The saves a card asks for, read from PF2e's own save controls in its HTML   |
 | `rollSaveThroughSystem.ts` | Rolling a card's save by clicking PF2e's own control for the chosen tokens  |
 | `buildSavePorts.ts`        | The real Foundry behind rolling a save                                      |
-| `selection.ts`             | Borrowing the GM's token selection and giving it back                       |
+| `aimAt.ts`                 | Aiming PF2e's own controls at chosen tokens, on any scene, for one click    |
 | `watchMessages.ts`         | Waiting for PF2e to report, per token, that a hit landed or a save rolled   |
 | `listDeckMessages.ts`      | The chat log read into facts: on the document boundary, GM and visible only |
 | `RollDeck.ts`              | The deck as one GM-only service, reached as `api.getDeck()`                 |
@@ -43,8 +43,9 @@ Measured on pf2e 8.5.0, 2026-09-13. A spell card's save is `data-action="spell-s
 and `data-dc`; an enriched `@Check` is `data-pf2-check` with `data-pf2-dc`. Both are in the message's
 stored content. Neither message records a target, so the GM chooses who rolls.
 
-- PF2e's handlers for both are private and roll for the SELECTED tokens, so the deck selects the chosen
-  tokens, clicks the control on a freshly rendered card, and restores the selection.
+- PF2e's handlers for both are private and roll for `game.user.getActiveTokens()`, read before their first
+  `await`. Since 2026-09-15 the deck AIMS that at the chosen token documents for the one click
+  (`aimAt.ts`) instead of selecting them, so a token on a scene nobody is viewing rolls too.
 - ⛔ The card must be IN the document when clicked: PF2e listens for inline checks on `document`, and a
   detached card's click never reaches it (measured: nothing rolled until it was attached).
 - ⛔ Shift is set from the GM's `showCheckDialogs`, or the roll opens a dialog nobody sees.
@@ -62,9 +63,10 @@ because the brief it came from lives outside this repository.
 - ⛔ **Rebuilding it from the public `actor.applyDamage(...)` cannot be 1:1.** It calls
   `extractEphemeralEffects`, which applies effects that depend on WHO deals the damage, and that is
   private too. A rebuild would land some hits wrong with nothing looking wrong.
-- ✅ **So the deck makes PF2e run its own apply**: `applyThroughSystem.ts` selects the roll's target,
-  runs PF2e's chat context menu entry for that option, and restores the GM's selection. Proven live
-  against a Xorn's fire resistance on 2026-09-13.
+- ✅ **So the deck makes PF2e run its own apply**: `applyThroughSystem.ts` aims PF2e at the roll's target
+  and runs PF2e's chat context menu entry for that option. Proven live against a Xorn's fire resistance
+  on 2026-09-13; aimed at the token document rather than selected since 2026-09-15, so a target on a
+  scene the GM is not viewing takes the hit too. `applyDamage` itself touches no canvas (read in 8.5.0).
 - For the record, what that apply does: half, double and triple go through
   `roll.alter(multiplier, addend)`, which keeps the damage TYPES and rounds each instance down on its
   own (measured: half of 5 piercing plus 1 fire is 2, not 3); healing is `multiplier * total + addend` with

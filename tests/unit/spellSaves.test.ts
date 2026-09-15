@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CLAIMED_FLAG, DECLINED_FLAG, PENDING_FLAG } from '../../src/automation/AutoApply.js';
+import { CLAIMED_FLAG, DECLINED_FLAG } from '../../src/automation/AutoApply.js';
 import type { SpellSavePorts } from '../../src/automation/SpellSaves.js';
 import { ENEMY, X1, X2, castCard, harness } from './support/spellSavesWorld.js';
 
@@ -29,15 +29,6 @@ describe('the active full GM', () => {
     await saves.onMessageCreated(castCard());
 
     expect(ports.rollSave).toHaveBeenCalledWith('c1', 0, [X1]);
-  });
-
-  it('waits when a target is on a scene not being viewed', async () => {
-    const { saves, ports, flags } = harness({}, { [X2]: { ...ENEMY, elsewhere: true } });
-
-    await saves.onMessageCreated(castCard());
-
-    expect(ports.rollSave).not.toHaveBeenCalled();
-    expect(flags.get(`c1.${PENDING_FLAG}`)).toBe(true);
   });
 
   it('declines, saying why, when nobody can roll or nobody was targeted', async () => {

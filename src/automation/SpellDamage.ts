@@ -125,10 +125,6 @@ export class SpellDamage {
       return;
     }
     const checks = verdict.targets.map((token) => checkTarget(this.ports.targetState(token)));
-    if (checks.some((each) => each.kind === 'later')) {
-      await this.ports.setFlag(message.id, PENDING_FLAG, true);
-      return;
-    }
     const refused = checks.find((each) => each.kind === 'deck');
     if (refused !== undefined) {
       await this.decline(message, refused.reason);

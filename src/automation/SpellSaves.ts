@@ -103,13 +103,9 @@ export class SpellSaves {
       token,
       verdict: checkTarget(this.ports.targetState(token)),
     }));
-    if (verdicts.some((each) => each.verdict.kind === 'later')) {
-      await this.ports.setFlag(message.id, PENDING_FLAG, true);
-      return;
-    }
     const rollers = verdicts.filter((each) => each.verdict.kind === 'ok').map((each) => each.token);
     if (rollers.length === 0) {
-      /* No roller and nothing to wait for means every verdict here is a reason to decline. */
+      /* No roller means every verdict here is a reason to decline. */
       const why = verdicts.map((each) => (each.verdict as { reason: string }).reason);
       await this.decline(
         message,

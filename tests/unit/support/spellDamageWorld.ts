@@ -16,7 +16,6 @@ export const X1 = 'Scene.S.Token.X1';
 export const X2 = 'Scene.S.Token.X2';
 const SPELL = { uuid: 'Actor.Caster.Item.Feast', castRank: 5 };
 export const ENEMY: TargetState = {
-  elsewhere: false,
   exists: true,
   hp: 100,
   inCombat: true,

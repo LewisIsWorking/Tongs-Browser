@@ -13,20 +13,11 @@ const doc = {
   createElement: () => ({ dataset: {} as Record<string, string> }),
 } as unknown as Document;
 
-describe('with no canvas', () => {
-  it('reports nothing selected and no context entries rather than throwing', () => {
+describe('with nothing of Foundry there', () => {
+  it('offers no context entries and finds no token rather than throwing', () => {
     const ports = buildApplyPorts({}, doc);
 
-    expect(ports.controlled()).toEqual([]);
     expect(ports.contextEntries()).toEqual([]);
-    expect(ports.tokenFor('Scene.S1.Token.T1')).toBeNull();
-  });
-});
-
-describe('with a scene but no token layer', () => {
-  it('finds no token rather than throwing', () => {
-    const ports = buildApplyPorts({ canvas: { scene: { id: 'S1' } } }, doc);
-
     expect(ports.tokenFor('Scene.S1.Token.T1')).toBeNull();
   });
 });

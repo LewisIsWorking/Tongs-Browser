@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { APPLY_OPTIONS } from '../../src/deck/applyOptions.js';
 import type { ApplyOption } from '../../src/deck/applyOptions.js';
 import { ENTRY_LABEL, applyGroupsThroughSystem } from '../../src/deck/applyThroughSystem.js';
-import type { ApplyPorts, ContextEntry, TokenLike } from '../../src/deck/applyThroughSystem.js';
+import type { ApplyPorts, ContextEntry } from '../../src/deck/applyThroughSystem.js';
 
 /**
  * One card applied to several targets in several ways, marked handled once. Written 2026-09-14 for
  * basic saves. Single-target applying is in `applyThroughSystem.test.ts`.
  *
- * ⚠️ Like that file's fake, this keeps ONE selection and ONE ordered log: the contract is which tokens
- * are selected at the instant PF2e reads them, and that every watch is armed before its click.
+ * ⚠️ Like that file's fake, this keeps ONE aim and ONE ordered log: the contract is which tokens PF2e
+ * reads at the instant it runs, and that every watch is armed before its click.
  */
 const option = (id: ApplyOption['id']): ApplyOption => {
   const found = APPLY_OPTIONS.find((each) => each.id === id);
@@ -21,34 +21,33 @@ const option = (id: ApplyOption['id']): ApplyOption => {
 const world = (
   opts: {
     neverLands?: readonly string[];
-    hidden?: readonly string[];
+    noTriple?: boolean;
     gone?: readonly string[];
     entries?: readonly string[];
   } = {}
 ) => {
   const log: string[] = [];
-  const selected = new Set<string>(['mine']);
+  let aimed: string[] = [];
   const handled: string[] = [];
-  const token = (id: string): TokenLike => ({
-    control: ({ releaseOthers }) => {
-      if (releaseOthers) selected.clear();
-      selected.add(id);
-    },
-    release: () => {
-      selected.delete(id);
-    },
-  });
   const entries: ContextEntry[] = (opts.entries ?? Object.values(ENTRY_LABEL)).map((label) => ({
     label,
-    visible: () => !(opts.hidden ?? []).includes(label),
     onClick: () => {
-      log.push(`click ${label} with ${[...selected].sort().join(',')}`);
+      log.push(`click ${label} with ${[...aimed].sort().join(',')}`);
     },
   }));
   const ports: ApplyPorts = {
     contextEntries: () => entries,
-    controlled: () => [...selected].map(token),
-    tokenFor: (uuid) => ((opts.gone ?? []).includes(uuid) ? null : token(uuid)),
+    tokenFor: (uuid) => ((opts.gone ?? []).includes(uuid) ? null : { uuid }),
+    canAim: () => true,
+    aimAt: (tokens, click) => {
+      aimed = tokens.map((token) => (token as { uuid: string }).uuid);
+      try {
+        click();
+      } finally {
+        aimed = [];
+      }
+    },
+    offersTriple: () => opts.noTriple !== true,
     listItemFor: (messageId) => ({ dataset: { messageId } }) as unknown as HTMLElement,
     landed: async (uuid) => {
       log.push(`watch ${uuid}`);
@@ -59,7 +58,7 @@ const world = (
       return Promise.resolve();
     },
   };
-  return { ports, log, selected, handled };
+  return { ports, log, handled, aimedNow: () => aimed };
 };
 
 const HALF = ENTRY_LABEL.half;
@@ -70,7 +69,7 @@ const groups = [
 ];
 
 describe('applying one card by groups', () => {
-  it('selects exactly each group as PF2e runs, watches first, and marks the card once', async () => {
+  it('aims PF2e at exactly each group as it runs, watches first, and marks the card once', async () => {
     const w = world();
 
     const outcome = await applyGroupsThroughSystem(w.ports, { messageId: 'd1', groups });
@@ -84,7 +83,7 @@ describe('applying one card by groups', () => {
       `click ${DOUBLE} with x3`,
     ]);
     expect(w.handled).toEqual(['d1']);
-    expect([...w.selected]).toEqual(['mine']);
+    expect(w.aimedNow()).toEqual([]);
   });
 
   it('marks a card nobody takes damage from handled, sending nothing', async () => {
@@ -102,6 +101,7 @@ describe('applying one card by groups', () => {
       [{ gone: ['x3'] }, groups],
       [{ entries: [HALF] }, groups],
       [{}, [{ option: option('full'), targetTokenUuids: [] }]],
+      [{ noTriple: true }, [...groups, { option: option('triple'), targetTokenUuids: ['x4'] }]],
     ] as const) {
       const w = world(opts);
       const outcome = await applyGroupsThroughSystem(w.ports, { messageId: 'd1', groups: request });
@@ -119,14 +119,6 @@ describe('applying one card by groups', () => {
       reason: expect.stringContaining('some of the damage'),
     });
     expect(neverLands.handled).toEqual([]);
-
-    const hidden = world({ hidden: [DOUBLE] });
-    const refused = await applyGroupsThroughSystem(hidden.ports, { messageId: 'd1', groups });
-    expect(refused).toEqual({
-      kind: 'unconfirmed',
-      reason: expect.stringContaining('some of the damage'),
-    });
-    expect([...hidden.selected]).toEqual(['mine']);
   });
 
   it('reports the first group failing the way a single apply does', async () => {

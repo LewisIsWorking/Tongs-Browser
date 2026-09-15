@@ -21,10 +21,7 @@ const world = () => {
   const handlers = new Map<number, (message: CreatedMessage) => void>();
   const flags = new Map<string, unknown>();
   const clicks: string[] = [];
-  const token = {
-    control: () => undefined,
-    release: () => undefined,
-  };
+  const token = { name: 'Xorn', actor: { name: 'Xorn' } };
   const message = {
     async setFlag(this: unknown, scope: string, key: string, value: unknown) {
       flags.set(`${scope}.${key}`, value);
@@ -58,15 +55,7 @@ const world = () => {
         },
       },
     },
-    canvas: {
-      scene: { id: 'S1' },
-      tokens: {
-        controlled: [],
-        get(this: unknown, id: string) {
-          return id === 'T1' ? token : undefined;
-        },
-      },
-    },
+    fromUuidSync: (uuid: string) => (uuid === 'Scene.S1.Token.T1' ? token : null),
     Hooks: {
       on(this: unknown, _name: string, fn: (message: CreatedMessage) => void) {
         handlers.set(handlers.size + 1, fn);
@@ -105,9 +94,7 @@ describe('applying one card twice', () => {
   it('lets the card be tried again after an attempt that did not land', async () => {
     const { globals, clicks } = world();
     const deck = new RollDeck(globals, doc);
-    Object.assign(globals.canvas?.tokens ?? {}, {
-      get: () => undefined,
-    });
+    Object.assign(globals, { fromUuidSync: () => null });
 
     const gone = await deck.apply('m1', 'full', 'Scene.S1.Token.T1');
     const again = await deck.apply('m1', 'full', 'Scene.S1.Token.T1');

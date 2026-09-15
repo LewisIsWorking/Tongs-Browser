@@ -6,9 +6,8 @@ import { watchMessages } from './watchMessages.js';
 /**
  * The real Foundry behind `rollSaveThroughSystem`. Added 2026-09-13.
  *
- * ⚠️ Built on `buildApplyPorts` for what the two share (the selection, finding a token, the handled
- * marker), so a token on another scene reads as gone and `setFlag` is called on its message in ONE
- * place rather than two.
+ * ⚠️ Built on `buildApplyPorts` for what the two share (aiming, finding a token on any scene, the
+ * handled marker), so `setFlag` is called on its message in ONE place rather than two.
  *
  * ⛔ EVERY METHOD IS CALLED ON ITS OBJECT, for the reason written at the top of `buildApplyPorts`:
  * `message.renderHTML()` reads `this`, and a detached call throws only in a real Foundry.
@@ -21,8 +20,9 @@ export function buildSavePorts(
   const shared = buildApplyPorts(globals, doc, landedTimeoutMs);
 
   return {
-    controlled: shared.controlled,
     tokenFor: shared.tokenFor,
+    canAim: shared.canAim,
+    aimAt: shared.aimAt,
     markHandled: shared.markHandled,
 
     renderCard: async (messageId) => {

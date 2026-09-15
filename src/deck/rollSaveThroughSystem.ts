@@ -1,7 +1,6 @@
 import type { SaveFacts } from './deckFacts.js';
 import { SAVE_CONTROL_SELECTORS } from './readSaveControls.js';
-import { restoreSelection, selectOnly } from './selection.js';
-import type { TokenLike } from './selection.js';
+import type { TargetToken } from './aimAt.js';
 
 /**
  * Rolling a card's save by clicking PF2e's OWN save control, for the tokens the GM chose. Added
@@ -23,16 +22,18 @@ import type { TokenLike } from './selection.js';
  * ⛔ SHIFT IS SET FROM THE GM's `showCheckDialogs`, exactly as a shift-click does. PF2e derives
  * `skipDialog` from the event, and a roll that opens its dialog waits for a tap nobody sees.
  *
- * ⚠️ RESTORING STRAIGHT AFTER THE CLICK IS SAFE for the same reason as applying: both handlers read the
- * selected tokens synchronously, before their first `await`. Read in the 8.5.0 bundle.
+ * ⚠️ AIMED, NOT SELECTED (since 2026-09-15), so a token on another scene rolls too: both handlers read
+ * `game.user.getActiveTokens()` synchronously, before their first `await`. Read in the 8.5.0 bundle;
+ * see `aimAt.ts`.
  *
  * ⚠️ WHO ROLLS IS THE GM's CHOICE. Neither measured message recorded a target, so there is nothing to
  * aim at. PF2e rolls every selected token from one click, so all chosen tokens are selected at once.
  */
 export interface SavePorts {
-  readonly controlled: () => readonly TokenLike[];
-  /** The token on the current scene, or null when it is no longer there. */
-  readonly tokenFor: (tokenUuid: string) => TokenLike | null;
+  /** The token document, on ANY scene, or null when it no longer exists. */
+  readonly tokenFor: (tokenUuid: string) => TargetToken | null;
+  readonly canAim: () => boolean;
+  readonly aimAt: (tokens: readonly TargetToken[], click: () => void) => void;
   /** The message rendered by Foundry, PF2e's listeners attached, or null when it is gone. */
   readonly renderCard: (messageId: string) => Promise<HTMLElement | null>;
   /** Puts the card into the document, hidden, and returns what takes it out again. */
@@ -69,8 +70,11 @@ export async function rollSaveThroughSystem(
   if (tokens.some((token) => token === null)) {
     return { kind: 'refused', reason: 'a chosen token is no longer on the scene' };
   }
+  if (!ports.canAim()) {
+    return { kind: 'refused', reason: 'this browser has no user to roll the save as' };
+  }
 
-  /* ⚠️ Rendered BEFORE the selection is borrowed, so nothing awaits while the GM's selection is out. */
+  /* ⚠️ Rendered BEFORE aiming, so nothing awaits while PF2e is aimed. */
   const card = await ports.renderCard(request.messageId);
   const control = card?.querySelectorAll(SAVE_CONTROL_SELECTORS[request.save.control])[
     request.save.index
@@ -79,17 +83,16 @@ export async function rollSaveThroughSystem(
     return { kind: 'refused', reason: 'the card no longer asks for that save' };
   }
 
-  const previous = [...ports.controlled()];
   const detach = ports.attachHidden(card);
   let landing: Promise<boolean>;
   try {
-    selectOnly(tokens as TokenLike[]);
     /* ⛔ WATCH BEFORE CLICKING, as `applyThroughSystem` does, or a fast save is missed. */
     landing = ports.savesLanded(request.tokenUuids);
-    ports.click(control, ports.showsCheckDialogs());
+    ports.aimAt(tokens as TargetToken[], () => {
+      ports.click(control, ports.showsCheckDialogs());
+    });
   } finally {
     detach();
-    restoreSelection(ports.controlled(), previous);
   }
 
   if (!(await landing)) {

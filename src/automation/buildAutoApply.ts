@@ -39,7 +39,7 @@ interface ActorLike {
   };
 }
 
-interface TokenObject {
+interface TokenDoc {
   readonly actor?: ActorLike | null;
 }
 
@@ -50,16 +50,21 @@ export interface AutoGlobals extends RoleGlobals, RecentGlobals {
       readonly messages?: { get?(id: string): (Doc & StrikeMessage) | undefined };
       readonly actors?: { get?(id: string): ActorLike | undefined };
     } & CombatsGlobals['game'];
-  readonly canvas?: {
-    readonly scene?: { readonly id?: string } | null;
-    readonly tokens?: { get?(id: string): TokenObject | undefined };
-  };
+  /** Foundry's own lookup: a token document on ANY scene, by its uuid. */
+  readonly fromUuidSync?: (uuid: string) => unknown;
 }
 
 export function buildAutoApply(globals: AutoGlobals, deck: RollDeck): AutoApplyPorts {
   const doc = (id: string) => globals.game?.messages?.get?.(id);
   const flag = (message: StrikeMessage, key: string) => doc(message.id)?.getFlag?.(MODULE_ID, key);
   const systemId = () => globals.game?.system?.id ?? '';
+  const tokenDoc = (uuid: string): TokenDoc | null => {
+    try {
+      return (globals.fromUuidSync?.(uuid) as TokenDoc | null | undefined) ?? null;
+    } catch {
+      return null;
+    }
+  };
 
   return {
     role: () => automationRole(globals),
@@ -79,8 +84,14 @@ export function buildAutoApply(globals: AutoGlobals, deck: RollDeck): AutoApplyP
         ];
         const context = (doc(attackId)?.flags?.[systemId()] as { context?: unknown } | undefined)
           ?.context;
-        const ids = damage.targetToken === null ? null : parseTokenUuid(damage.targetToken);
-        const target = ids === null ? undefined : globals.canvas?.tokens?.get?.(ids.tokenId);
+        /*
+         * ⛔ ALWAYS a target, even an empty one. PF2e reads `(target ?? game.user.targets.first())?.document`,
+         * so leaving it out quietly worked the formula out against whatever the GM had targeted. PF2e only
+         * reads `.document` off it, so the document on any scene is wrapped rather than a canvas token needed.
+         */
+        const target = {
+          document: damage.targetToken === null ? null : tokenDoc(damage.targetToken),
+        };
         const params = { getFormula: true, target, checkContext: context };
         const formula =
           damage.outcome === 'criticalSuccess'
@@ -94,12 +105,9 @@ export function buildAutoApply(globals: AutoGlobals, deck: RollDeck): AutoApplyP
 
     targetState: (tokenUuid) => {
       const ids = parseTokenUuid(tokenUuid);
-      const elsewhere = ids !== null && globals.canvas?.scene?.id !== ids.sceneId;
-      const token =
-        ids === null || elsewhere ? undefined : globals.canvas?.tokens?.get?.(ids.tokenId);
+      const token = ids === null ? null : tokenDoc(tokenUuid);
       const hp = token?.actor?.system?.attributes?.hp?.value;
       return {
-        elsewhere,
         exists: Boolean(token?.actor),
         hp: typeof hp === 'number' ? hp : null,
         inCombat: ids !== null && combatsWithToken(globals, ids.sceneId, ids.tokenId).length > 0,

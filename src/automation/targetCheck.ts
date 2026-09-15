@@ -8,13 +8,11 @@
  * ⛔ ENEMIES ONLY. Phase 2 automates players' actions against enemies. A hit on a creature a player
  * owns, a friendly fire or a mis-targeted ally, always waits for the GM.
  *
- * ⚠️ ANOTHER SCENE MEANS LATER, NOT NO. PF2e applies to controlled tokens, and only tokens on the scene
- * the GM's browser is viewing can be controlled. A GM looking at a different map has not decided
- * anything about this hit, so it stays queued and is tried again when the scene changes.
+ * ⚠️ ANY SCENE (since 2026-09-15). A hit on a token on another scene used to wait until the GM viewed
+ * that map, because PF2e applied to controlled tokens. The deck now aims PF2e at the token document
+ * itself (`deck/aimAt.ts`), so which map the GM is looking at decides nothing.
  */
 export interface TargetState {
-  /** The token's scene is not the one this browser is viewing. */
-  readonly elsewhere: boolean;
   readonly exists: boolean;
   readonly hp: number | null;
   readonly inCombat: boolean;
@@ -22,14 +20,9 @@ export interface TargetState {
 }
 
 export type TargetVerdict =
-  | { readonly kind: 'ok' }
-  | { readonly kind: 'later' }
-  | { readonly kind: 'deck'; readonly reason: string };
+  { readonly kind: 'ok' } | { readonly kind: 'deck'; readonly reason: string };
 
 export function checkTarget(state: TargetState): TargetVerdict {
-  if (state.elsewhere) {
-    return { kind: 'later' };
-  }
   if (!state.exists) {
     return { kind: 'deck', reason: 'the target is no longer on the scene' };
   }

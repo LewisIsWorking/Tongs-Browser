@@ -62,14 +62,9 @@ const world = () => {
         ],
       },
     },
-    canvas: {
-      scene: { id: 'S' },
-      tokens: {
-        get(this: unknown, id: string) {
-          return id === 'X' ? token : undefined;
-        },
-      },
-    },
+    /* Any scene: Foundry's own lookup, which the deck and the automation both use since 2026-09-15. */
+    fromUuidSync: (uuid: string) =>
+      uuid === 'Scene.S.Token.X' || uuid === 'Scene.ELSEWHERE.Token.Y' ? token : undefined,
   };
   const deck = { apply: vi.fn(async () => Promise.resolve({ kind: 'applied' as const })) };
   return {
@@ -150,10 +145,21 @@ describe("PF2e's own formula", () => {
     expect(strike.seen[0]).toEqual({
       kind: 'damage',
       getFormula: true,
-      target: token,
+      target: { document: token },
       checkContext: { type: 'attack-roll', dc: 20 },
     });
     expect(strike.seen[1]).toMatchObject({ kind: 'critical' });
+  });
+
+  /* ⛔ PF2e falls back to the GM's own target when given none, so an unfound target is still passed. */
+  it("never lets PF2e fall back to the GM's own target", async () => {
+    const { ports, strike } = world();
+    await ports.recomputeFormula(damage({ targetToken: 'Scene.S.Token.Gone' }), 'a1');
+    await ports.recomputeFormula(damage({ targetToken: null }), 'a1');
+    expect(strike.seen.map((each) => (each as { target: unknown }).target)).toEqual([
+      { document: null },
+      { document: null },
+    ]);
   });
 
   it('is null when the strike is missing, throws, or answers with no formula', async () => {
@@ -169,9 +175,8 @@ describe("PF2e's own formula", () => {
 
 describe('the target as it is now', () => {
   /* ⛔ Found live: the tracker showed encounter 1 while the enemy fought in encounter 4. */
-  it('reads an enemy standing in any encounter on this scene, not only the one the tracker shows', () => {
+  it('reads an enemy standing in any encounter, not only the one the tracker shows', () => {
     expect(world().ports.targetState('Scene.S.Token.X')).toEqual({
-      elsewhere: false,
       exists: true,
       hp: 30,
       inCombat: true,
@@ -179,15 +184,12 @@ describe('the target as it is now', () => {
     });
   });
 
-  it('reads another scene as elsewhere, and a missing token as gone', () => {
+  /* ⛔ A limit found on Forge: a hit on a creature on a map the GM was not viewing waited until they opened it. */
+  it('reads a token on a scene nobody is viewing as it is, and a missing token as gone', () => {
     const { ports } = world();
 
-    expect(ports.targetState('Scene.Other.Token.X')).toMatchObject({
-      elsewhere: true,
-      exists: false,
-    });
+    expect(ports.targetState('Scene.ELSEWHERE.Token.Y')).toMatchObject({ exists: true, hp: 30 });
     expect(ports.targetState('Scene.S.Token.Gone')).toMatchObject({
-      elsewhere: false,
       exists: false,
       hp: null,
       inCombat: false,

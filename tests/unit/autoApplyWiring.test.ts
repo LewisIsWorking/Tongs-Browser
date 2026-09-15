@@ -155,7 +155,7 @@ describe('with an empty world', () => {
     expect(ports.flag(card, 'handled')).toBeUndefined();
     expect(ports.isHandled(card)).toBe(false);
     expect(ports.attackerIsPlayers('A')).toBe(false);
-    expect(ports.targetState('Scene.S.Token.X')).toMatchObject({ elsewhere: true, exists: false });
+    expect(ports.targetState('Scene.S.Token.X')).toMatchObject({ exists: false, inCombat: false });
     await expect(ports.setFlag('x', 'pending', true)).resolves.toBeUndefined();
     await expect(ports.unsetFlag('x', 'pending')).resolves.toBeUndefined();
     const damage = {
@@ -176,5 +176,14 @@ describe('with an empty world', () => {
     expect(
       await ports.recomputeFormula({ ...damage, targetToken: 'not a token' }, 'a1')
     ).toBeNull();
+  });
+
+  /* A uuid Foundry refuses to resolve reads as a target that is gone, never as an exception mid-game. */
+  it('reads a target whose lookup throws as gone', () => {
+    const lookup = () => {
+      throw new Error('cannot resolve');
+    };
+    const ports = buildAutoApply({ fromUuidSync: lookup }, {} as RollDeck);
+    expect(ports.targetState('Scene.S.Token.X')).toMatchObject({ exists: false, hp: null });
   });
 });
