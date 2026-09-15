@@ -35,7 +35,7 @@ interface HooksLike {
 }
 
 /** How long to wait for PF2e's damage-taken card after an HP change before calling it manual. */
-export const CAUSE_WINDOW_MS = 3000;
+const CAUSE_WINDOW_MS = 3000;
 
 export type StartGlobals = BandGlobals &
   RoleGlobals & {
