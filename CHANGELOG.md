@@ -1,5 +1,13 @@
 # tongs-browser
 
+## 0.35.1
+
+### Patch Changes
+
+- [#373](https://github.com/LewisIsWorking/Tongs-Browser/pull/373) [`d5bbca3`](https://github.com/LewisIsWorking/Tongs-Browser/commit/d5bbca37bf930517557f1413dc7ca0267bd7940c) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Health bands: a player character whose token is not linked to its actor is now found in its party, and when a combat cannot be placed in a campaign the GM's warning names the characters no coded party lists.
+
+- [#373](https://github.com/LewisIsWorking/Tongs-Browser/pull/373) [`d5bbca3`](https://github.com/LewisIsWorking/Tongs-Browser/commit/d5bbca37bf930517557f1413dc7ca0267bd7940c) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Party campaigns: the list scrolls when a world has more parties than fit the window, and an empty field reads "No campaign" instead of a greyed code that looked saved.
+
 ## 0.35.0
 
 ### Minor Changes
