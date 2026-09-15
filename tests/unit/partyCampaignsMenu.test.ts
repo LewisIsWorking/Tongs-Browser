@@ -5,6 +5,8 @@ import {
   registerPartyCampaignsMenu,
 } from '../../src/bands/partyCampaignsMenu.js';
 import { escapeHtml } from '../../src/bands/settingsMenu.js';
+import type { CooClient } from '../../src/bands/CooClient.js';
+import { registerBandMenus } from '../../src/bands/startBands.js';
 import type { PartyCampaignEntry } from '../../src/foundry/PartyAccess.js';
 
 /**
@@ -81,10 +83,12 @@ describe('setting party campaigns', () => {
     expect(empty.input).not.toHaveBeenCalled();
 
     expect(await editPartyCampaigns({}, () => PARTIES)).toBe(0);
-    const unwritable = world({ party1: 'C09' });
+    /* A party deleted while the dialog was open, and a field that came back as something other than text. */
+    const unwritable = world({ party1: 'C09', party2: 7 });
     expect(
       await editPartyCampaigns({ ...unwritable.globals, fromUuidSync: () => null }, () => PARTIES)
-    ).toBe(1);
+    ).toBe(0);
+    expect(unwritable.globals.ui.notifications.warn).toHaveBeenCalledTimes(2);
   });
 
   it('registers a GM-only menu, an ApplicationV2, that opens the dialog', () => {
@@ -110,5 +114,26 @@ describe('setting party campaigns', () => {
     new data.type().render();
     expect(w.input).toHaveBeenCalled();
     expect(escapeHtml(`"it's" & <b>`)).toBe('&#34;it&#39;s&#34; &#38; &#60;b&#62;');
+  });
+
+  it("registers both of the GM's band menus, the campaigns one listing the world's parties", () => {
+    const registerMenu = vi.fn();
+    class ApplicationV2 {
+      public render(): unknown {
+        return undefined;
+      }
+    }
+    const w = world(null);
+    const party = { type: 'party', name: 'Kibwe', uuid: 'Actor.K', getFlag: () => 'C06' };
+    registerBandMenus({ registerMenu }, {} as CooClient, {
+      ...w.globals,
+      foundry: { applications: { api: { ...w.globals.foundry.applications.api, ApplicationV2 } } },
+      game: { actors: [party], user: { isGM: true } },
+    });
+
+    expect(registerMenu.mock.calls.map((call) => String(call[1]))).toEqual(['cooSignIn', 'partyCampaigns']);
+    const campaigns = registerMenu.mock.calls[1]?.[2] as { type: new () => { render(): unknown } };
+    new campaigns.type().render();
+    expect(w.input.mock.calls[0]?.[0].content).toContain('Kibwe');
   });
 });

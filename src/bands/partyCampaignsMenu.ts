@@ -76,7 +76,11 @@ export async function editPartyCampaigns(
       continue;
     }
     const actor = globals.fromUuidSync?.(party.uuid) as WritableParty | null | undefined;
-    await actor?.setFlag?.(MODULE_ID, PARTY_CAMPAIGN_FLAG, code);
+    if (actor?.setFlag === undefined) {
+      notify?.warn?.(`${party.name} could not be found to save its campaign.`);
+      continue;
+    }
+    await actor.setFlag(MODULE_ID, PARTY_CAMPAIGN_FLAG, code);
     saved += 1;
   }
   notify?.info?.(`Saved the campaign for ${String(saved)} ${saved === 1 ? 'party' : 'parties'}.`);
