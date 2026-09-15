@@ -9,6 +9,8 @@ ComeOnOverUno server. Off until the world names its campaign.
 | `healthBands.ts`  | Segments from HP, the creature type from traits, and the approved band words |
 | `bandSubject.ts`  | Whether players may hear about a token, and under what name                  |
 | `bandTokens.ts`   | Foundry's tokens and actors read into bands, as measured                     |
+| `bandCause.ts`    | What changed an enemy's HP, in words for the GM's DM, or "manual change"     |
+| `causeWatch.ts`   | Waiting for PF2e's damage-taken card after a change, and reading it          |
 | `BandReporter.ts` | Deciding what to post and when: public only on a band change, one at a time  |
 | `CooClient.ts`    | Signing in to ComeOnOverUno and posting, keeping only a refresh token        |
 | `cooSignIn.ts`    | The GM-only sign-in menu in the module settings                              |
@@ -22,6 +24,8 @@ ComeOnOverUno server. Off until the world names its campaign.
   in a client setting in that browser. The COO endpoint requires the Admin role, and the bot token
   never leaves the COO server.
 - **Only tokens players can see**, under the name they can see.
+- **Every HP change is recorded with its cause** in the GM's DM (the brief's rule): the item and who used
+  it, and the IWR PF2e applied, or "manual change". Never on the public line, since it names resistances.
 
 ## Measured, not assumed
 
@@ -29,5 +33,8 @@ ComeOnOverUno server. Off until the world names its campaign.
   synthetic actor with `isToken: true` (pf2e 8.5.0).
 - PF2e's name rule is `playersCanSeeName || !game.pf2e.settings.tokens.nameVisibility`, else "The
   creature". SF2e 1.5.0 has the same setting under `game.pf2e` and the same label.
+- PF2e updates the actor BEFORE it creates the damage-taken card, whose `appliedDamage.uuid` is the actor's
+  uuid and whose `origin` is the item's `getOriginData()` (`{ actor, uuid }`); the IWR is JSON in
+  `.iwr[data-applications]`. So the cause is watched for from the moment of the update.
 - SF2e robots carry `construct` and `robot`. `tech` is also on androids and a metal elemental, so it is
   not read as a construct.

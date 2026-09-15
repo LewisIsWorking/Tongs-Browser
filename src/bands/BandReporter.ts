@@ -13,6 +13,9 @@ import type { BandPost, PostOutcome } from './CooClient.js';
  * this browser starts or the scene changes, so the first hit of a session compares against the real
  * previous band instead of announcing every token. A token never seen before announces.
  *
+ * ⚠️ THE CAUSE IS WATCHED FOR AT ONCE. PF2e creates its damage-taken card after the update that fires
+ * this hook, so the watch starts here, before any await, and each post waits for its cause in the queue.
+ *
  * ⚠️ One post at a time, in order. A burst of hits must not reach the topic shuffled, and COO's rotating
  * refresh token must not be spent by two requests at once.
  */
@@ -25,6 +28,8 @@ export interface BandPorts {
   /** Every token in the running combat on the viewed scene. */
   readonly combatSubjects: () => readonly (BandSubject | null)[];
   readonly post: (campaign: string, post: BandPost) => Promise<PostOutcome>;
+  /** Why this actor's HP changed, for the GM's DM; see `causeWatch.ts`. Called at once, awaited later. */
+  readonly causeFor: (actor: unknown) => Promise<string>;
   readonly warn: (message: string) => void;
 }
 
@@ -60,6 +65,7 @@ export class BandReporter {
     if (this.ports.role() !== 'act' || hp?.value === undefined || campaign === '') {
       return;
     }
+    const cause = this.ports.causeFor(actor);
     for (const subject of this.ports.subjectsFor(actor)) {
       if (subject === null) {
         continue;
@@ -69,7 +75,7 @@ export class BandReporter {
         continue;
       }
       this.told.set(subject.tokenUuid, { segments: subject.segments, hp: subject.hp });
-      const post: BandPost = {
+      const post: Omit<BandPost, 'cause'> = {
         name: subject.name,
         segments: subject.segments,
         word: subject.word,
@@ -77,13 +83,19 @@ export class BandReporter {
         maxHp: subject.maxHp,
         announce: before?.segments !== subject.segments,
       };
-      await this.enqueue(campaign, post);
+      await this.enqueue(campaign, post, cause);
     }
   }
 
-  private async enqueue(campaign: string, post: BandPost): Promise<void> {
+  private async enqueue(
+    campaign: string,
+    post: Omit<BandPost, 'cause'>,
+    cause: Promise<string>
+  ): Promise<void> {
     this.queue = this.queue.then(async () => {
-      const outcome = await this.ports.post(campaign, post).catch((): PostOutcome => 'failed');
+      const outcome = await this.ports
+        .post(campaign, { ...post, cause: await cause })
+        .catch((): PostOutcome => 'failed');
       if (outcome === 'signed-out' && !this.warnedSignedOut) {
         this.warnedSignedOut = true;
         this.ports.warn(

@@ -16,6 +16,7 @@ const POST: BandPost = {
   hp: 17,
   maxHp: 28,
   announce: true,
+  cause: 'manual change',
 };
 const HOUR = 3_600_000;
 

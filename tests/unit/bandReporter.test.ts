@@ -34,6 +34,7 @@ const harness = (
       return Promise.resolve('sent');
     },
     warn: vi.fn(),
+    causeFor: () => Promise.resolve('manual change'),
     ...overrides,
   };
   return { reporter: new BandReporter(ports), ports, posts, current };
@@ -60,6 +61,7 @@ describe('telling the table', () => {
       hp: 17,
       maxHp: 28,
       announce: true,
+      cause: 'manual change',
     });
   });
 
@@ -98,6 +100,28 @@ describe('telling the table', () => {
       await reporter.onActorUpdated({}, changes);
       expect(posts).toEqual([]);
     }
+  });
+
+  /* ⛔ PF2e's card follows the update at once: the watch must be armed before the reporter awaits anything. */
+  it('asks for the cause at the moment of the change, and sends it with the band', async () => {
+    const calls: string[] = [];
+    let give: (cause: string) => void = () => undefined;
+    const { reporter, posts, current } = harness({
+      causeFor: (actor) => {
+        calls.push(`cause for ${(actor as { id: string }).id}`);
+        return new Promise((resolve) => {
+          give = resolve;
+        });
+      },
+    });
+    current.value = [subject(10)];
+
+    const pending = reporter.onActorUpdated({ id: 'A' }, HP_CHANGE);
+    expect(calls).toEqual(['cause for A']);
+    give('Longsword from Lai');
+    await pending;
+
+    expect(posts[0]?.cause).toBe('Longsword from Lai');
   });
 
   it('posts one at a time, in the order the changes happened', async () => {
