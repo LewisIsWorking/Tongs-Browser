@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.35.2
+
+### Patch Changes
+
+- [#375](https://github.com/LewisIsWorking/Tongs-Browser/pull/375) [`5e62ba2`](https://github.com/LewisIsWorking/Tongs-Browser/commit/5e62ba257cc3c5d87fc51356e637c446a7eba80c) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Auto-apply, spell saves, spell damage and health bands now find a target in whichever encounter it is fighting in. A world running several encounters at once no longer sends a hit to the roll deck as "not in a running combat", or skips its band, because the GM's combat tracker was showing a different encounter.
+
 ## 0.35.1
 
 ### Patch Changes
