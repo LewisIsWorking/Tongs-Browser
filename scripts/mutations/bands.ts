@@ -67,18 +67,43 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/bands/combatCampaign.ts',
-    find: "        actor?.type === 'character' && actor.hasPlayerOwner === true",
-    replace: '        actor !== null && actor !== undefined',
+    find: "      if (actor?.type !== 'character' || actor.hasPlayerOwner !== true) {",
+    replace: '      if (actor === null || actor === undefined) {',
     defect: "an enemy's party, or a companion's, decides which campaign hears about the fight",
     tests: ['tests/unit/partyCampaign.test.ts'],
   },
   {
     /* ⛔ Found live: reading membership from actor.parties missed a party made mid-session. */
     file: 'src/bands/combatCampaign.ts',
-    find: '        .filter((party) => actor.uuid !== undefined && party.members.includes(actor.uuid))',
-    replace: '        .filter(() => actor.uuid !== undefined)',
+    find: '            .filter((party) => uuid !== undefined && party.members.includes(uuid))',
+    replace: '            .filter(() => uuid !== undefined)',
     defect:
       "every party's campaign is counted for every character, so one campaign's fight reads as mixed",
     tests: ['tests/unit/partyCampaign.test.ts'],
+  },
+  {
+    /* ⛔ An unlinked token carries a synthetic actor whose uuid no party lists. */
+    file: 'src/bands/combatCampaign.ts',
+    find: '      const uuid = combatant.token?.baseActor?.uuid ?? actor.uuid;',
+    replace: '      const uuid = actor.uuid;',
+    defect: 'a player character on an unlinked token is in no party, so its fight posts nothing',
+    tests: ['tests/unit/combatCampaignMatch.test.ts'],
+  },
+  {
+    /* ⛔ Found live: a warning that named nobody gave the GM nothing to act on. */
+    file: 'src/bands/partyCampaign.ts',
+    find: "    return { kind: 'none', characters: characters.map((c) => c.name) };",
+    replace: "    return { kind: 'none', characters: [] };",
+    defect: 'the GM is told no party has a campaign, not which character is missing from one',
+    tests: ['tests/unit/combatCampaignMatch.test.ts'],
+  },
+  {
+    /* ⛔ Found live: 24 parties outgrew the window and the first ones could not be reached. */
+    file: 'src/bands/partyCampaignsMenu.ts',
+    find: '    content: `<div class="${PARTY_LIST_CLASS}">${content}</div>`,',
+    replace: '    content,',
+    defect:
+      'a world with many parties gets a dialog taller than the window whose first parties cannot be reached',
+    tests: ['tests/unit/partyCampaignsMenu.test.ts'],
   },
 ];

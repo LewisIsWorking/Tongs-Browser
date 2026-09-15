@@ -32,6 +32,13 @@ export interface PartyCampaignGlobals extends MenuGlobals {
   readonly fromUuidSync?: (uuid: string) => unknown;
 }
 
+/**
+ * ⛔ Found live 2026-09-15: with 24 parties the dialog grew taller than the window and did not scroll,
+ * so the first parties could not be reached. The list scrolls inside a height the window can hold.
+ * ⛔ And a placeholder of "C06" read as a saved value on every uncoded party.
+ */
+const PARTY_LIST_CLASS = 'tb-party-campaigns';
+
 const field = (index: number) => `party${String(index)}`;
 
 /** Opens the dialog and saves what changed. Resolves to how many parties were saved. */
@@ -48,12 +55,12 @@ export async function editPartyCampaigns(
   const content = parties
     .map(
       (party, index) =>
-        `<label>${escapeHtml(party.name)} <input name="${field(index)}" type="text" placeholder="C06" value="${escapeHtml(normalizeCampaign(party.campaign))}"></label>`
+        `<label>${escapeHtml(party.name)} <input name="${field(index)}" type="text" placeholder="No campaign" value="${escapeHtml(normalizeCampaign(party.campaign))}"></label>`
     )
     .join('');
   const answer = (await globals.foundry?.applications?.api?.DialogV2?.input?.({
     window: { title: 'Path Wars campaign for each party' },
-    content,
+    content: `<div class="${PARTY_LIST_CLASS}">${content}</div>`,
     ok: { label: 'Save' },
   })) as Record<string, unknown> | null | undefined;
   if (answer === null || answer === undefined) {

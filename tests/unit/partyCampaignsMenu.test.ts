@@ -49,6 +49,10 @@ describe('setting party campaigns', () => {
     const content = w.input.mock.calls[0]?.[0].content ?? '';
     expect(content).toContain('Kibwe &#60;The Brave&#62;');
     expect(content).toContain('value="C08"');
+    /* ⛔ Found live: 24 parties outgrew the window, and a "C06" placeholder read as a saved code. */
+    expect(content.startsWith('<div class="tb-party-campaigns">')).toBe(true);
+    expect(content.endsWith('</div>')).toBe(true);
+    expect(content).not.toContain('placeholder="C');
     expect(w.written).toEqual([
       ['Actor.Metal tongs-browser.bandsCampaign', 'C09'],
       ['Actor.Theria tongs-browser.bandsCampaign', ''],

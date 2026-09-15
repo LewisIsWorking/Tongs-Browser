@@ -13,21 +13,30 @@ import type { CampaignChoice } from './partyCampaign.js';
  * combat would read "no campaign" for no visible reason. `system.details.members` is the source data,
  * there from the moment the party exists.
  *
+ * ⛔ A CHARACTER IS MATCHED BY ITS TOKEN'S BASE ACTOR. A party lists world actors (`Actor.id`), but a
+ * token that is not linked to its actor carries a synthetic actor whose uuid is
+ * `Scene.s.Token.t.Actor.id`, which no party lists. Foundry 14's `TokenDocument#baseActor` is the world
+ * actor either way.
+ *
  * ⚠️ PLAYER CHARACTERS ONLY: `type: "character"` and owned by a player. An enemy decides nothing, and a
  * familiar or companion a player owns follows its character.
  */
 interface CombatantActor {
   readonly uuid?: string;
+  readonly name?: string;
   readonly type?: string;
   readonly hasPlayerOwner?: boolean;
+}
+
+interface CombatantLike {
+  readonly actor?: CombatantActor | null;
+  readonly token?: { readonly baseActor?: { readonly uuid?: string } | null } | null;
 }
 
 export interface CampaignGlobals {
   readonly game?: {
     readonly combat?: {
-      readonly combatants?: {
-        readonly contents?: readonly { readonly actor?: CombatantActor | null }[];
-      };
+      readonly combatants?: { readonly contents?: readonly CombatantLike[] };
     } | null;
   };
 }
@@ -36,17 +45,21 @@ export function combatCampaign(
   globals: CampaignGlobals,
   parties: readonly PartyCampaignEntry[]
 ): CampaignChoice {
-  const characters = (globals.game?.combat?.combatants?.contents ?? [])
-    .map((combatant) => combatant.actor)
-    .filter(
-      (actor): actor is CombatantActor =>
-        actor?.type === 'character' && actor.hasPlayerOwner === true
-    );
   return campaignForCombat(
-    characters.map((actor) =>
-      parties
-        .filter((party) => actor.uuid !== undefined && party.members.includes(actor.uuid))
-        .map((party) => normalizeCampaign(party.campaign))
-    )
+    (globals.game?.combat?.combatants?.contents ?? []).flatMap((combatant) => {
+      const actor = combatant.actor;
+      if (actor?.type !== 'character' || actor.hasPlayerOwner !== true) {
+        return [];
+      }
+      const uuid = combatant.token?.baseActor?.uuid ?? actor.uuid;
+      return [
+        {
+          name: actor.name ?? 'an unnamed character',
+          campaigns: parties
+            .filter((party) => uuid !== undefined && party.members.includes(uuid))
+            .map((party) => normalizeCampaign(party.campaign)),
+        },
+      ];
+    })
   );
 }
