@@ -27,6 +27,8 @@ export interface TongsBrowserOptions {
   /** Told when the `<` button is pressed, so the choice survives a reload. */
   readonly onBarCollapsedChanged?: (collapsed: boolean) => void;
   readonly uiScale?: number;
+  /** Whether the interface may be scaled on this device; see `scaling/UiScaler.ts`. Absent means yes. */
+  readonly scaleInterface?: () => boolean;
   readonly cursorSize?: number;
   readonly debugOverlay?: boolean;
 }

@@ -150,6 +150,7 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
   const scaler = new UiScaler({
     document: doc,
     ...(options.uiScale === undefined ? {} : { initialScale: options.uiScale }),
+    ...(options.scaleInterface === undefined ? {} : { allowed: options.scaleInterface }),
   });
 
   const clampBinder = new WindowClampBinder({ document: doc, window: win, logger });
