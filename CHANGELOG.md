@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.35.3
+
+### Patch Changes
+
+- [#377](https://github.com/LewisIsWorking/Tongs-Browser/pull/377) [`598fe47`](https://github.com/LewisIsWorking/Tongs-Browser/commit/598fe474ad612fa8dba58bb0d8bf3410b26ebc83) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Switching Tongs on at a desktop no longer shrinks the Foundry interface. The interface scale is only applied on a phone or tablet, where the primary pointer is a finger, so a GM who turns the module on to reach the roll deck keeps a full-size sidebar.
+
 ## 0.35.2
 
 ### Patch Changes
