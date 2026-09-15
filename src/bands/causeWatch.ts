@@ -82,7 +82,7 @@ export function readCauseFacts(
  * Resolves with PF2e's damage-taken card for this actor within the window, or null when none came. Both the
  * GM's cause and the public one read the same card, each through its own watch armed at the same moment.
  */
-export async function watchDamageTaken(
+async function watchDamageTaken(
   hooks: CauseHooks,
   systemId: string,
   actorUuid: string,
@@ -109,7 +109,7 @@ export async function watchDamageTaken(
 }
 
 /** Who and what dealt it, as uuids, and which way it went; read off the card for the public line. */
-export function readOrigin(
+function readOrigin(
   message: DamageTakenMessage,
   systemId: string
 ): {
