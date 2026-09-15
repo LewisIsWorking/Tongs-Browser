@@ -1,3 +1,5 @@
+import type { SeenAttacker } from './attackerView.js';
+
 /**
  * What changed an enemy's HP, in words for the GM's DM. Added 2026-09-15.
  *
@@ -13,6 +15,18 @@
  * and the IWR applied is JSON in the card's `.iwr[data-applications]` as `{ category, type, adjustment }`.
  */
 export const MANUAL_CAUSE = 'manual change';
+
+/** What hit it, for the combat topic, and who, when players can see them; see `attackerView.ts`. */
+export interface PublicCause {
+  readonly text: string;
+  readonly attacker: SeenAttacker;
+}
+
+/** Both readings of one HP change: the GM's, always, and the table's, when it may know. */
+export interface BandCause {
+  readonly gm: string;
+  readonly shown: PublicCause | null;
+}
 
 /** COO refuses a longer cause, and a DM line that long is unreadable anyway. */
 export const MAX_CAUSE_LENGTH = 200;
@@ -46,5 +60,20 @@ export function describeCause(facts: CauseFacts | null): string {
     : (source ?? 'damage applied');
   const iwr = facts.iwr.map((each) => `${each.category} ${each.type} ${signed(each.adjustment)}`);
   const text = iwr.length === 0 ? what : `${what}; ${iwr.join(', ')}`;
+  return text.length > MAX_CAUSE_LENGTH ? `${text.slice(0, MAX_CAUSE_LENGTH - 3)}...` : text;
+}
+
+/**
+ * What hit it, for the combat topic: "Turret Disintegrator from Changer", "healed by Heal from Kyra". Added
+ * 2026-09-15, decided with Lewis. ⛔ NEVER the IWR, which only the GM may see, and null when PF2e named neither
+ * the item nor who used it. Whether players may see the attacker at all is `attackerView.ts`'s call.
+ */
+export function describePublicCause(
+  itemName: string | null,
+  attackerName: string,
+  healing: boolean
+): string {
+  const source = itemName === null ? attackerName : `${itemName} from ${attackerName}`;
+  const text = healing ? `healed by ${source}` : source;
   return text.length > MAX_CAUSE_LENGTH ? `${text.slice(0, MAX_CAUSE_LENGTH - 3)}...` : text;
 }

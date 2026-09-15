@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { BandReporter } from '../../src/bands/BandReporter.js';
 import type { BandPorts } from '../../src/bands/BandReporter.js';
+import type { BandCause } from '../../src/bands/bandCause.js';
 import type { BandSubject } from '../../src/bands/bandSubject.js';
 import type { BandPost } from '../../src/bands/CooClient.js';
 
@@ -15,6 +16,7 @@ const subject = (hp: number, overrides: Partial<BandSubject> = {}): BandSubject 
   word: `word ${String(hp)}`,
   hp,
   maxHp: 28,
+  image: null,
   ...overrides,
 });
 const HP_CHANGE = { system: { attributes: { hp: { value: 1 } } } };
@@ -34,7 +36,7 @@ const harness = (
       return Promise.resolve('sent');
     },
     warn: vi.fn(),
-    causeFor: () => Promise.resolve('manual change'),
+    causeFor: () => Promise.resolve({ gm: 'manual change', shown: null }),
     ...overrides,
   };
   return { reporter: new BandReporter(ports), ports, posts, current };
@@ -104,7 +106,7 @@ describe('telling the table', () => {
   /* ⛔ PF2e's card follows the update at once: the watch must be armed before the reporter awaits anything. */
   it('asks for the cause at the moment of the change, and sends it with the band', async () => {
     const calls: string[] = [];
-    let give: (cause: string) => void = () => undefined;
+    let give: (cause: BandCause) => void = () => undefined;
     const { reporter, posts, current } = harness({
       causeFor: (actor) => {
         calls.push(`cause for ${(actor as { id: string }).id}`);
@@ -117,7 +119,7 @@ describe('telling the table', () => {
 
     const pending = reporter.onActorUpdated({ id: 'A' }, HP_CHANGE);
     expect(calls).toEqual(['cause for A']);
-    give('Longsword from Lai');
+    give({ gm: 'Longsword from Lai', shown: null });
     await pending;
 
     expect(posts[0]?.cause).toBe('Longsword from Lai');

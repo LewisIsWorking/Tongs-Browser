@@ -156,6 +156,7 @@ describe('a combat the reporter cannot place', () => {
           word: 'w',
           hp,
           maxHp: 28,
+          image: null,
         },
       ],
       combatSubjects: () => [],
@@ -163,7 +164,7 @@ describe('a combat the reporter cannot place', () => {
         posts.push(campaign);
         return Promise.resolve('sent');
       },
-      causeFor: () => Promise.resolve('manual change'),
+      causeFor: () => Promise.resolve({ gm: 'manual change', shown: null }),
       warn: vi.fn(),
     };
     const reporter = new BandReporter(ports);

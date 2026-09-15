@@ -1,5 +1,6 @@
-import { MANUAL_CAUSE, describeCause } from './bandCause.js';
-import type { CauseFacts, IwrApplication } from './bandCause.js';
+import type { SeenAttacker } from './attackerView.js';
+import { MANUAL_CAUSE, describeCause, describePublicCause } from './bandCause.js';
+import type { BandCause, CauseFacts, IwrApplication } from './bandCause.js';
 
 /**
  * Waiting for PF2e to say why an actor's HP just changed. Added 2026-09-15.
@@ -77,30 +78,78 @@ export function readCauseFacts(
   };
 }
 
-/** Resolves with the cause of this actor's change: PF2e's card within the window, else a manual change. */
+/**
+ * Resolves with PF2e's damage-taken card for this actor within the window, or null when none came. Both the
+ * GM's cause and the public one read the same card, each through its own watch armed at the same moment.
+ */
+async function watchDamageTaken(
+  hooks: CauseHooks,
+  systemId: string,
+  actorUuid: string,
+  timeoutMs: number
+): Promise<DamageTakenMessage | null> {
+  return new Promise<DamageTakenMessage | null>((resolve) => {
+    const hookId = hooks.on('createChatMessage', (message: DamageTakenMessage) => {
+      const flags = flagsOf(message, systemId);
+      if (flags.context?.type === 'damage-taken' && flags.appliedDamage?.uuid === actorUuid) {
+        finish(message);
+      }
+    });
+    const timer = setTimeout(() => {
+      finish(null);
+    }, timeoutMs);
+
+    /* ⚠️ One `finish`, so a card and the timeout can never both unhook or both resolve. */
+    function finish(message: DamageTakenMessage | null): void {
+      hooks.off('createChatMessage', hookId);
+      clearTimeout(timer);
+      resolve(message);
+    }
+  });
+}
+
+/** Who and what dealt it, as uuids, and which way it went; read off the card for the public line. */
+function readOrigin(
+  message: DamageTakenMessage,
+  systemId: string
+): {
+  readonly itemUuid: string | null;
+  readonly actorUuid: string | null;
+  readonly healing: boolean;
+} {
+  const flags = flagsOf(message, systemId);
+  return {
+    itemUuid: flags.origin?.uuid ?? null,
+    actorUuid: flags.origin?.actor ?? null,
+    healing: flags.appliedDamage?.isHealing === true,
+  };
+}
+
+/**
+ * Resolves with the cause of this actor's change, read ONCE from PF2e's card within the window: the GM's
+ * wording, and the table's when `seen` says players can see who dealt it. No card is a manual change,
+ * which the table is never told about.
+ */
 export async function watchCause(
   hooks: CauseHooks,
   systemId: string,
   actorUuid: string,
   timeoutMs: number,
-  nameOf: (uuid: string) => string | null
-): Promise<string> {
-  return new Promise<string>((resolve) => {
-    const hookId = hooks.on('createChatMessage', (message: DamageTakenMessage) => {
-      const flags = flagsOf(message, systemId);
-      if (flags.context?.type === 'damage-taken' && flags.appliedDamage?.uuid === actorUuid) {
-        finish(describeCause(readCauseFacts(message, systemId, nameOf)));
-      }
-    });
-    const timer = setTimeout(() => {
-      finish(MANUAL_CAUSE);
-    }, timeoutMs);
-
-    /* ⚠️ One `finish`, so a card and the timeout can never both unhook or both resolve. */
-    function finish(cause: string): void {
-      hooks.off('createChatMessage', hookId);
-      clearTimeout(timer);
-      resolve(cause);
-    }
-  });
+  nameOf: (uuid: string) => string | null,
+  seen: (attackerUuid: string) => SeenAttacker | null = () => null
+): Promise<BandCause> {
+  const message = await watchDamageTaken(hooks, systemId, actorUuid, timeoutMs);
+  if (message === null) {
+    return { gm: MANUAL_CAUSE, shown: null };
+  }
+  const origin = readOrigin(message, systemId);
+  const attacker = origin.actorUuid === null ? null : seen(origin.actorUuid);
+  const item = origin.itemUuid === null ? null : nameOf(origin.itemUuid);
+  return {
+    gm: describeCause(readCauseFacts(message, systemId, nameOf)),
+    shown:
+      attacker === null
+        ? null
+        : { text: describePublicCause(item, attacker.name, origin.healing), attacker },
+  };
 }

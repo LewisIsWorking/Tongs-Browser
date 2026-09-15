@@ -16,8 +16,8 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/bands/bandSubject.ts',
-    find: '    name: view.playersCanSeeName || !rules.nameVisibility ? view.name : rules.mystifiedName,',
-    replace: '    name: view.name,',
+    find: '  const named = view.playersCanSeeName || !rules.nameVisibility;',
+    replace: '  const named = true;',
     defect: "a creature's real name is posted when players are only meant to see 'The creature'",
     tests: ['tests/unit/bandSubject.test.ts'],
   },
@@ -114,5 +114,44 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
     defect:
       'a band is posted to the campaign of some other encounter than the one its creature is fighting in',
     tests: ['tests/unit/bandEncounters.test.ts'],
+  },
+  {
+    /* ⛔ Decided with Lewis 2026-09-15: the topic names the attacker only when players can see it. */
+    file: 'src/bands/attackerView.ts',
+    find: '    token?.hidden === true ||',
+    replace: '    false ||',
+    defect:
+      'a creature the GM has hidden is named in the combat topic as the one who dealt the hit',
+    tests: ['tests/unit/attackerView.test.ts'],
+  },
+  {
+    file: 'src/bands/attackerView.ts',
+    find: '    !(owned || token?.playersCanSeeName === true || !nameRules(globals).nameVisibility)',
+    replace: '    false',
+    defect: "a creature players only know as 'The creature' is named in the topic as the attacker",
+    tests: ['tests/unit/attackerView.test.ts'],
+  },
+  {
+    file: 'src/bands/bandSubject.ts',
+    find: '    image: named ? view.image : null,',
+    replace: '    image: view.image,',
+    defect: "a creature shown as 'The creature' has its picture posted, telling players what it is",
+    tests: ['tests/unit/bandSubject.test.ts'],
+  },
+  {
+    file: 'src/bands/causeWatch.ts',
+    find: '        : { text: describePublicCause(item, attacker.name, origin.healing), attacker },',
+    replace:
+      '        : { text: describeCause(readCauseFacts(message, systemId, nameOf)), attacker },',
+    defect:
+      "the combat topic is told the creature's resistances and weaknesses along with what hit it",
+    tests: ['tests/unit/bandPublicCause.test.ts'],
+  },
+  {
+    file: 'src/bands/bandTokens.ts',
+    find: "    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;",
+    replace: '    return url.href;',
+    defect: 'a data: image is sent to the server as a URL, which it can never fetch',
+    tests: ['tests/unit/attackerView.test.ts'],
   },
 ];
