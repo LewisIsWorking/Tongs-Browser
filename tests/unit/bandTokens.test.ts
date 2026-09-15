@@ -40,8 +40,13 @@ const world = (
   extra: Partial<NonNullable<BandGlobals['game']>> = {}
 ): BandGlobals => ({
   game: {
-    combat: {
-      combatants: { contents: combatTokens.map((t) => ({ tokenId: t.id ?? '', token: t })) },
+    combats: {
+      contents: [
+        {
+          started: true,
+          combatants: { contents: combatTokens.map((t) => ({ tokenId: t.id ?? '', token: t })) },
+        },
+      ],
     },
     pf2e: { settings: { tokens: { nameVisibility: true } } },
     i18n: {
@@ -128,23 +133,27 @@ describe('which tokens a change concerns', () => {
     expect(subjectsForActor(actor(), globals)).toEqual([]);
   });
 
-  it('seeds from every combatant with a token', () => {
+  it('seeds from every combatant with a token, in every encounter', () => {
     const xorn = token('C1');
     const globals: BandGlobals = {
       game: {
-        combat: {
-          combatants: {
-            contents: [
-              { tokenId: 'C1', token: xorn },
-              { tokenId: 'gone', token: null },
-              { tokenId: 'E', token: token('E', null) },
-            ],
-          },
+        combats: {
+          contents: [
+            { combatants: { contents: [{ tokenId: 'C1', token: xorn }] } },
+            {
+              combatants: {
+                contents: [
+                  { tokenId: 'gone', token: null },
+                  { tokenId: 'E', token: token('E', null) },
+                ],
+              },
+            },
+          ],
         },
       },
     };
 
     expect(combatSubjects(globals).map((s) => s?.segments ?? null)).toEqual([8, null, null]);
-    expect(combatSubjects({ game: { combat: null } })).toEqual([]);
+    expect(combatSubjects({ game: { combats: null } })).toEqual([]);
   });
 });

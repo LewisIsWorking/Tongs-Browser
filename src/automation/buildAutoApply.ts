@@ -8,6 +8,8 @@ import type { RoleGlobals } from './automationRole.js';
 import { recentStrikeMessages } from './recentStrikeMessages.js';
 import type { RecentGlobals } from './recentStrikeMessages.js';
 import type { StrikeMessage } from './strikeFacts.js';
+import { combatsWithToken } from './tokenCombats.js';
+import type { CombatsGlobals } from './tokenCombats.js';
 
 /**
  * The real Foundry behind `AutoApply`. Added 2026-09-14.
@@ -47,10 +49,7 @@ export interface AutoGlobals extends RoleGlobals, RecentGlobals {
       readonly system?: { readonly id?: string };
       readonly messages?: { get?(id: string): (Doc & StrikeMessage) | undefined };
       readonly actors?: { get?(id: string): ActorLike | undefined };
-      readonly combat?: {
-        readonly combatants?: { some?(test: (c: { tokenId?: string }) => boolean): boolean };
-      } | null;
-    };
+    } & CombatsGlobals['game'];
   readonly canvas?: {
     readonly scene?: { readonly id?: string } | null;
     readonly tokens?: { get?(id: string): TokenObject | undefined };
@@ -103,9 +102,7 @@ export function buildAutoApply(globals: AutoGlobals, deck: RollDeck): AutoApplyP
         elsewhere,
         exists: Boolean(token?.actor),
         hp: typeof hp === 'number' ? hp : null,
-        inCombat:
-          ids !== null &&
-          globals.game?.combat?.combatants?.some?.((c) => c.tokenId === ids.tokenId) === true,
+        inCombat: ids !== null && combatsWithToken(globals, ids.sceneId, ids.tokenId).length > 0,
         playerOwned: token?.actor?.hasPlayerOwner === true,
       };
     },

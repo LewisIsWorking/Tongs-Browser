@@ -10,7 +10,7 @@ ComeOnOverUno server. Off until a party has a campaign.
 | `bandSubject.ts`        | Whether players may hear about a token, and under what name                  |
 | `bandTokens.ts`         | Foundry's tokens and actors read into bands, as measured                     |
 | `partyCampaign.ts`      | Which campaign a combat belongs to, from its player characters' parties      |
-| `combatCampaign.ts`     | Reading those parties' campaign flags from the combat being viewed           |
+| `combatCampaign.ts`     | Reading those parties' campaign flags from the encounter a creature is in    |
 | `partyCampaignsMenu.ts` | The GM-only menu that sets each party's campaign                             |
 | `settingsMenu.ts`       | A GM-only settings button that opens something, as an ApplicationV2          |
 | `bandCause.ts`          | What changed an enemy's HP, in words for the GM's DM, or "manual change"     |

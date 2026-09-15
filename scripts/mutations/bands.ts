@@ -106,4 +106,13 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
       'a world with many parties gets a dialog taller than the window whose first parties cannot be reached',
     tests: ['tests/unit/partyCampaignsMenu.test.ts'],
   },
+  {
+    /* ⛔ Several encounters run at once, each with its own party and campaign. */
+    file: 'src/bands/BandReporter.ts',
+    find: '      const choice = this.ports.campaign(subject.tokenUuid);',
+    replace: "      const choice = this.ports.campaign('');",
+    defect:
+      'a band is posted to the campaign of some other encounter than the one its creature is fighting in',
+    tests: ['tests/unit/bandEncounters.test.ts'],
+  },
 ];

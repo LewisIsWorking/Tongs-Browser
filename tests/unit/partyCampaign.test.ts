@@ -35,7 +35,7 @@ const pc = (...codes: unknown[]) => {
 const combat = (...members: ({ combatant: object; parties: PartyCampaignEntry[] } | object)[]) => {
   const parties = members.flatMap((m) => ('parties' in m ? m.parties : []));
   const combatants = members.map((m) => ('combatant' in m ? m.combatant : m));
-  return [{ game: { combat: { combatants: { contents: combatants } } } }, parties] as const;
+  return [{ combatants: { contents: combatants } }, parties] as const;
 };
 
 describe('the campaign of a combat', () => {
@@ -59,7 +59,7 @@ describe('the campaign of a combat', () => {
       kind: 'mixed',
       codes: ['C06', 'C07'],
     });
-    expect(combatCampaign({ game: { combat: null } }, [])).toEqual({
+    expect(combatCampaign(undefined, [])).toEqual({
       kind: 'none',
       characters: [],
     });
@@ -97,9 +97,7 @@ describe('the campaign of a combat', () => {
       members: ['Actor.Lai'],
     };
     expect(
-      combatCampaign({ game: { combat: { combatants: { contents: [{ actor: character }] } } } }, [
-        newParty,
-      ])
+      combatCampaign({ combatants: { contents: [{ actor: character }] } }, [newParty])
     ).toEqual({ kind: 'one', code: 'C06' });
   });
 

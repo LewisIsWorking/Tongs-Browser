@@ -1,4 +1,8 @@
+import { allCombatants, combatsWithToken } from '../automation/tokenCombats.js';
+import type { CombatRef } from '../automation/tokenCombats.js';
+import { parseTokenUuid } from '../deck/buildApplyPorts.js';
 import { readBandSubject } from './bandSubject.js';
+import type { CampaignCombatant } from './combatCampaign.js';
 import type { BandSubject, NameRules, TokenView } from './bandSubject.js';
 
 /**
@@ -37,16 +41,16 @@ export interface ActorLike {
   hasCondition?(slug: string): boolean;
 }
 
+export interface BandCombatant extends CampaignCombatant {
+  readonly tokenId?: string;
+  readonly sceneId?: string;
+  readonly token?: (TokenDocLike & NonNullable<CampaignCombatant['token']>) | null;
+}
+
+/** ⛔ EVERY encounter, not the one the tracker shows: see `automation/tokenCombats.ts`. */
 export interface BandGlobals {
   readonly game?: {
-    readonly combat?: {
-      readonly combatants?: {
-        readonly contents?: readonly {
-          readonly tokenId?: string;
-          readonly token?: TokenDocLike | null;
-        }[];
-      };
-    } | null;
+    readonly combats?: { readonly contents?: readonly CombatRef<BandCombatant>[] } | null;
     readonly pf2e?: {
       readonly settings?: { readonly tokens?: { readonly nameVisibility?: boolean } };
     };
@@ -87,9 +91,7 @@ export function viewOf(token: TokenDocLike, globals: BandGlobals): TokenView | n
     maxHp: hp.max,
     traits: actor.system?.traits?.value ?? [],
     ally: actor.hasPlayerOwner === true || actor.alliance === 'party',
-    inCombat: (globals.game?.combat?.combatants?.contents ?? []).some(
-      (c) => c.tokenId === token.id
-    ),
+    inCombat: combatOfToken(globals, token.uuid) !== undefined,
     unseen: UNSEEN.some((slug) => actor.hasCondition?.(slug) === true),
   };
 }
@@ -99,18 +101,40 @@ const subjectOf = (token: TokenDocLike, globals: BandGlobals): BandSubject | nul
   return view === null ? null : readBandSubject(view, nameRules(globals));
 };
 
-/** The tokens an `updateActor` concerns: the synthetic actor's one token, or every token of a linked actor. */
-export function subjectsForActor(actor: unknown, globals: BandGlobals): (BandSubject | null)[] {
-  const doc = actor as ActorLike | null;
-  const tokens =
-    doc?.isToken === true
-      ? [doc.token].filter((t): t is TokenDocLike => t !== null && t !== undefined)
-      : (doc?.getActiveTokens?.(true, true) ?? []);
-  return tokens.map((token) => subjectOf(token, globals));
+/** The encounter a token is fighting in, a started one first; undefined when it is in none. */
+export function combatOfToken(
+  globals: BandGlobals,
+  tokenUuid: string
+): CombatRef<BandCombatant> | undefined {
+  const ids = parseTokenUuid(tokenUuid);
+  return ids === null ? undefined : combatsWithToken(globals, ids.sceneId, ids.tokenId)[0];
 }
 
+/**
+ * The tokens an `updateActor` concerns: the synthetic actor's one token, or every token of a linked
+ * actor, on the viewed scene or fighting in any encounter on another.
+ */
+export function subjectsForActor(actor: unknown, globals: BandGlobals): (BandSubject | null)[] {
+  const doc = actor as ActorLike | null | undefined;
+  if (doc?.isToken === true) {
+    return [doc.token]
+      .filter((t): t is TokenDocLike => t !== null && t !== undefined)
+      .map((token) => subjectOf(token, globals));
+  }
+  if (doc === null || doc === undefined) {
+    return [];
+  }
+  const fighting = allCombatants(globals).flatMap(({ combatant }) =>
+    combatant.token?.actor === doc ? [combatant.token] : []
+  );
+  /* One token document is one object, whether the scene or an encounter handed it over. */
+  const tokens = new Set([...(doc.getActiveTokens?.(true, true) ?? []), ...fighting]);
+  return [...tokens].map((token) => subjectOf(token, globals));
+}
+
+/** Every token in every encounter, to remember its band before anything changes. */
 export function combatSubjects(globals: BandGlobals): (BandSubject | null)[] {
-  return (globals.game?.combat?.combatants?.contents ?? []).map((c) =>
-    c.token ? subjectOf(c.token, globals) : null
+  return allCombatants(globals).map(({ combatant }) =>
+    combatant.token ? subjectOf(combatant.token, globals) : null
   );
 }
