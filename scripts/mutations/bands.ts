@@ -30,8 +30,8 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/bands/BandReporter.ts',
-    find: "    if (this.ports.role() !== 'act' || hp?.value === undefined || campaign === '') {",
-    replace: "    if (hp?.value === undefined || campaign === '') {",
+    find: "    if (this.ports.role() !== 'act' || hp?.value === undefined) {",
+    replace: '    if (hp?.value === undefined) {',
     defect: 'every open browser, players included, reports the same hit',
     tests: ['tests/unit/bandReporter.test.ts'],
   },
