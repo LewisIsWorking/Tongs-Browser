@@ -58,4 +58,18 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
     defect: "one enemy's HP change is blamed on the weapon that hit a different enemy",
     tests: ['tests/unit/bandCause.test.ts'],
   },
+  {
+    file: 'src/bands/partyCampaign.ts',
+    find: "  return codes.length === 1 ? { kind: 'one', code: only } : { kind: 'mixed', codes };",
+    replace: "  return { kind: 'one', code: only };",
+    defect: "a fight between two campaigns' characters posts its bands into one of their topics",
+    tests: ['tests/unit/partyCampaign.test.ts'],
+  },
+  {
+    file: 'src/bands/combatCampaign.ts',
+    find: "        actor?.type === 'character' && actor.hasPlayerOwner === true",
+    replace: '        actor !== null && actor !== undefined',
+    defect: "an enemy's party, or a companion's, decides which campaign hears about the fight",
+    tests: ['tests/unit/partyCampaign.test.ts'],
+  },
 ];

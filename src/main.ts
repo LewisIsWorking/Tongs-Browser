@@ -14,9 +14,13 @@ import { registerAutoApplySetting, startAutoApply } from './automation/startAuto
 import { registerSpellSavesSetting, startSpellSaves } from './automation/startSpellSaves.js';
 import { registerSpellDamageSetting, startSpellDamage } from './automation/startSpellDamage.js';
 import type { AutoGlobals } from './automation/buildAutoApply.js';
-import { registerSignInMenu } from './bands/cooSignIn.js';
-import type { SignInGlobals } from './bands/cooSignIn.js';
-import { buildCooClient, registerBandSettings, startBands } from './bands/startBands.js';
+import {
+  buildCooClient,
+  registerBandMenus,
+  registerBandSettings,
+  startBands,
+} from './bands/startBands.js';
+import type { MenuStartGlobals } from './bands/startBands.js';
 import type { CooClient } from './bands/CooClient.js';
 
 /**
@@ -68,7 +72,7 @@ Hooks.once('init', () => {
   registerBandSettings(settingsApi);
   /* ⚠️ ONE client for the sign-in menu and the reporter: COO rotates refresh tokens. */
   cooClient = buildCooClient(settingsApi, globalThis);
-  registerSignInMenu(settingsApi, cooClient, globalThis as SignInGlobals);
+  registerBandMenus(settingsApi, cooClient, globalThis as MenuStartGlobals);
 
   /*
    * ⚠️ Called at INIT, before Foundry builds the canvas, and nothing keeps the result. Both
@@ -172,7 +176,7 @@ Hooks.once('ready', () => {
     startAutoApply(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals);
     startSpellSaves(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals, document);
     startSpellDamage(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals);
-    /* Health bands: off until the world names its campaign. See bands/startBands.ts. */
+    /* Health bands: off until a party has a campaign. See bands/startBands.ts. */
     startBands(Hooks, game.settings, globalThis, cooClient);
   }
 

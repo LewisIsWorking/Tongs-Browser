@@ -26,7 +26,7 @@ const harness = (
   const posts: BandPost[] = [];
   const ports: BandPorts = {
     role: () => 'act',
-    campaign: () => 'C06',
+    campaign: () => ({ kind: 'one', code: 'C06' }),
     subjectsFor: () => current.value,
     combatSubjects: () => current.value,
     post: (_campaign, post) => {
@@ -88,13 +88,12 @@ describe('telling the table', () => {
     expect(posts).toHaveLength(1);
   });
 
-  it('does nothing outside the active full GM, without HP in the change, or with no campaign', async () => {
+  it('does nothing outside the active full GM, or without HP in the change', async () => {
     for (const [overrides, changes] of [
       [{ role: () => 'queue' as const }, HP_CHANGE],
       [{ role: () => 'leave' as const }, HP_CHANGE],
       [{}, { system: { attributes: { ac: { value: 20 } } } }],
       [{}, null],
-      [{ campaign: () => '' }, HP_CHANGE],
     ] as const) {
       const { reporter, posts } = harness(overrides);
       await reporter.onActorUpdated({}, changes);

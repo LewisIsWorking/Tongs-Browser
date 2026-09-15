@@ -57,6 +57,16 @@ const PARTY_TYPE = 'party';
 /** The flag a GM sets to let players create sheets in a given party. */
 export const PLAYER_CREATION_FLAG = 'allowPlayerCreation';
 
+/** The flag a GM sets to name the Path Wars campaign a party plays in; see `bands/partyCampaign.ts`. */
+export const PARTY_CAMPAIGN_FLAG = 'bandsCampaign';
+
+/** A party and the campaign code its flag holds, raw: `bands` decides what counts as a code. */
+export interface PartyCampaignEntry {
+  readonly uuid: string;
+  readonly name: string;
+  readonly campaign: unknown;
+}
+
 /**
  * Every party this user is allowed to know exists.
  *
@@ -115,6 +125,30 @@ export function readUsers(options: PartyAccessOptions): AssignableUser[] {
     users.push({ id: user.id, name: user.name, isGm: user.isGM === true });
   }
   return users;
+}
+
+/**
+ * Every party, with its campaign flag, for the GM's party campaigns menu. Added 2026-09-15.
+ *
+ * ⛔ GM ONLY. A campaign code is only ever set by a GM, and a player has no reason to list them. A
+ * viewer who is not a GM, or cannot be identified, gets nothing.
+ */
+export function readPartyCampaigns(options: PartyAccessOptions): PartyCampaignEntry[] {
+  const game = options.getGame();
+  if (game?.user?.isGM !== true || game.actors === undefined) {
+    return [];
+  }
+  const entries: PartyCampaignEntry[] = [];
+  for (const actor of game.actors) {
+    if (actor.type === PARTY_TYPE && actor.uuid !== undefined && actor.name !== undefined) {
+      entries.push({
+        uuid: actor.uuid,
+        name: actor.name,
+        campaign: actor.getFlag?.(MODULE_ID, PARTY_CAMPAIGN_FLAG),
+      });
+    }
+  }
+  return entries;
 }
 
 /** Who is asking. Absent or unidentifiable reads as a player, which is the safer of the two. */

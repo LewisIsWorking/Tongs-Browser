@@ -67,7 +67,7 @@ describe('a cause the world cannot fully explain', () => {
     );
   });
 
-  it('posts nothing when the campaign setting is not text', async () => {
+  it('posts nothing when the party campaign is not a code', async () => {
     const w = world(42);
     const postBand = vi.fn(() => Promise.resolve('sent' as const));
     startBands(w.hooks, w.settings, w.globals, { postBand } as unknown as CooClient);

@@ -2,19 +2,23 @@
 
 Phase 2 step 3: enemies' health told to the table. The band goes to the Path Wars campaign's combat
 topic when it changes, and the exact HP goes to the GM by DM on every change, both through the
-ComeOnOverUno server. Off until the world names its campaign.
+ComeOnOverUno server. Off until a party has a campaign.
 
-| File              | What it is                                                                   |
-| ----------------- | ---------------------------------------------------------------------------- |
-| `healthBands.ts`  | Segments from HP, the creature type from traits, and the approved band words |
-| `bandSubject.ts`  | Whether players may hear about a token, and under what name                  |
-| `bandTokens.ts`   | Foundry's tokens and actors read into bands, as measured                     |
-| `bandCause.ts`    | What changed an enemy's HP, in words for the GM's DM, or "manual change"     |
-| `causeWatch.ts`   | Waiting for PF2e's damage-taken card after a change, and reading it          |
-| `BandReporter.ts` | Deciding what to post and when: public only on a band change, one at a time  |
-| `CooClient.ts`    | Signing in to ComeOnOverUno and posting, keeping only a refresh token        |
-| `cooSignIn.ts`    | The GM-only sign-in menu in the module settings                              |
-| `startBands.ts`   | The settings, and connecting the reporter to Foundry's hooks                 |
+| File                    | What it is                                                                   |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| `healthBands.ts`        | Segments from HP, the creature type from traits, and the approved band words |
+| `bandSubject.ts`        | Whether players may hear about a token, and under what name                  |
+| `bandTokens.ts`         | Foundry's tokens and actors read into bands, as measured                     |
+| `partyCampaign.ts`      | Which campaign a combat belongs to, from its player characters' parties      |
+| `combatCampaign.ts`     | Reading those parties' campaign flags from the combat being viewed           |
+| `partyCampaignsMenu.ts` | The GM-only menu that sets each party's campaign                             |
+| `settingsMenu.ts`       | A GM-only settings button that opens something, as an ApplicationV2          |
+| `bandCause.ts`          | What changed an enemy's HP, in words for the GM's DM, or "manual change"     |
+| `causeWatch.ts`         | Waiting for PF2e's damage-taken card after a change, and reading it          |
+| `BandReporter.ts`       | Deciding what to post and when: public only on a band change, one at a time  |
+| `CooClient.ts`          | Signing in to ComeOnOverUno and posting, keeping only a refresh token        |
+| `cooSignIn.ts`          | The GM-only sign-in menu in the module settings                              |
+| `startBands.ts`         | The settings, and connecting the reporter to Foundry's hooks                 |
 
 ## Decided with Lewis, 2026-09-14
 
@@ -24,6 +28,9 @@ ComeOnOverUno server. Off until the world names its campaign.
   in a client setting in that browser. The COO endpoint requires the Admin role, and the bot token
   never leaves the COO server.
 - **Only tokens players can see**, under the name they can see.
+- **The campaign is per party** (2026-09-15: C04, C05, C06, C07 and C09 share one world). A combat goes to
+  the campaign of the player characters fighting in it; none, or two, and nothing is posted and the GM is
+  told why.
 - **Every HP change is recorded with its cause** in the GM's DM (the brief's rule): the item and who used
   it, and the IWR PF2e applied, or "manual change". Never on the public line, since it names resistances.
 
@@ -36,5 +43,7 @@ ComeOnOverUno server. Off until the world names its campaign.
 - PF2e updates the actor BEFORE it creates the damage-taken card, whose `appliedDamage.uuid` is the actor's
   uuid and whose `origin` is the item's `getOriginData()` (`{ actor, uuid }`); the IWR is JSON in
   `.iwr[data-applications]`. So the cause is watched for from the moment of the update.
+- A party's `prepareBaseData` adds itself to each member's `actor.parties`, a Set, so a character knows
+  every party it is in (pf2e 8.5.0).
 - SF2e robots carry `construct` and `robot`. `tech` is also on androids and a metal elemental, so it is
   not read as a construct.

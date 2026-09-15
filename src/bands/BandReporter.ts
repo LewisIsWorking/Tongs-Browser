@@ -1,6 +1,8 @@
 import type { AutomationRole } from '../automation/automationRole.js';
 import type { BandSubject } from './bandSubject.js';
 import type { BandPost, PostOutcome } from './CooClient.js';
+import { campaignProblem } from './partyCampaign.js';
+import type { CampaignChoice } from './partyCampaign.js';
 
 /**
  * Telling the table how enemies are faring, from the active full GM's browser. Added 2026-09-14.
@@ -16,13 +18,18 @@ import type { BandPost, PostOutcome } from './CooClient.js';
  * ⚠️ THE CAUSE IS WATCHED FOR AT ONCE. PF2e creates its damage-taken card after the update that fires
  * this hook, so the watch starts here, before any await, and each post waits for its cause in the queue.
  *
+ * ⛔ THE CAMPAIGN COMES FROM THE COMBAT (decided with Lewis 2026-09-15; several campaigns share a world):
+ * the parties of the player characters fighting. None, or two, and nothing is posted; the GM is told
+ * once per distinct problem. The bands are still remembered, so fixing a party's campaign mid-fight
+ * compares the next hit against the real previous band.
+ *
  * ⚠️ One post at a time, in order. A burst of hits must not reach the topic shuffled, and COO's rotating
  * refresh token must not be spent by two requests at once.
  */
 export interface BandPorts {
   readonly role: () => AutomationRole;
-  /** The Path Wars campaign this world is, such as "C06", or "" when bands are off. */
-  readonly campaign: () => string;
+  /** The campaign of the combat being viewed; see `combatCampaign.ts`. */
+  readonly campaign: () => CampaignChoice;
   /** Every token whose actor this is, read as players would be told about it; null entries are skipped. */
   readonly subjectsFor: (actor: unknown) => readonly (BandSubject | null)[];
   /** Every token in the running combat on the viewed scene. */
@@ -43,6 +50,7 @@ export class BandReporter {
   private readonly told = new Map<string, Told>();
   private queue: Promise<void> = Promise.resolve();
   private warnedSignedOut = false;
+  private lastProblem: string | null = null;
 
   public constructor(ports: BandPorts) {
     this.ports = ports;
@@ -61,11 +69,11 @@ export class BandReporter {
   public async onActorUpdated(actor: unknown, changes: unknown): Promise<void> {
     const hp = (changes as { system?: { attributes?: { hp?: { value?: unknown } } } } | null)
       ?.system?.attributes?.hp;
-    const campaign = this.ports.campaign();
-    if (this.ports.role() !== 'act' || hp?.value === undefined || campaign === '') {
+    if (this.ports.role() !== 'act' || hp?.value === undefined) {
       return;
     }
     const cause = this.ports.causeFor(actor);
+    const choice = this.ports.campaign();
     for (const subject of this.ports.subjectsFor(actor)) {
       if (subject === null) {
         continue;
@@ -75,6 +83,10 @@ export class BandReporter {
         continue;
       }
       this.told.set(subject.tokenUuid, { segments: subject.segments, hp: subject.hp });
+      if (choice.kind !== 'one') {
+        this.warnProblem(choice);
+        continue;
+      }
       const post: Omit<BandPost, 'cause'> = {
         name: subject.name,
         segments: subject.segments,
@@ -83,7 +95,16 @@ export class BandReporter {
         maxHp: subject.maxHp,
         announce: before?.segments !== subject.segments,
       };
-      await this.enqueue(campaign, post, cause);
+      await this.enqueue(choice.code, post, cause);
+    }
+  }
+
+  /** Once per distinct problem, so a long fight in a mixed combat does not repeat itself every hit. */
+  private warnProblem(choice: CampaignChoice): void {
+    const problem = campaignProblem(choice);
+    if (problem !== null && problem !== this.lastProblem) {
+      this.lastProblem = problem;
+      this.ports.warn(problem);
     }
   }
 
@@ -105,6 +126,7 @@ export class BandReporter {
         this.ports.warn(`Tongs Browser could not post ${post.name}'s health band.`);
       } else if (outcome === 'sent') {
         this.warnedSignedOut = false;
+        this.lastProblem = null;
       }
     });
     return this.queue;

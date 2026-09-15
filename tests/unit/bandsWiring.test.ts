@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { CooClient } from '../../src/bands/CooClient.js';
 import {
-  CAMPAIGN_SETTING,
   DEFAULT_SERVER,
   REFRESH_SETTING,
   SERVER_SETTING,
@@ -25,14 +24,13 @@ const settingsWith = (values: Record<string, unknown>) => ({
 });
 
 describe('settings', () => {
-  it('registers the campaign for the world, and the server and hidden session for this browser only', () => {
+  it('registers the server and the hidden session for this browser only', () => {
     const settings = settingsWith({});
     registerBandSettings(settings);
     const scopes = Object.fromEntries(
       settings.register.mock.calls.map(([, key, data]) => [key, [data.scope, data.config]])
     );
     expect(scopes).toEqual({
-      [CAMPAIGN_SETTING]: ['world', true],
       [SERVER_SETTING]: ['client', true],
       [REFRESH_SETTING]: ['client', false],
     });
@@ -115,12 +113,7 @@ describe('hooks', () => {
       game: { user: { id: 'gm', role: 4 }, users: { activeGM: { id: 'gm', role: 4 } } },
     };
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
-    const reporter = startBands(
-      hooks,
-      settingsWith({ [CAMPAIGN_SETTING]: ' C06 ' }),
-      globals,
-      {} as CooClient
-    );
+    const reporter = startBands(hooks, settingsWith({}), globals, {} as CooClient);
     expect([...handlers.keys()].sort()).toEqual([
       'canvasReady',
       'createCombatant',
