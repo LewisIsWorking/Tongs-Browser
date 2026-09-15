@@ -86,4 +86,21 @@ export const INTERACTION_MUTATIONS: readonly RecordedMutation[] = [
     defect: 'a picker opened by mistake cannot be closed without choosing something',
     tests: ['tests/dom/choiceMenu.test.ts'],
   },
+  {
+    /* ⛔ Found live on Forge: a desktop GM who switched Tongs on lost the sidebar to a 75% interface. */
+    file: 'src/scaling/UiScaler.ts',
+    find: '    if (this.options.allowed?.() === false) {',
+    replace: '    if (this.options.allowed === undefined) {',
+    defect:
+      'a desktop that switches the module on gets its whole interface shrunk and loses the sidebar',
+    tests: ['tests/dom/desktopScale.test.ts'],
+  },
+  {
+    file: 'src/main.ts',
+    find: '    scaleInterface: () => looksLikeTouchDevice(window),',
+    replace: '    scaleInterface: () => true,',
+    defect:
+      'a desktop that switches the module on gets its whole interface shrunk and loses the sidebar',
+    tests: ['tests/dom/desktopScale.test.ts'],
+  },
 ];

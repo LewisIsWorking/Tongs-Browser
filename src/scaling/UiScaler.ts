@@ -3,6 +3,15 @@ import { SCALE_REGIONS, DEFAULT_UI_SCALE, normaliseScale } from './ScaleRegions.
 export interface UiScalerOptions {
   readonly document: Document;
   readonly initialScale?: number;
+  /**
+   * Whether this device may be scaled at all, asked each time the module is enabled. Absent means yes.
+   *
+   * ⛔ FOUND LIVE ON FORGE, 2026-09-15: a GM switched the module on at a desktop to reach the roll
+   * deck, the interface shrank to 75%, and the sidebar could no longer be reached. The scale exists to
+   * fit Foundry on a phone, and a desktop never needs it, so `main.ts` answers with the same coarse
+   * pointer test that decides whether the module starts enabled (see `core/TouchDevice.ts`).
+   */
+  readonly allowed?: () => boolean;
 }
 
 const SCALE_PROPERTY = '--tb-ui-scale';
@@ -39,6 +48,9 @@ export class UiScaler {
   }
 
   public apply(): void {
+    if (this.options.allowed?.() === false) {
+      return;
+    }
     this.applied = true;
     const root = this.options.document.documentElement;
     root.style.setProperty(SCALE_PROPERTY, String(this.scale));

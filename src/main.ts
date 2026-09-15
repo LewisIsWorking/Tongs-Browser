@@ -140,6 +140,7 @@ Hooks.once('ready', () => {
     gestureConfig: readGestureConfig(settings),
     cursorSize: settings.getNumber(SettingKey.CURSOR_SIZE),
     uiScale: settings.getNumber(SettingKey.UI_SCALE),
+    scaleInterface: () => looksLikeTouchDevice(window),
     modifierBarEnabled: settings.getBoolean(SettingKey.MODIFIER_BAR_ENABLED),
     debugOverlay: settings.getBoolean(SettingKey.DEBUG_OVERLAY),
     // Read through a getter rather than captured, so toggling it takes effect on the next event

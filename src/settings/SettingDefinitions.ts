@@ -126,7 +126,7 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = Object.freeze([
     key: SettingKey.UI_SCALE,
     kind: 'number',
     name: 'Interface scale',
-    hint: 'Shrink the Foundry interface so more of it fits on screen. Does not affect the map.',
+    hint: 'Shrink the Foundry interface so more of it fits on a phone or tablet. Never applied on a desktop with a mouse. Does not affect the map.',
     config: true,
     default: 0.75,
     range: { min: 0.5, max: 1, step: 0.05 },
