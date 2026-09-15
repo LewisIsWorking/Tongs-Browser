@@ -30,8 +30,12 @@ describe('a cause the world cannot fully explain', () => {
     const globals = {
       ...w.globals,
       game: { ...w.globals.game, system: { id: 'pf2e' } },
-      fromUuidSync: () => {
-        throw new Error('not loaded');
+      /* The item cannot be looked up at all, and the actor has no name. */
+      fromUuidSync: (uuid: string) => {
+        if (uuid.includes('Item')) {
+          throw new Error('not loaded');
+        }
+        return {};
       },
     };
     startBands(w.hooks, w.settings, globals, { postBand } as unknown as CooClient);
@@ -67,7 +71,7 @@ describe('a cause the world cannot fully explain', () => {
     );
   });
 
-  it('posts nothing when the campaign setting is not text', async () => {
+  it('posts nothing when the party campaign is not a code', async () => {
     const w = world(42);
     const postBand = vi.fn(() => Promise.resolve('sent' as const));
     startBands(w.hooks, w.settings, w.globals, { postBand } as unknown as CooClient);

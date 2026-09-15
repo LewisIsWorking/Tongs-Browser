@@ -1,5 +1,6 @@
-import { MODULE_ID } from '../constants.js';
 import type { CooClient } from './CooClient.js';
+import { registerGmMenu } from './settingsMenu.js';
+import type { MenuGlobals, MenuSettings } from './settingsMenu.js';
 
 /**
  * Signing the GM's browser in to ComeOnOverUno, from Foundry's module settings. Added 2026-09-14.
@@ -7,13 +8,7 @@ import type { CooClient } from './CooClient.js';
  * ⛔ THE PASSWORD IS HANDED STRAIGHT TO COO AND FORGOTTEN. Only the refresh token COO returns is kept,
  * and `CooClient` keeps it. The dialog is Foundry's own `DialogV2.input`, so nothing here renders a form.
  *
- * ⚠️ Foundry opens a settings menu with `new menu.type().render(true)`, so the menu is a class whose
- * `render` opens the dialog. `restricted` keeps it to GMs, the only users bands are for.
- *
- * ⛔ FOUND LIVE, 2026-09-15: `registerMenu` THROWS unless the type is a FormApplication or ApplicationV2
- * subclass ("You must provide a menu type that is a FormApplication or ApplicationV2 instance or
- * subclass"), and a throw there aborted the REST of Tongs' init hook. A plain class passed every unit
- * test. So the menu extends Foundry's own ApplicationV2, and registering it can never throw out of here.
+ * The menu itself, and why it must be an ApplicationV2, is `settingsMenu.ts`.
  */
 const SIGN_IN_MENU = 'cooSignIn';
 
@@ -22,17 +17,12 @@ export interface SignInGlobals {
     readonly applications?: {
       readonly api?: {
         readonly DialogV2?: { input?(options: object): Promise<unknown> };
-        readonly ApplicationV2?: new (...args: never[]) => { render(...args: never[]): unknown };
       };
     };
   };
   readonly ui?: {
     readonly notifications?: { info?(message: string): unknown; warn?(message: string): unknown };
   };
-}
-
-export interface MenuSettings {
-  registerMenu?(namespace: string, key: string, data: object): void;
 }
 
 const FORM = [
@@ -67,29 +57,18 @@ export async function signIn(client: CooClient, globals: SignInGlobals): Promise
 export function registerSignInMenu(
   settings: MenuSettings,
   client: CooClient,
-  globals: SignInGlobals
+  globals: SignInGlobals & MenuGlobals
 ): boolean {
-  const Base = globals.foundry?.applications?.api?.ApplicationV2;
-  if (Base === undefined || settings.registerMenu === undefined) {
-    return false;
-  }
-  class SignInMenu extends Base {
-    public override render(): this {
-      void signIn(client, globals);
-      return this;
-    }
-  }
-  try {
-    settings.registerMenu(MODULE_ID, SIGN_IN_MENU, {
+  return registerGmMenu(
+    settings,
+    globals,
+    {
+      key: SIGN_IN_MENU,
       name: 'ComeOnOverUno sign-in',
       label: 'Sign in',
       hint: 'Sign this browser in to ComeOnOverUno so it can post health bands. Only the GM needs to.',
       icon: 'fas fa-right-to-bracket',
-      type: SignInMenu,
-      restricted: true,
-    });
-    return true;
-  } catch {
-    return false;
-  }
+    },
+    async () => signIn(client, globals)
+  );
 }

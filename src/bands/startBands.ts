@@ -5,6 +5,15 @@ import { logger } from '../core/Logger.js';
 import { BandReporter } from './BandReporter.js';
 import { MANUAL_CAUSE } from './bandCause.js';
 import { combatSubjects, subjectsForActor } from './bandTokens.js';
+import { combatCampaign } from './combatCampaign.js';
+import { registerSignInMenu } from './cooSignIn.js';
+import type { SignInGlobals } from './cooSignIn.js';
+import { readPartyCampaigns } from '../foundry/PartyAccess.js';
+import type { FoundryGame } from '../foundry/PartyAccess.js';
+import { registerPartyCampaignsMenu } from './partyCampaignsMenu.js';
+import type { PartyCampaignGlobals } from './partyCampaignsMenu.js';
+import type { MenuSettings } from './settingsMenu.js';
+import type { CampaignGlobals } from './combatCampaign.js';
 import type { BandGlobals } from './bandTokens.js';
 import { CooClient } from './CooClient.js';
 import type { CooPorts } from './CooClient.js';
@@ -13,12 +22,12 @@ import { watchCause } from './causeWatch.js';
 /**
  * Health bands' settings, and connecting them to Foundry. Added 2026-09-14.
  *
- * ⛔ OFF UNTIL THE WORLD NAMES ITS CAMPAIGN. Nothing is posted anywhere while `bandsCampaign` is empty.
+ * ⛔ OFF UNTIL A PARTY HAS A CAMPAIGN. A combat whose player characters are in no party with a campaign
+ * (Module Settings, Party campaigns) posts nothing; see `partyCampaign.ts`.
  *
  * ⛔ THE REFRESH TOKEN IS A CLIENT SETTING, hidden from the settings form: it lives in the GM's own browser
  * and is never synced to anyone. See `CooClient`.
  */
-export const CAMPAIGN_SETTING = 'bandsCampaign';
 export const SERVER_SETTING = 'cooServerUrl';
 export const REFRESH_SETTING = 'cooRefreshToken';
 export const DEFAULT_SERVER = 'https://cooserver.duckdns.org';
@@ -38,6 +47,7 @@ interface HooksLike {
 const CAUSE_WINDOW_MS = 3000;
 
 export type StartGlobals = BandGlobals &
+  CampaignGlobals &
   RoleGlobals & {
     readonly game?: { readonly system?: { readonly id?: string } };
     readonly fetch?: CooPorts['fetch'];
@@ -46,16 +56,6 @@ export type StartGlobals = BandGlobals &
   };
 
 export function registerBandSettings(settings: BandSettings): void {
-  settings.register(MODULE_ID, CAMPAIGN_SETTING, {
-    name: 'Path Wars campaign for health bands',
-    hint:
-      "The campaign code this world is, such as C06. Enemies' health bands are posted to that " +
-      "campaign's combat topic, and exact HP is sent to the GM. Leave empty to post nothing.",
-    scope: 'world',
-    config: true,
-    type: String,
-    default: '',
-  });
   settings.register(MODULE_ID, SERVER_SETTING, {
     name: 'ComeOnOverUno server',
     hint: 'Where health bands are sent. Only change this for testing.',
@@ -71,6 +71,20 @@ export function registerBandSettings(settings: BandSettings): void {
     type: String,
     default: '',
   });
+}
+
+export type MenuStartGlobals = SignInGlobals & PartyCampaignGlobals & { readonly game?: unknown };
+
+/** The GM's two buttons in the module settings: signing in, and each party's campaign. */
+export function registerBandMenus(
+  settings: MenuSettings,
+  client: CooClient,
+  globals: MenuStartGlobals
+): void {
+  registerSignInMenu(settings, client, globals);
+  registerPartyCampaignsMenu(settings, globals, () =>
+    readPartyCampaigns({ getGame: () => globals.game as FoundryGame | undefined })
+  );
 }
 
 export function buildCooClient(settings: BandSettings, globals: StartGlobals): CooClient {
@@ -104,10 +118,11 @@ export function startBands(
   const client = given ?? buildCooClient(settings, globals);
   const reporter = new BandReporter({
     role: () => automationRole(globals),
-    campaign: () => {
-      const value = settings.get(MODULE_ID, CAMPAIGN_SETTING);
-      return typeof value === 'string' ? value.trim() : '';
-    },
+    campaign: () =>
+      combatCampaign(
+        globals,
+        readPartyCampaigns({ getGame: () => globals.game as FoundryGame | undefined })
+      ),
     subjectsFor: (actor) => subjectsForActor(actor, globals),
     combatSubjects: () => combatSubjects(globals),
     post: async (campaign, post) => client.postBand(campaign, post),

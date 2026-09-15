@@ -30,8 +30,8 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/bands/BandReporter.ts',
-    find: "    if (this.ports.role() !== 'act' || hp?.value === undefined || campaign === '') {",
-    replace: "    if (hp?.value === undefined || campaign === '') {",
+    find: "    if (this.ports.role() !== 'act' || hp?.value === undefined) {",
+    replace: '    if (hp?.value === undefined) {',
     defect: 'every open browser, players included, reports the same hit',
     tests: ['tests/unit/bandReporter.test.ts'],
   },
@@ -57,5 +57,28 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
     replace: "      if (flags.context?.type === 'damage-taken') {",
     defect: "one enemy's HP change is blamed on the weapon that hit a different enemy",
     tests: ['tests/unit/bandCause.test.ts'],
+  },
+  {
+    file: 'src/bands/partyCampaign.ts',
+    find: "  return codes.length === 1 ? { kind: 'one', code: only } : { kind: 'mixed', codes };",
+    replace: "  return { kind: 'one', code: only };",
+    defect: "a fight between two campaigns' characters posts its bands into one of their topics",
+    tests: ['tests/unit/partyCampaign.test.ts'],
+  },
+  {
+    file: 'src/bands/combatCampaign.ts',
+    find: "        actor?.type === 'character' && actor.hasPlayerOwner === true",
+    replace: '        actor !== null && actor !== undefined',
+    defect: "an enemy's party, or a companion's, decides which campaign hears about the fight",
+    tests: ['tests/unit/partyCampaign.test.ts'],
+  },
+  {
+    /* ⛔ Found live: reading membership from actor.parties missed a party made mid-session. */
+    file: 'src/bands/combatCampaign.ts',
+    find: '        .filter((party) => actor.uuid !== undefined && party.members.includes(actor.uuid))',
+    replace: '        .filter(() => actor.uuid !== undefined)',
+    defect:
+      "every party's campaign is counted for every character, so one campaign's fight reads as mixed",
+    tests: ['tests/unit/partyCampaign.test.ts'],
   },
 ];
