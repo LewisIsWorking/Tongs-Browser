@@ -47,7 +47,7 @@ export function readIwr(content: string): IwrApplication[] {
   }
   try {
     const parsed: unknown = JSON.parse(
-      raw.replace(/&(quot|amp|lt|gt|#39);/g, (_all, name: string) => ENTITIES[name] ?? '')
+      raw.replace(/&(quot|amp|lt|gt|#39);/g, (_all, name: string) => String(ENTITIES[name]))
     );
     return Array.isArray(parsed)
       ? parsed.filter(
