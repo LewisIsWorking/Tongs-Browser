@@ -1,5 +1,16 @@
 # tongs-browser
 
+## 0.34.0
+
+### Minor Changes
+
+- [#369](https://github.com/LewisIsWorking/Tongs-Browser/pull/369) [`0eeaace`](https://github.com/LewisIsWorking/Tongs-Browser/commit/0eeaacea824f6378a8e1e72f842970a186f5669a) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The GM's health band DM now says what changed the HP.
+
+  Each exact-HP message names the cause when PF2e knows it, for example
+  `Goblin Warchief: 17/28 HP (Bloodied) · Longsword from Lai; resistance fire -5`, and says
+  `manual change` for an edit PF2e did not make, so no change goes unrecorded. The cause is only ever in
+  the GM's DM: the public combat topic still shows the band alone, since a cause names resistances.
+
 ## 0.33.0
 
 ### Minor Changes
