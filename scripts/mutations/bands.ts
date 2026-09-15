@@ -81,4 +81,20 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
       "every party's campaign is counted for every character, so one campaign's fight reads as mixed",
     tests: ['tests/unit/partyCampaign.test.ts'],
   },
+  {
+    /* ⛔ An unlinked token carries a synthetic actor whose uuid no party lists. */
+    file: 'src/bands/combatCampaign.ts',
+    find: '      const uuid = combatant.token?.baseActor?.uuid ?? actor.uuid;',
+    replace: '      const uuid = actor.uuid;',
+    defect: 'a player character on an unlinked token is in no party, so its fight posts nothing',
+    tests: ['tests/unit/combatCampaignMatch.test.ts'],
+  },
+  {
+    /* ⛔ Found live: a warning that named nobody gave the GM nothing to act on. */
+    file: 'src/bands/partyCampaign.ts',
+    find: "    return { kind: 'none', characters: characters.map((c) => c.name) };",
+    replace: "    return { kind: 'none', characters: [] };",
+    defect: 'the GM is told no party has a campaign, not which character is missing from one',
+    tests: ['tests/unit/combatCampaignMatch.test.ts'],
+  },
 ];

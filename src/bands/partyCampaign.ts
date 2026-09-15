@@ -11,8 +11,14 @@
  */
 export type CampaignChoice =
   | { readonly kind: 'one'; readonly code: string }
-  | { readonly kind: 'none' }
+  | { readonly kind: 'none'; readonly characters: readonly string[] }
   | { readonly kind: 'mixed'; readonly codes: readonly string[] };
+
+/** A player character in the combat, and the campaigns of every party that lists it. */
+export interface CombatCharacter {
+  readonly name: string;
+  readonly campaigns: readonly string[];
+}
 
 /**
  * Campaign codes as the Nudge bot's config.json writes them: a C and digits, "C00" to "C10" on
@@ -26,25 +32,31 @@ export function normalizeCampaign(value: unknown): string {
   return CODE.test(code) ? code : '';
 }
 
-/**
- * One entry per player character in the combat: the campaigns of every party it belongs to.
- * A character in no coded party does not count either way.
- */
-export function campaignForCombat(characters: readonly (readonly string[])[]): CampaignChoice {
-  const codes = [...new Set(characters.flat().filter((code) => code !== ''))].sort();
+/** A character in no coded party does not count either way; with no code at all, every one is named. */
+export function campaignForCombat(characters: readonly CombatCharacter[]): CampaignChoice {
+  const codes = [
+    ...new Set(characters.flatMap((c) => c.campaigns).filter((code) => code !== '')),
+  ].sort();
   const [only] = codes;
   if (only === undefined) {
-    return { kind: 'none' };
+    return { kind: 'none', characters: characters.map((c) => c.name) };
   }
   return codes.length === 1 ? { kind: 'one', code: only } : { kind: 'mixed', codes };
 }
 
-/** What the GM is told when a band could not be posted, or null when it could. */
+/**
+ * What the GM is told when a band could not be posted, or null when it could. ⛔ Found live 2026-09-15:
+ * "no party in this combat has a campaign" with ten parties coded told the GM nothing they could act on,
+ * so the characters that could not be placed are named.
+ */
 export function campaignProblem(choice: CampaignChoice): string | null {
   if (choice.kind === 'one') {
     return null;
   }
-  return choice.kind === 'none'
-    ? 'Tongs Browser posted no health band: no party in this combat has a Path Wars campaign. Set one under Module Settings, Party campaigns.'
-    : `Tongs Browser posted no health band: this combat has characters from ${choice.codes.join(' and ')}, so it cannot tell which campaign it belongs to.`;
+  if (choice.kind === 'mixed') {
+    return `Tongs Browser posted no health band: this combat has characters from ${choice.codes.join(' and ')}, so it cannot tell which campaign it belongs to.`;
+  }
+  return choice.characters.length === 0
+    ? 'Tongs Browser posted no health band: this combat has no player-owned character to take a campaign from.'
+    : `Tongs Browser posted no health band: no party with a Path Wars campaign lists ${choice.characters.join(', ')}. Add them to one, or set its campaign under Module Settings, Party campaigns.`;
 }

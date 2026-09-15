@@ -21,7 +21,9 @@ const pc = (...codes: unknown[]) => {
   next += 1;
   const uuid = `Actor.PC${String(next)}`;
   return {
-    combatant: { actor: { uuid, type: 'character', hasPlayerOwner: true } },
+    combatant: {
+      actor: { uuid, name: `PC${String(next)}`, type: 'character', hasPlayerOwner: true },
+    },
     parties: codes.map((campaign, index) => ({
       uuid: `Actor.Party${String(next)}-${String(index)}`,
       name: 'P',
@@ -45,7 +47,10 @@ describe('the campaign of a combat', () => {
   });
 
   it('is nothing when no party is coded, and mixed when two campaigns fight together', () => {
-    expect(combatCampaign(...combat(pc(), pc(''), pc('not a code!')))).toEqual({ kind: 'none' });
+    expect(combatCampaign(...combat(pc(), pc(''), pc('not a code!')))).toMatchObject({
+      kind: 'none',
+      characters: [expect.any(String), expect.any(String), expect.any(String)],
+    });
     expect(combatCampaign(...combat(pc('C06'), pc('C04')))).toEqual({
       kind: 'mixed',
       codes: ['C04', 'C06'],
@@ -54,7 +59,10 @@ describe('the campaign of a combat', () => {
       kind: 'mixed',
       codes: ['C06', 'C07'],
     });
-    expect(combatCampaign({ game: { combat: null } }, [])).toEqual({ kind: 'none' });
+    expect(combatCampaign({ game: { combat: null } }, [])).toEqual({
+      kind: 'none',
+      characters: [],
+    });
   });
 
   it('counts only player characters: not enemies, not a player-owned companion, not an unowned or uuid-less PC', () => {
@@ -100,9 +108,11 @@ describe('the campaign of a combat', () => {
     expect(normalizeCampaign(9)).toBe('');
     expect(normalizeCampaign('C 06')).toBe('');
     expect(normalizeCampaign('Kibwe')).toBe('');
-    expect(campaignForCombat([])).toEqual({ kind: 'none' });
+    expect(campaignForCombat([])).toEqual({ kind: 'none', characters: [] });
     expect(campaignProblem({ kind: 'one', code: 'C06' })).toBeNull();
-    expect(campaignProblem({ kind: 'none' })).toContain('Party campaigns');
+    expect(campaignProblem({ kind: 'none', characters: [] })).toContain(
+      'no player-owned character'
+    );
     expect(campaignProblem({ kind: 'mixed', codes: ['C04', 'C06'] })).toContain('C04 and C06');
   });
 });
@@ -134,7 +144,7 @@ describe('listing party campaigns', () => {
 
 describe('a combat the reporter cannot place', () => {
   it('posts nothing, warns once per problem, and warns again after a post gets through', async () => {
-    let choice: CampaignChoice = { kind: 'none' };
+    let choice: CampaignChoice = { kind: 'none', characters: [] };
     let hp = 28;
     const posts: string[] = [];
     const ports: BandPorts = {
@@ -165,11 +175,11 @@ describe('a combat the reporter cannot place', () => {
       await reporter.onActorUpdated({}, { system: { attributes: { hp: { value: hp } } } });
     };
 
-    await hit({ kind: 'none' });
-    await hit({ kind: 'none' });
+    await hit({ kind: 'none', characters: [] });
+    await hit({ kind: 'none', characters: [] });
     await hit({ kind: 'mixed', codes: ['C04', 'C06'] });
     await hit({ kind: 'one', code: 'C06' });
-    await hit({ kind: 'none' });
+    await hit({ kind: 'none', characters: [] });
 
     expect(posts).toEqual(['C06']);
     expect(
