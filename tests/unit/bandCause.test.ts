@@ -108,7 +108,10 @@ describe('waiting for the card', () => {
     send({ flags: { pf2e: { context: { type: 'damage-roll' } } } });
     send(card({}, IWR));
 
-    expect(await waiting).toBe('Longsword from Lai; resistance fire -5, weakness cold-iron +3');
+    expect(await waiting).toEqual({
+      gm: 'Longsword from Lai; resistance fire -5, weakness cold-iron +3',
+      shown: null,
+    });
     expect(fake.handlers.size).toBe(0);
   });
 
@@ -120,7 +123,7 @@ describe('waiting for the card', () => {
     vi.advanceTimersByTime(3000);
     send(card());
 
-    expect(await waiting).toBe(MANUAL_CAUSE);
+    expect(await waiting).toEqual({ gm: MANUAL_CAUSE, shown: null });
     expect(fake.handlers.size).toBe(0);
   });
 });

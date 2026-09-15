@@ -28,6 +28,11 @@ export interface BandPost {
   readonly announce: boolean;
   /** For the GM's DM only; COO never puts it on the public line. */
   readonly cause: string;
+  /** What hit it, for the topic; present only when players can see the attacker (`attackerView.ts`). */
+  readonly publicCause?: string;
+  readonly attackerImage?: string;
+  /** Present only when players can see the creature's name (`bandSubject.ts`). */
+  readonly targetImage?: string;
 }
 
 export type PostOutcome = 'sent' | 'signed-out' | 'failed';

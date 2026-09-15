@@ -25,6 +25,8 @@ export interface TokenDocLike {
   readonly name?: string;
   readonly hidden?: boolean;
   readonly playersCanSeeName?: boolean;
+  /** The token's art: a Forge asset URL, or a path relative to the game. */
+  readonly texture?: { readonly src?: string | null } | null;
   readonly actor?: ActorLike | null;
 }
 
@@ -56,9 +58,29 @@ export interface BandGlobals {
     };
     readonly i18n?: { localize?(key: string): string };
   };
+  /** Where the game is served from, so a token path relative to it can be sent as a full URL. */
+  readonly location?: { readonly href?: string };
 }
 
-const UNSEEN = ['invisible', 'undetected', 'unnoticed'];
+/**
+ * A token's art as a full URL, or null. Added 2026-09-15 for the band album. ⚠️ Only http and https leave the
+ * browser: a data: or blob: URL means nothing to the server, and a path relative to the game is resolved
+ * against where the game is served, which on The Forge is a public host.
+ */
+export function imageUrl(src: string | null | undefined, globals: BandGlobals): string | null {
+  if (typeof src !== 'string' || src === '') {
+    return null;
+  }
+  try {
+    const url = new URL(src, globals.location?.href);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/** PF2e's conditions that keep a creature from the players' view, whatever its token shows. */
+export const UNSEEN = ['invisible', 'undetected', 'unnoticed'];
 const MYSTIFIED_KEY = 'PF2E.Token.Mystified.TheCreature';
 
 export function nameRules(globals: BandGlobals): NameRules {
@@ -93,6 +115,7 @@ export function viewOf(token: TokenDocLike, globals: BandGlobals): TokenView | n
     ally: actor.hasPlayerOwner === true || actor.alliance === 'party',
     inCombat: combatOfToken(globals, token.uuid) !== undefined,
     unseen: UNSEEN.some((slug) => actor.hasCondition?.(slug) === true),
+    image: imageUrl(token.texture?.src, globals),
   };
 }
 

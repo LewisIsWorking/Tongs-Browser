@@ -3,6 +3,7 @@ import type { RoleGlobals } from '../automation/automationRole.js';
 import { MODULE_ID } from '../constants.js';
 import { logger } from '../core/Logger.js';
 import { BandReporter } from './BandReporter.js';
+import { readSeenAttacker } from './attackerView.js';
 import { MANUAL_CAUSE } from './bandCause.js';
 import { combatOfToken, combatSubjects, subjectsForActor } from './bandTokens.js';
 import { combatCampaign } from './combatCampaign.js';
@@ -114,6 +115,18 @@ export function startBands(
 ): BandReporter {
   /* The sign-in menu's client when init built one: COO rotates refresh tokens, so they must be one. */
   const client = given ?? buildCooClient(settings, globals);
+  const systemId = () => globals.game?.system?.id ?? '';
+  const uuidOf = (actor: unknown) => {
+    const uuid = (actor as { uuid?: unknown } | null)?.uuid;
+    return typeof uuid === 'string' ? uuid : null;
+  };
+  const nameOf = (ref: string) => {
+    try {
+      return globals.fromUuidSync?.(ref)?.name ?? null;
+    } catch {
+      return null;
+    }
+  };
   const reporter = new BandReporter({
     role: () => automationRole(globals),
     campaign: (tokenUuid) =>
@@ -125,17 +138,12 @@ export function startBands(
     combatSubjects: () => combatSubjects(globals),
     post: async (campaign, post) => client.postBand(campaign, post),
     causeFor: async (actor) => {
-      const uuid = (actor as { uuid?: unknown } | null)?.uuid;
-      if (typeof uuid !== 'string') {
-        return MANUAL_CAUSE;
-      }
-      return watchCause(hooks, globals.game?.system?.id ?? '', uuid, CAUSE_WINDOW_MS, (ref) => {
-        try {
-          return globals.fromUuidSync?.(ref)?.name ?? null;
-        } catch {
-          return null;
-        }
-      });
+      const uuid = uuidOf(actor);
+      return uuid === null
+        ? { gm: MANUAL_CAUSE, shown: null }
+        : watchCause(hooks, systemId(), uuid, CAUSE_WINDOW_MS, nameOf, (attacker) =>
+            readSeenAttacker(globals, attacker)
+          );
     },
     warn: (message) => {
       globals.ui?.notifications?.warn?.(message);

@@ -17,6 +17,7 @@ const goblin = (overrides: Partial<TokenView> = {}): TokenView => ({
   ally: false,
   inCombat: true,
   unseen: false,
+  image: 'https://assets.forge-vtt.com/u/goblin.webp',
   ...overrides,
 });
 const RULES = { nameVisibility: true, mystifiedName: 'The creature' };
@@ -30,6 +31,7 @@ describe('a band players may see', () => {
       word: 'Bruised',
       hp: 17,
       maxHp: 28,
+      image: 'https://assets.forge-vtt.com/u/goblin.webp',
     });
     expect(readBandSubject(goblin({ hp: -4, traits: ['construct'] }), RULES)).toMatchObject({
       segments: 0,
@@ -44,6 +46,15 @@ describe('a band players may see', () => {
       readBandSubject(goblin({ playersCanSeeName: false }), { ...RULES, nameVisibility: false })
         ?.name
     ).toBe('Goblin Warchief');
+  });
+
+  /* ⛔ A picture of "The creature" would tell players what it is. */
+  it("sends the creature's picture only when players can see its name", () => {
+    expect(readBandSubject(goblin({ playersCanSeeName: false }), RULES)?.image).toBeNull();
+    expect(
+      readBandSubject(goblin({ playersCanSeeName: false }), { ...RULES, nameVisibility: false })
+        ?.image
+    ).toBe('https://assets.forge-vtt.com/u/goblin.webp');
   });
 
   it('tells players nothing about an ally, a hidden or unseen token, one out of combat, or no max HP', () => {

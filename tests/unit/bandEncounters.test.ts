@@ -75,7 +75,7 @@ describe('a band in an encounter the tracker is not showing', () => {
       subjectsFor: (actor) => subjectsForActor(actor, world),
       combatSubjects: () => [],
       post: () => Promise.resolve('sent'),
-      causeFor: () => Promise.resolve('manual change'),
+      causeFor: () => Promise.resolve({ gm: 'manual change', shown: null }),
       warn: () => undefined,
     });
     await reporter.onActorUpdated(tiny, { system: { attributes: { hp: { value: 6 } } } });

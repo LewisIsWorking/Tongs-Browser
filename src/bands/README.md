@@ -9,6 +9,7 @@ ComeOnOverUno server. Off until a party has a campaign.
 | `healthBands.ts`        | Segments from HP, the creature type from traits, and the approved band words |
 | `bandSubject.ts`        | Whether players may hear about a token, and under what name                  |
 | `bandTokens.ts`         | Foundry's tokens and actors read into bands, as measured                     |
+| `attackerView.ts`       | Whether players may be told who dealt a hit, and with which picture          |
 | `partyCampaign.ts`      | Which campaign a combat belongs to, from its player characters' parties      |
 | `combatCampaign.ts`     | Reading those parties' campaign flags from the encounter a creature is in    |
 | `partyCampaignsMenu.ts` | The GM-only menu that sets each party's campaign                             |

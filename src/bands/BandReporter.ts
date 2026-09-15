@@ -1,4 +1,5 @@
 import type { AutomationRole } from '../automation/automationRole.js';
+import type { BandCause } from './bandCause.js';
 import type { BandSubject } from './bandSubject.js';
 import type { BandPost, PostOutcome } from './CooClient.js';
 import { campaignProblem } from './partyCampaign.js';
@@ -36,7 +37,7 @@ export interface BandPorts {
   readonly combatSubjects: () => readonly (BandSubject | null)[];
   readonly post: (campaign: string, post: BandPost) => Promise<PostOutcome>;
   /** Why this actor's HP changed, for the GM's DM; see `causeWatch.ts`. Called at once, awaited later. */
-  readonly causeFor: (actor: unknown) => Promise<string>;
+  readonly causeFor: (actor: unknown) => Promise<BandCause>;
   readonly warn: (message: string) => void;
 }
 
@@ -94,6 +95,7 @@ export class BandReporter {
         hp: subject.hp,
         maxHp: subject.maxHp,
         announce: before?.segments !== subject.segments,
+        ...(subject.image === null ? {} : { targetImage: subject.image }),
       };
       await this.enqueue(choice.code, post, cause);
     }
@@ -111,11 +113,17 @@ export class BandReporter {
   private async enqueue(
     campaign: string,
     post: Omit<BandPost, 'cause'>,
-    cause: Promise<string>
+    cause: Promise<BandCause>
   ): Promise<void> {
     this.queue = this.queue.then(async () => {
+      const { gm, shown } = await cause;
       const outcome = await this.ports
-        .post(campaign, { ...post, cause: await cause })
+        .post(campaign, {
+          ...post,
+          cause: gm,
+          ...(shown === null ? {} : { publicCause: shown.text }),
+          ...(shown?.attacker.image ? { attackerImage: shown.attacker.image } : {}),
+        })
         .catch((): PostOutcome => 'failed');
       if (outcome === 'signed-out' && !this.warnedSignedOut) {
         this.warnedSignedOut = true;

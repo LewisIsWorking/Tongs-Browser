@@ -74,6 +74,7 @@ describe('reading a token', () => {
       ally: false,
       inCombat: true,
       unseen: false,
+      image: null,
     });
     expect(
       viewOf(token('X2', actor({ alliance: 'party' }, ['undetected'])), world([]))
