@@ -167,10 +167,27 @@ export const AUTOMATION_MUTATIONS: readonly RecordedMutation[] = [
   {
     /* ⛔ PF2e reads (target ?? game.user.targets.first()), so an omitted target became the GM's own. */
     file: 'src/automation/buildAutoApply.ts',
-    find: '        const params = { getFormula: true, target, checkContext: context };',
-    replace: '        const params = { getFormula: true, checkContext: context };',
+    find: '          target,',
+    replace: '',
     defect:
       "a hit's formula is checked against whatever the GM has targeted instead of the creature it hit",
+    tests: ['tests/unit/buildAutoApply.test.ts'],
+  },
+  {
+    /* ⛔ Found live 2026-09-16: getFormula is view only and drops the target, so the Aim die was missing. */
+    file: 'src/automation/buildAutoApply.ts',
+    find: '          createMessage: false,',
+    replace: '          getFormula: true,',
+    defect:
+      "an operative's aimed hit is declined, because the formula it is checked against leaves out the Aim die",
+    tests: ['tests/unit/buildAutoApply.test.ts'],
+  },
+  {
+    file: 'src/automation/buildAutoApply.ts',
+    find: '          options: canvasOptions(doc(damage.id)?.flags?.[systemId()]),',
+    replace: '          options: [],',
+    defect:
+      'a ranged aimed hit on a map the GM is not viewing is declined, because no distance can be measured there',
     tests: ['tests/unit/buildAutoApply.test.ts'],
   },
 ];

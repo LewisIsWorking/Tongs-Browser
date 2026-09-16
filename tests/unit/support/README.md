@@ -2,11 +2,12 @@
 
 Fixtures shared by the pure tests. No DOM, no assertions.
 
-| File                   | What it is                                  |
-| ---------------------- | ------------------------------------------- |
-| `gestureHarness.ts`    | A gesture machine plus a clock you control  |
-| `gestureController.ts` | A controller with its collaborators stubbed |
-| `sequenceHarness.ts`   | Building and inspecting event sequences     |
+| File                     | What it is                                       |
+| ------------------------ | ------------------------------------------------ |
+| `gestureHarness.ts`      | A gesture machine plus a clock you control       |
+| `gestureController.ts`   | A controller with its collaborators stubbed      |
+| `sequenceHarness.ts`     | Building and inspecting event sequences          |
+| `buildAutoApplyWorld.ts` | The Foundry behind the strike automation's ports |
 
 ## Time is an argument here
 

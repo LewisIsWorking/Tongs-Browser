@@ -40,8 +40,12 @@ Each is off per world until a GM turns it on.
 
 - A strike's Damage button works with no attack at all, and a MISSED attack's card still rolls damage
   recorded as `outcome: "success"`. Only the attack card says whether it hit.
-- The damage card's formula equals `strike.damage({ getFormula: true })`, and the roll exposes
-  `minimumValue` and `maximumValue`.
+- The damage card's formula equals `strike.damage({ getFormula: true })` only when no damage depends on
+  the target, and the roll exposes `minimumValue` and `maximumValue`.
+- ⛔ `getFormula` is view only and drops the target (sf2e 1.5.0, 2026-09-16). An operative's Aim die needs
+  `target:mark:aim`, so an aimed hit read `2 * (1d4 + 2) cold` against a card of `2 * (1d4 + 2 + 2d4) cold`
+  and was declined. `strike.critical({ createMessage: false, target })` rolls no card and gives the
+  card's own formula, so that is what a hit is checked against.
 - A player may set flags on a message they authored. One GM user cannot be joined from two browsers.
 - A heightened spell's damage depends on its cast rank: rank 5 Vampiric Feast rolls 10d6, which
   `loadVariant({ castRank: 5 }).getDamage()` gives, while `getDamage()` on the base spell gives 6d6.

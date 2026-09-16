@@ -1,96 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { buildAutoApply } from '../../src/automation/buildAutoApply.js';
-import type { AutoGlobals } from '../../src/automation/buildAutoApply.js';
-import type { StrikeDamageFacts } from '../../src/automation/strikeFacts.js';
-import type { RollDeck } from '../../src/deck/RollDeck.js';
-
-/** The real Foundry behind the automation. ⛔ Fakes read `this`, so a detached call fails here. */
-class Strike {
-  public readonly seen: object[] = [];
-  public async damage(this: Strike, params: object): Promise<unknown> {
-    this.seen.push({ kind: 'damage', ...params });
-    return Promise.resolve('1d8 + 3 bludgeoning');
-  }
-  public async critical(this: Strike, params: object): Promise<unknown> {
-    this.seen.push({ kind: 'critical', ...params });
-    return Promise.resolve('2 * (1d8 + 3) bludgeoning');
-  }
-}
-
-const world = () => {
-  const strike = new Strike();
-  const flags = new Map<string, unknown>();
-  const token = { actor: { hasPlayerOwner: false, system: { attributes: { hp: { value: 30 } } } } };
-  const message = {
-    id: 'd1',
-    timestamp: 1,
-    flags: { pf2e: { context: { type: 'attack-roll', dc: 20 } } },
-    getFlag(this: { id: string }, scope: string, key: string) {
-      return flags.get(`${this.id}.${scope}.${key}`);
-    },
-    async setFlag(this: { id: string }, scope: string, key: string, value: unknown) {
-      flags.set(`${this.id}.${scope}.${key}`, value);
-      return Promise.resolve();
-    },
-    async unsetFlag(this: { id: string }, scope: string, key: string) {
-      flags.delete(`${this.id}.${scope}.${key}`);
-      return Promise.resolve();
-    },
-  };
-  const globals: AutoGlobals = {
-    game: {
-      user: { id: 'gm', role: 4, isGM: true },
-      users: { activeGM: { id: 'gm', role: 4 } },
-      system: { id: 'pf2e' },
-      messages: {
-        get(this: unknown, id: string) {
-          return id === 'd1' || id === 'a1' ? message : undefined;
-        },
-      },
-      actors: {
-        get(this: unknown, id: string) {
-          return id === 'A'
-            ? { hasPlayerOwner: true, system: { actions: [strike, strike] } }
-            : undefined;
-        },
-      },
-      combats: {
-        contents: [
-          { started: true, combatants: { contents: [{ tokenId: 'Other', sceneId: 'S' }] } },
-          { started: true, combatants: { contents: [{ tokenId: 'X', sceneId: 'S' }] } },
-        ],
-      },
-    },
-    /* Any scene: Foundry's own lookup, which the deck and the automation both use since 2026-09-15. */
-    fromUuidSync: (uuid: string) =>
-      uuid === 'Scene.S.Token.X' || uuid === 'Scene.ELSEWHERE.Token.Y' ? token : undefined,
-  };
-  const deck = { apply: vi.fn(async () => Promise.resolve({ kind: 'applied' as const })) };
-  return {
-    ports: buildAutoApply(globals, deck as unknown as RollDeck),
-    strike,
-    flags,
-    token,
-    deck,
-  };
-};
-
-const damage = (overrides: Partial<StrikeDamageFacts> = {}): StrikeDamageFacts => ({
-  id: 'd1',
-  timestamp: 2,
-  actorId: 'A',
-  itemUuid: 'W',
-  targetToken: 'Scene.S.Token.X',
-  outcome: 'success',
-  authorId: 'p',
-  strikeIndex: 1,
-  formula: '1d8 + 3 bludgeoning',
-  total: 7,
-  min: 4,
-  max: 11,
-  ...overrides,
-});
+import { OPTIONS, damage, world } from './support/buildAutoApplyWorld.js';
 
 describe('who is asking', () => {
   it('reads the role, the user and the system from the world', () => {
@@ -135,7 +45,7 @@ describe("the card's flags, and applying", () => {
 });
 
 describe("PF2e's own formula", () => {
-  it("asks the strike, on the strike, with the attack's context and the target token", async () => {
+  it("rolls the strike with no message, on the strike, with the attack's context and the target token", async () => {
     const { ports, strike, token } = world();
 
     expect(await ports.recomputeFormula(damage(), 'a1')).toBe('1d8 + 3 bludgeoning');
@@ -144,11 +54,34 @@ describe("PF2e's own formula", () => {
     );
     expect(strike.seen[0]).toEqual({
       kind: 'damage',
-      getFormula: true,
+      createMessage: false,
       target: { document: token },
-      checkContext: { type: 'attack-roll', dc: 20 },
+      checkContext: { type: 'attack-roll', dc: 20, options: OPTIONS },
+      options: ['target:distance:10', 'target:range-increment:1'],
+      event: { shiftKey: false, ctrlKey: false, metaKey: false },
     });
     expect(strike.seen[1]).toMatchObject({ kind: 'critical' });
+  });
+
+  /*
+   * ⛔ Found live 2026-09-16: Diabla's aimed crit on Ovvat was declined. PF2e's getFormula is view only and
+   * drops the target, so the Aim die (`target:mark:aim`) was missing from the formula it was checked against.
+   */
+  it('never asks for a view-only formula, which leaves out damage that depends on the target', async () => {
+    const { ports, strike } = world();
+    await ports.recomputeFormula(damage({ outcome: 'criticalSuccess' }), 'a1');
+    expect(strike.seen[0]).not.toHaveProperty('getFormula');
+    expect(strike.seen[0]).toMatchObject({ createMessage: false });
+  });
+
+  it('skips the damage dialog whichever way this GM has it set, and survives a card with no options', async () => {
+    const shown = world(true);
+    await shown.ports.recomputeFormula(damage(), 'a1');
+    expect(shown.strike.seen[0]).toMatchObject({ event: { shiftKey: true } });
+
+    const bare = world();
+    await bare.ports.recomputeFormula(damage({ id: 'unknown' }), 'a1');
+    expect(bare.strike.seen[0]).toMatchObject({ options: [] });
   });
 
   /* ⛔ PF2e falls back to the GM's own target when given none, so an unfound target is still passed. */
@@ -169,6 +102,8 @@ describe("PF2e's own formula", () => {
     strike.damage = () => Promise.reject(new Error('no'));
     expect(await ports.recomputeFormula(damage(), 'a1')).toBeNull();
     strike.damage = () => Promise.resolve({ not: 'a formula' });
+    expect(await ports.recomputeFormula(damage(), 'a1')).toBeNull();
+    strike.damage = () => Promise.resolve(null);
     expect(await ports.recomputeFormula(damage(), 'a1')).toBeNull();
   });
 });
