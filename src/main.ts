@@ -22,6 +22,7 @@ import {
 } from './bands/startBands.js';
 import type { MenuStartGlobals } from './bands/startBands.js';
 import type { CooClient } from './bands/CooClient.js';
+import { registerEncounterSync, startEncounterSync } from './encounter/startEncounterSync.js';
 
 /**
  * Module entry point.
@@ -73,6 +74,7 @@ Hooks.once('init', () => {
   /* ⚠️ ONE client for the sign-in menu and the reporter: COO rotates refresh tokens. */
   cooClient = buildCooClient(settingsApi, globalThis);
   registerBandMenus(settingsApi, cooClient, globalThis as MenuStartGlobals);
+  registerEncounterSync(settingsApi, cooClient, globalThis as MenuStartGlobals);
 
   /*
    * ⚠️ Called at INIT, before Foundry builds the canvas, and nothing keeps the result. Both
@@ -179,6 +181,10 @@ Hooks.once('ready', () => {
     startSpellDamage(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals);
     /* Health bands: off until a party has a campaign. See bands/startBands.ts. */
     startBands(Hooks, game.settings, globalThis, cooClient);
+    /* Encounter sync: off per world; its settings exist only if init built the client. */
+    if (cooClient !== null) {
+      startEncounterSync(Hooks, game.settings, globalThis, cooClient);
+    }
   }
 
   const moduleEntry = game?.modules.get(MODULE_ID);

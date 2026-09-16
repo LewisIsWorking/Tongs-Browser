@@ -32,7 +32,7 @@ declare global {
     hint?: string;
     scope: 'client' | 'world';
     config: boolean;
-    type: NumberConstructor | StringConstructor | BooleanConstructor;
+    type: NumberConstructor | StringConstructor | BooleanConstructor | ObjectConstructor;
     default: unknown;
     range?: FoundrySettingRange;
     choices?: Record<string, string>;

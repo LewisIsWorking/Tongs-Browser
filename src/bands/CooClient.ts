@@ -11,7 +11,7 @@
 export interface CooPorts {
   readonly fetch: (
     url: string,
-    init: { method: string; headers: Record<string, string>; body: string }
+    init: { method: string; headers: Record<string, string>; body?: string }
   ) => Promise<{ status: number; json: () => Promise<unknown> }>;
   readonly serverUrl: () => string;
   readonly refreshToken: () => string;
@@ -36,6 +36,11 @@ export interface BandPost {
 }
 
 export type PostOutcome = 'sent' | 'signed-out' | 'failed';
+
+export interface CooResponse {
+  readonly status: number;
+  json(): Promise<unknown>;
+}
 
 interface Tokens {
   readonly accessToken?: unknown;
@@ -62,18 +67,31 @@ export class CooClient {
   }
 
   public async postBand(campaign: string, post: BandPost): Promise<PostOutcome> {
+    const response = await this.call(
+      'POST',
+      `/api/pathwars/campaigns/${encodeURIComponent(campaign)}/combat-band`,
+      post
+    );
+    return response === 'signed-out' ? response : response.status === 200 ? 'sent' : 'failed';
+  }
+
+  /**
+   * One call as the signed-in GM. ⚠️ A 401 refreshes ONCE and retries: an access token can expire between the
+   * check and the call. `signed-out` when there is no session to refresh.
+   */
+  public async call(
+    method: 'GET' | 'POST',
+    path: string,
+    body?: object
+  ): Promise<CooResponse | 'signed-out'> {
     for (const attempt of [1, 2]) {
       const token = await this.accessToken(attempt === 2);
       if (token === null) {
         return 'signed-out';
       }
-      const response = await this.send(
-        `/api/pathwars/campaigns/${encodeURIComponent(campaign)}/combat-band`,
-        post,
-        token
-      );
+      const response = await this.send(path, body, token, method);
       if (response.status !== 401) {
-        return response.status === 200 ? 'sent' : 'failed';
+        return response;
       }
     }
     return 'signed-out';
@@ -120,15 +138,15 @@ export class CooClient {
     return accessToken;
   }
 
-  private async send(path: string, body: object, token?: string) {
+  private async send(path: string, body: object | undefined, token?: string, method = 'POST') {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token !== undefined) {
       headers['Authorization'] = `Bearer ${token}`;
     }
     return this.ports.fetch(`${this.ports.serverUrl().replace(/\/+$/, '')}${path}`, {
-      method: 'POST',
+      method,
       headers,
-      body: JSON.stringify(body),
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   }
 }

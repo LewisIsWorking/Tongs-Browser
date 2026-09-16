@@ -43,7 +43,7 @@ const server = (
     Promise.resolve({ status, json: () => Promise.resolve(body) });
   const ports: CooPorts = {
     fetch: async (url, init) => {
-      const body = JSON.parse(init.body) as { refreshToken?: string };
+      const body = JSON.parse(init.body ?? '{}') as { refreshToken?: string };
       calls.push(
         `${url.replace('https://coo.test', '')} ${init.headers['Authorization'] ?? ''}`.trim()
       );
