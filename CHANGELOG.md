@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.38.1
+
+### Patch Changes
+
+- [#385](https://github.com/LewisIsWorking/Tongs-Browser/pull/385) [`8eb6a74`](https://github.com/LewisIsWorking/Tongs-Browser/commit/8eb6a749f5ee186edd23040f4f3cd53b6cb39766) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Every health band and encounter tracker sent to ComeOnOverUno now carries the installed Tongs version, so the Telegram messages can show which version sent them.
+
 ## 0.38.0
 
 ### Minor Changes
