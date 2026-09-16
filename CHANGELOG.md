@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.38.2
+
+### Patch Changes
+
+- [#387](https://github.com/LewisIsWorking/Tongs-Browser/pull/387) [`3047c23`](https://github.com/LewisIsWorking/Tongs-Browser/commit/3047c23d3e1f92dd3cb899d5c8ee856cb54786a7) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - An operative's aimed hit is applied automatically again. The damage card was checked against a formula that left out damage depending on the target, like the Aim die, so every aimed hit waited in the roll deck.
+
 ## 0.38.1
 
 ### Patch Changes
