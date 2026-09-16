@@ -154,4 +154,13 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
     defect: 'a data: image is sent to the server as a URL, which it can never fetch',
     tests: ['tests/unit/attackerView.test.ts'],
   },
+  {
+    /* Asked for by Lewis 2026-09-16: every message says which Tongs sent it. */
+    file: 'src/bands/CooClient.ts',
+    find: "          : { ...body, tongsVersion: this.ports.version?.() ?? 'unknown' };",
+    replace: '          : body;',
+    defect:
+      'a band or tracker in Telegram cannot say which Tongs version sent it, so a stale install goes unnoticed',
+    tests: ['tests/unit/cooClientVersion.test.ts'],
+  },
 ];

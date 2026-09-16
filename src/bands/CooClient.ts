@@ -17,6 +17,8 @@ export interface CooPorts {
   readonly refreshToken: () => string;
   readonly saveRefreshToken: (token: string) => Promise<void>;
   readonly now: () => number;
+  /** The installed Tongs version, stamped on every signed-in post so a message shows what sent it. */
+  readonly version?: () => string;
 }
 
 export interface BandPost {
@@ -89,7 +91,12 @@ export class CooClient {
       if (token === null) {
         return 'signed-out';
       }
-      const response = await this.send(path, body, token, method);
+      /* ⚠️ Added 2026-09-16 at Lewis's request: COO shows the version in its messages, for debugging. */
+      const stamped =
+        body === undefined
+          ? undefined
+          : { ...body, tongsVersion: this.ports.version?.() ?? 'unknown' };
+      const response = await this.send(path, stamped, token, method);
       if (response.status !== 401) {
         return response;
       }

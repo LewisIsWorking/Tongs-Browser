@@ -48,7 +48,10 @@ const CAUSE_WINDOW_MS = 3000;
 
 export type StartGlobals = BandGlobals &
   RoleGlobals & {
-    readonly game?: { readonly system?: { readonly id?: string } };
+    readonly game?: {
+      readonly system?: { readonly id?: string };
+      readonly modules?: { get?(id: string): { readonly version?: string } | undefined };
+    };
     readonly fetch?: CooPorts['fetch'];
     readonly fromUuidSync?: (uuid: string) => { readonly name?: string } | null | undefined;
     readonly ui?: { readonly notifications?: { warn?(message: string): unknown } };
@@ -104,6 +107,7 @@ export function buildCooClient(settings: BandSettings, globals: StartGlobals): C
       await settings.set(MODULE_ID, REFRESH_SETTING, token);
     },
     now: () => Date.now(),
+    version: () => globals.game?.modules?.get?.(MODULE_ID)?.version ?? 'unknown',
   });
 }
 
