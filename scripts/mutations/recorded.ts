@@ -1,5 +1,6 @@
 import { AUTOMATION_MUTATIONS } from './automation.ts';
 import { BANDS_MUTATIONS } from './bands.ts';
+import { ENCOUNTER_MUTATIONS } from './encounter.ts';
 import { CREATION_MUTATIONS } from './creation.ts';
 import { DECK_MUTATIONS } from './deck.ts';
 import { INTERACTION_MUTATIONS } from './interaction.ts';
@@ -19,4 +20,5 @@ export const RECORDED: readonly RecordedMutation[] = [
   ...DECK_MUTATIONS,
   ...AUTOMATION_MUTATIONS,
   ...BANDS_MUTATIONS,
+  ...ENCOUNTER_MUTATIONS,
 ];
