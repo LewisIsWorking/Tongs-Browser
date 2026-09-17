@@ -69,4 +69,19 @@ export const ENCOUNTER_MUTATIONS: readonly RecordedMutation[] = [
     defect: "the public wiki names a scene by the GM's real name, which can spoil what is coming",
     tests: ['tests/unit/encounterWikiFields.test.ts'],
   },
+  {
+    /* 📜 Asked for by Lewis 2026-09-17: name an encounter with Foundry's own Edit Name. */
+    file: 'src/encounter/startEncounterSync.ts',
+    find: "const COMBAT_KEYS = ['round', 'turn', 'active', 'started', 'name'];",
+    replace: "const COMBAT_KEYS = ['round', 'turn', 'active', 'started'];",
+    defect: 'renaming an encounter does not reach its wiki page until the next turn',
+    tests: ['tests/unit/encounterSyncWiring.test.ts'],
+  },
+  {
+    file: 'src/encounter/encounterSnapshot.ts',
+    find: "  const name = given === undefined || given === '' ? location : given;",
+    replace: '  const name = location;',
+    defect: "an encounter the GM named is published under its scene's name instead",
+    tests: ['tests/unit/encounterWikiFields.test.ts'],
+  },
 ];

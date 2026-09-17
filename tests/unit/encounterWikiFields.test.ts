@@ -46,15 +46,13 @@ describe("an encounter's wiki page facts", () => {
     expect(read({ scene: { name: 'Bridge', navName: ' ' } })).toMatchObject({ location: 'Bridge' });
   });
 
-  it("prefers the GM's own name for the encounter", () => {
-    const flags = { 'tongs-browser': { encounterName: 'Captain Vex Ashburn' } };
-    expect(read({ scene: { name: 'Bridge' }, flags })).toMatchObject({
+  it("prefers the name the GM gave the encounter with Foundry's Edit Name", () => {
+    expect(read({ scene: { name: 'Bridge' }, name: ' Captain Vex Ashburn ' })).toMatchObject({
       name: 'Captain Vex Ashburn',
       location: 'Bridge',
     });
-    expect(
-      read({ scene: { name: 'Bridge' }, flags: { 'tongs-browser': { encounterName: ' ' } } })
-    ).toMatchObject({ name: 'Bridge' });
+    expect(read({ scene: { name: 'Bridge' }, name: ' ' })).toMatchObject({ name: 'Bridge' });
+    expect(read({ scene: { name: 'Bridge' }, name: null })).toMatchObject({ name: 'Bridge' });
   });
 
   it('leaves out what Foundry does not know: no scene, no name, an unrolled initiative', () => {

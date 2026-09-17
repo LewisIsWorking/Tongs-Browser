@@ -89,6 +89,19 @@ describe('encounter sync on Foundry hooks', () => {
     });
   });
 
+  /* 📜 Asked for by Lewis 2026-09-17: Foundry's Edit Name names the wiki page, so a rename alone is sent. */
+  it('sends a renamed encounter at once, with no turn needed', async () => {
+    vi.useFakeTimers();
+    const w = world();
+    startEncounterSync(w.hooks, w.settings, w.globals, w.client);
+    await vi.runAllTimersAsync();
+    w.call.mockClear();
+
+    w.handlers.get('updateCombat')?.(w.combat as never, { name: 'Captain Vex Ashburn' } as never);
+    await vi.runAllTimersAsync();
+    expect(w.call).toHaveBeenCalledTimes(1);
+  });
+
   /* ⛔ Saving the tracker id is itself a combat update; counting it would post forever. */
   it('counts a turn, a combatant change and an ending, never a flag-only update', async () => {
     vi.useFakeTimers();
