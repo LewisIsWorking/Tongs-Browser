@@ -158,24 +158,6 @@ describe('with an empty world', () => {
     expect(ports.targetState('Scene.S.Token.X')).toMatchObject({ exists: false, inCombat: false });
     await expect(ports.setFlag('x', 'pending', true)).resolves.toBeUndefined();
     await expect(ports.unsetFlag('x', 'pending')).resolves.toBeUndefined();
-    const damage = {
-      ...card,
-      actorId: 'A',
-      itemUuid: 'W',
-      targetToken: 'Scene.S.Token.X',
-      outcome: 'success',
-      authorId: null,
-      strikeIndex: 0,
-      formula: 'f',
-      total: 1,
-      min: 1,
-      max: 1,
-    };
-    expect(await ports.recomputeFormula(damage, 'a1')).toBeNull();
-    expect(await ports.recomputeFormula({ ...damage, targetToken: null }, 'a1')).toBeNull();
-    expect(
-      await ports.recomputeFormula({ ...damage, targetToken: 'not a token' }, 'a1')
-    ).toBeNull();
   });
 
   /* A uuid Foundry refuses to resolve reads as a target that is gone, never as an exception mid-game. */

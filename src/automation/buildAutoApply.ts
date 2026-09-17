@@ -26,17 +26,9 @@ interface Doc {
   unsetFlag?(scope: string, key: string): Promise<unknown>;
 }
 
-interface StrikeAction {
-  damage?(params: object): Promise<unknown>;
-  critical?(params: object): Promise<unknown>;
-}
-
 interface ActorLike {
   readonly hasPlayerOwner?: boolean;
-  readonly system?: {
-    readonly actions?: readonly StrikeAction[];
-    readonly attributes?: { readonly hp?: { readonly value?: number } };
-  };
+  readonly system?: { readonly attributes?: { readonly hp?: { readonly value?: number } } };
 }
 
 interface TokenDoc {
@@ -47,26 +39,11 @@ export interface AutoGlobals extends RoleGlobals, RecentGlobals {
   readonly game?: RoleGlobals['game'] &
     RecentGlobals['game'] & {
       readonly system?: { readonly id?: string };
-      readonly user?: { readonly settings?: { readonly showDamageDialogs?: boolean } };
       readonly messages?: { get?(id: string): (Doc & StrikeMessage) | undefined };
       readonly actors?: { get?(id: string): ActorLike | undefined };
     } & CombatsGlobals['game'];
   /** Foundry's own lookup: a token document on ANY scene, by its uuid. */
   readonly fromUuidSync?: (uuid: string) => unknown;
-}
-
-/**
- * ⚠️ The distance options from the player's own damage card. PF2e measures distance between token
- * objects, and a GM viewing another scene has none, so a ranged Aim (`target:range-increment`) would
- * be missing again. Only these are taken: any other option is worked out afresh from the actors.
- */
-const CANVAS_OPTION = /^target:(?:distance|range-increment):\d+$/;
-
-function canvasOptions(flags: unknown): string[] {
-  const options = (flags as { context?: { options?: unknown } } | undefined)?.context?.options;
-  return Array.isArray(options)
-    ? options.filter((each): each is string => typeof each === 'string' && CANVAS_OPTION.test(each))
-    : [];
 }
 
 export function buildAutoApply(globals: AutoGlobals, deck: RollDeck): AutoApplyPorts {
@@ -91,47 +68,6 @@ export function buildAutoApply(globals: AutoGlobals, deck: RollDeck): AutoApplyP
     authorIsPlayer: (message) =>
       (message.author as { isGM?: boolean } | null | undefined)?.isGM === false,
     attackerIsPlayers: (actorId) => globals.game?.actors?.get?.(actorId)?.hasPlayerOwner === true,
-
-    recomputeFormula: async (damage, attackId) => {
-      try {
-        const strike = globals.game?.actors?.get?.(damage.actorId)?.system?.actions?.[
-          damage.strikeIndex
-        ];
-        const context = (doc(attackId)?.flags?.[systemId()] as { context?: unknown } | undefined)
-          ?.context;
-        /*
-         * ⛔ ALWAYS a target, even an empty one. PF2e reads `(target ?? game.user.targets.first())?.document`,
-         * so leaving it out quietly worked the formula out against whatever the GM had targeted. PF2e only
-         * reads `.document` off it, so the document on any scene is wrapped rather than a canvas token needed.
-         */
-        const target = {
-          document: damage.targetToken === null ? null : tokenDoc(damage.targetToken),
-        };
-        /*
-         * ⛔ ROLLED, NOT `getFormula`. Found live 2026-09-16 (Diabla's aimed crit on Ovvat): PF2e treats
-         * `getFormula` as view only and drops the target, so damage that depends on it (the operative's
-         * Aim, `target:mark:aim`) is missing and every aimed hit was declined. A roll with no message
-         * resolves the target like the player's roll did (measured: both "2 * (1d4 + 2 + 2d4) cold").
-         * The shift key only skips the damage dialog, whichever way this GM has it set.
-         */
-        const dialogs = globals.game?.user?.settings?.showDamageDialogs;
-        const params = {
-          createMessage: false,
-          target,
-          checkContext: context,
-          options: canvasOptions(doc(damage.id)?.flags?.[systemId()]),
-          event: { shiftKey: dialogs === true, ctrlKey: false, metaKey: false },
-        };
-        const roll = (
-          damage.outcome === 'criticalSuccess'
-            ? await strike?.critical?.(params)
-            : await strike?.damage?.(params)
-        ) as { formula?: unknown } | null | undefined;
-        return typeof roll?.formula === 'string' ? roll.formula : null;
-      } catch {
-        return null;
-      }
-    },
 
     targetState: (tokenUuid) => {
       const ids = parseTokenUuid(tokenUuid);
