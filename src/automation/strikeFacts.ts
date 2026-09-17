@@ -25,6 +25,17 @@ export interface StrikeAttackFacts {
   readonly outcome: string | null;
 }
 
+/**
+ * One damage die PF2e recorded on the card, from `flags[systemId].dice`. PF2e writes a slug and a label for
+ * every die a rule element added (`sneak-attack`, `aim`), which is what says where the die came from.
+ */
+export interface CardDie {
+  readonly slug: string;
+  readonly label: string;
+  readonly diceNumber: number;
+  readonly enabled: boolean;
+}
+
 export interface StrikeDamageFacts extends StrikeAttackFacts {
   readonly authorId: string | null;
   readonly strikeIndex: number;
@@ -32,6 +43,8 @@ export interface StrikeDamageFacts extends StrikeAttackFacts {
   readonly total: number;
   readonly min: number;
   readonly max: number;
+  /** Every die PF2e attributed, enabled or not; an unattributed one is not here at all. */
+  readonly dice: readonly CardDie[];
 }
 
 export interface StrikeMessage {
@@ -58,6 +71,7 @@ interface SystemFlags {
   };
   readonly origin?: { readonly uuid?: string } | null;
   readonly strike?: { readonly index?: number } | null;
+  readonly dice?: readonly unknown[];
 }
 
 function common(message: StrikeMessage, flags: SystemFlags): StrikeAttackFacts | null {
@@ -84,6 +98,31 @@ export function readStrikeAttack(
   return flags.context?.type === 'attack-roll' ? common(message, flags) : null;
 }
 
+/**
+ * ⚠️ A die with no slug is dropped rather than kept as an unnamed one: PF2e always writes a slug, so a
+ * damage entry without one did not come from PF2e's own damage build.
+ */
+function readDice(dice: readonly unknown[] | undefined): CardDie[] {
+  return (dice ?? []).flatMap((each) => {
+    const die = each as {
+      slug?: unknown;
+      label?: unknown;
+      diceNumber?: unknown;
+      enabled?: unknown;
+    };
+    return typeof die.slug === 'string' && die.slug !== '' && typeof die.label === 'string'
+      ? [
+          {
+            slug: die.slug,
+            label: die.label,
+            diceNumber: typeof die.diceNumber === 'number' ? die.diceNumber : 0,
+            enabled: die.enabled !== false,
+          },
+        ]
+      : [];
+  });
+}
+
 export function readStrikeDamage(
   message: StrikeMessage,
   systemId: string
@@ -106,6 +145,7 @@ export function readStrikeDamage(
   }
   return {
     ...base,
+    dice: readDice(flags.dice),
     authorId: message.author?.id ?? null,
     strikeIndex: index,
     formula: roll.formula,

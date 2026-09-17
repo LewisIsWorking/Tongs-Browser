@@ -85,6 +85,27 @@ describe("reading a strike's cards", () => {
     });
   });
 
+  /* 🎲 Live cards, SF2e 1.5.0 2026-09-17: PF2e names each die it adds, and keeps a disabled one on the card. */
+  it('reads the dice PF2e attributed, and drops an entry it did not name', () => {
+    const dice = [
+      { slug: 'sneak-attack', label: 'Sneak Attack', diceNumber: 1, dieSize: 'd6', enabled: false },
+      { slug: 'aim', label: 'Aim', diceNumber: 1, dieSize: 'd4', enabled: true },
+      { label: 'No slug at all', diceNumber: 9, enabled: true },
+      { slug: 'bare', label: 'Bare', enabled: 'yes' },
+    ];
+    const card = {
+      ...damageCard,
+      flags: { pf2e: { ...(damageCard.flags?.['pf2e'] as object), dice } },
+    };
+
+    expect(readStrikeDamage(card, 'pf2e')?.dice).toEqual([
+      { slug: 'sneak-attack', label: 'Sneak Attack', diceNumber: 1, enabled: false },
+      { slug: 'aim', label: 'Aim', diceNumber: 1, enabled: true },
+      { slug: 'bare', label: 'Bare', diceNumber: 0, enabled: true },
+    ]);
+    expect(readStrikeDamage(damageCard, 'pf2e')?.dice).toEqual([]);
+  });
+
   it("reads the running system's namespace only", () => {
     expect(readStrikeAttack(attackCard, 'sf2e')).toBeNull();
     expect(readStrikeDamage(damageCard, 'sf2e')).toBeNull();

@@ -81,15 +81,24 @@ describe('the active full GM', () => {
     expect(flags.get(`d1.${DECLINED_FLAG}`)).toContain('did not hit');
   });
 
-  it('declines when the recomputed formula differs', async () => {
-    const { auto, flags } = harness(
-      { recomputeFormula: () => Promise.resolve('2d6 bludgeoning') },
-      [attack, damage]
-    );
+  /* ⛔ Found live 2026-09-17: PF2e names every die it adds, so a die with no name was not PF2e's. */
+  it('declines a die PF2e did not add', async () => {
+    const typed = {
+      ...damage,
+      flags: {
+        pf2e: {
+          ...(damage.flags as { pf2e: object }).pf2e,
+          dice: [
+            { slug: 'Wrote It Myself', label: 'Wrote It Myself', diceNumber: 8, enabled: true },
+          ],
+        },
+      },
+    };
+    const { auto, flags } = harness({}, [attack, typed]);
 
-    await auto.onMessageCreated(damage);
+    await auto.onMessageCreated(typed);
 
-    expect(flags.get(`d1.${DECLINED_FLAG}`)).toContain('is not the weapon');
+    expect(flags.get(`d1.${DECLINED_FLAG}`)).toContain('not one PF2e added');
   });
 
   it("leaves the GM's own rolls, NPC attackers, handled cards and non-strikes alone", async () => {

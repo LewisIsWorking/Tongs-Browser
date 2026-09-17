@@ -28,8 +28,8 @@ Each is off per world until a GM turns it on.
 - **Only a full Gamemaster's browser acts.** With no full GM connected, the author's own browser marks
   their damage card pending, and the GM's browser works through the queue when it connects.
 - **A hit applies only when it checks out:** the same character's attack on the same target, just
-  before, hit or crit; the formula is PF2e's own for that strike; the total is possible for it. Anything
-  else waits in the roll deck, with the reason written on the card.
+  before, hit or crit; every die on the card is one PF2e named; the total is inside the roll's own minimum
+  and maximum. Anything else waits in the roll deck, with the reason written on the card.
 - **Applied once.** Applying goes through `RollDeck.apply`, which refuses a card already handled or
   already under way, so the automation and the GM's own tap cannot both land one hit.
 - **Spells:** the caster's browser records its targets on the cast card, the GM's browser rolls the
@@ -40,12 +40,14 @@ Each is off per world until a GM turns it on.
 
 - A strike's Damage button works with no attack at all, and a MISSED attack's card still rolls damage
   recorded as `outcome: "success"`. Only the attack card says whether it hit.
-- The damage card's formula equals `strike.damage({ getFormula: true })` only when no damage depends on
-  the target, and the roll exposes `minimumValue` and `maximumValue`.
-- ⛔ `getFormula` is view only and drops the target (sf2e 1.5.0, 2026-09-16). An operative's Aim die needs
-  `target:mark:aim`, so an aimed hit read `2 * (1d4 + 2) cold` against a card of `2 * (1d4 + 2 + 2d4) cold`
-  and was declined. `strike.critical({ createMessage: false, target })` rolls no card and gives the
-  card's own formula, so that is what a hit is checked against.
+- The roll exposes `minimumValue` and `maximumValue`, and `flags[systemId].dice` lists every die a rule
+  element added, each with the slug and label PF2e gave it (`sneak-attack`, `aim`) and whether it applied.
+- ⛔ **A RECOMPUTED FORMULA CANNOT MATCH, and two live cards proved it (2026-09-17).** Damage that depends on
+  the target is worked out from the fight as it stands: `getFormula` drops the target altogether, and a real
+  re-roll in the GM's browser sees the aim mark spent, the Aim effect ended and positions moved. Diabla's
+  aimed crit read `(2 * (1d4 + 4)) slashing + (2 * 1d4) bludgeoning` against a recomputed
+  `2 * (1d4 + 4 + 1d6) slashing`; Zels's pistol read `1d6 + 1d4 piercing` against `1d6 + 1d6 piercing`.
+  Both were legitimate. The card's own attributed dice are checked instead.
 - A player may set flags on a message they authored. One GM user cannot be joined from two browsers.
 - A heightened spell's damage depends on its cast rank: rank 5 Vampiric Feast rolls 10d6, which
   `loadVariant({ castRank: 5 }).getDamage()` gives, while `getDamage()` on the base spell gives 6d6.

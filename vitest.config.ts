@@ -49,6 +49,11 @@ export default defineConfig({
        * switched on rather than at 100, because a threshold nothing can currently satisfy gets turned
        * off within the week.
        *
+       * ⚠️ 2026-09-17: `lines` came DOWN by 0.01, from 99.19 to 99.18, which the ratchet cannot do by
+       * itself. Nothing was left untested: the strike formula recompute was deleted (its rule was replaced
+       * by reading the card's own dice), and what went with it was fully covered, so removing it moved the
+       * ratio a hair. A hand-lowered number needs a reason like this one beside it.
+       *
        * ⚠️ Coverage is a floor on what is EXECUTED, never evidence that anything was ASSERTED. A test
        * written to move these numbers, with no expected value in it, raises the percentage and proves
        * nothing. Mutation testing is the check that separates the two; see docs/MANUAL-TESTING.md.
@@ -58,7 +63,7 @@ export default defineConfig({
         statements: 99.21,
         branches: 98.46,
         functions: 99.38,
-        lines: 99.19,
+        lines: 99.18,
       },
     },
   },

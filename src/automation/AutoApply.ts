@@ -43,11 +43,6 @@ export interface AutoApplyPorts {
   readonly isHandled: (message: StrikeMessage) => boolean;
   readonly authorIsPlayer: (message: StrikeMessage) => boolean;
   readonly attackerIsPlayers: (actorId: string) => boolean;
-  /** PF2e's own formula for this strike against this target, given the attack's context. */
-  readonly recomputeFormula: (
-    damage: StrikeDamageFacts,
-    attackId: string
-  ) => Promise<string | null>;
   readonly targetState: (tokenUuid: string) => TargetState;
   readonly apply: (messageId: string, tokenUuid: string) => Promise<ApplyOutcome>;
   readonly setFlag: (messageId: string, key: string, value: unknown) => Promise<void>;
@@ -119,21 +114,7 @@ export class AutoApply {
       return;
     }
 
-    const history = this.history(damage);
-    /*
-     * ⚠️ Two passes. The first finds the attack, with the card's own formula standing in so the formula
-     * rule cannot fail yet; PF2e's formula needs that attack's context, so it is only worked out once
-     * the attack is known. The second pass is the real verdict.
-     */
-    const paired = validateStrike(damage, history, damage.formula);
-    const verdict =
-      paired.kind === 'deck'
-        ? paired
-        : validateStrike(
-            damage,
-            history,
-            await this.ports.recomputeFormula(damage, paired.attackId)
-          );
+    const verdict = validateStrike(damage, this.history(damage));
     if (verdict.kind === 'deck') {
       await this.decline(message, verdict.reason);
       return;

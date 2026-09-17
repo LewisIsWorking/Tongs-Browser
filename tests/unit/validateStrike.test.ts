@@ -6,7 +6,7 @@ import { ATTACK_WINDOW_MS, validateStrike } from '../../src/automation/validateS
 /**
  * Whether a player's strike damage may be applied without the GM. Written 2026-09-14.
  *
- * ⛔ Each rule is the decision Lewis made: a matching hit just before, and a total the weapon's formula
+ * ⛔ Each rule is the decision Lewis made: a matching hit just before, and a total the rolled dice
  * allows. The fixture numbers are the measured Reinforced Stock: `1d8 + 3 bludgeoning`, 4 to 11.
  */
 const TARGET = 'Scene.S.Token.X';
@@ -30,6 +30,7 @@ const damage = (overrides: Partial<StrikeDamageFacts> = {}): StrikeDamageFacts =
   total: 7,
   min: 4,
   max: 11,
+  dice: [],
   ...overrides,
 });
 
@@ -38,11 +39,9 @@ const history = (attacks: StrikeAttackFacts[] = [attack()], damages: StrikeDamag
   damages,
 });
 
-const FORMULA = '1d8 + 3 bludgeoning';
-
 describe('a genuine hit', () => {
   it('is valid, naming the attack it belongs to', () => {
-    expect(validateStrike(damage(), history(), FORMULA)).toEqual({
+    expect(validateStrike(damage(), history())).toEqual({
       kind: 'valid',
       attackId: 'attack',
       targetToken: TARGET,
@@ -52,7 +51,7 @@ describe('a genuine hit', () => {
   it('pairs with the latest matching attack, not an older one', () => {
     const older = attack({ id: 'older', timestamp: 500, outcome: 'failure' });
 
-    expect(validateStrike(damage(), history([older, attack()]), FORMULA)).toMatchObject({
+    expect(validateStrike(damage(), history([older, attack()]))).toMatchObject({
       kind: 'valid',
       attackId: 'attack',
     });
@@ -68,9 +67,7 @@ describe('a genuine hit', () => {
       total: 20,
     });
 
-    expect(validateStrike(critDamage, history([crit]), '2 * (1d8 + 3) bludgeoning').kind).toBe(
-      'valid'
-    );
+    expect(validateStrike(critDamage, history([crit])).kind).toBe('valid');
   });
 });
 
@@ -81,12 +78,12 @@ describe('what waits in the roll deck', () => {
   };
 
   it('damage that names no target', () => {
-    expect(reason(damage({ targetToken: null }), history(), FORMULA)).toContain('names no target');
+    expect(reason(damage({ targetToken: null }), history())).toContain('names no target');
   });
 
   /** ⛔ Measured: a strike's Damage button works with no attack at all. */
   it('damage with no attack before it', () => {
-    expect(reason(damage(), history([]), FORMULA)).toContain('no attack');
+    expect(reason(damage(), history([]))).toContain('no attack');
   });
 
   it('an attack by someone else, with another weapon, or at another target', () => {
@@ -95,28 +92,24 @@ describe('what waits in the roll deck', () => {
       { itemUuid: 'Actor.A.Item.Other' },
       { targetToken: 'Scene.S.Token.Y' },
     ]) {
-      expect(reason(damage(), history([attack(other)]), FORMULA)).toContain('no attack');
+      expect(reason(damage(), history([attack(other)]))).toContain('no attack');
     }
   });
 
   it('an attack posted after the damage', () => {
-    expect(reason(damage(), history([attack({ timestamp: 2_000 })]), FORMULA)).toContain(
-      'no attack'
-    );
+    expect(reason(damage(), history([attack({ timestamp: 2_000 })]))).toContain('no attack');
   });
 
   it('an attack too long before it', () => {
     const stale = attack({ timestamp: 1_088 - ATTACK_WINDOW_MS - 1 });
 
-    expect(reason(damage(), history([stale]), FORMULA)).toContain('no attack');
+    expect(reason(damage(), history([stale]))).toContain('no attack');
   });
 
   /** ⛔ Measured: a missed attack's own card still rolls damage, recorded as "success". */
   it('damage after a miss, even though the damage card says success', () => {
-    expect(reason(damage(), history([attack({ outcome: 'failure' })]), FORMULA)).toContain(
-      'did not hit'
-    );
-    expect(reason(damage(), history([attack({ outcome: null })]), FORMULA)).toContain('no result');
+    expect(reason(damage(), history([attack({ outcome: 'failure' })]))).toContain('did not hit');
+    expect(reason(damage(), history([attack({ outcome: null })]))).toContain('no result');
   });
 
   /** Found live: damage after a miss that already had damage rolled read "already rolled", not "did not hit". */
@@ -124,31 +117,78 @@ describe('what waits in the roll deck', () => {
     const miss = attack({ outcome: 'failure' });
     const first = damage({ id: 'first', timestamp: 1_050 });
 
-    expect(reason(damage(), history([miss], [first]), FORMULA)).toContain('did not hit');
+    expect(reason(damage(), history([miss], [first]))).toContain('did not hit');
   });
 
   it('a second damage roll for the same attack', () => {
     const first = damage({ id: 'first', timestamp: 1_050 });
 
-    expect(reason(damage(), history([attack()], [first]), FORMULA)).toContain('already rolled');
+    expect(reason(damage(), history([attack()], [first]))).toContain('already rolled');
   });
 
   it('crit damage after a plain hit', () => {
-    expect(reason(damage({ outcome: 'criticalSuccess' }), history(), FORMULA)).toContain(
-      'was a success'
-    );
+    expect(reason(damage({ outcome: 'criticalSuccess' }), history())).toContain('was a success');
   });
 
-  it("a formula that is not the weapon's, or one that could not be worked out", () => {
-    expect(reason(damage({ formula: '9d12 bludgeoning' }), history(), FORMULA)).toContain(
-      'is not the weapon'
+  /*
+   * ⛔ Found live 2026-09-17 (Diabla's aimed crit, Zels's pistol): a recomputed formula CANNOT match, because
+   * Aim and Sneak Attack depend on the target as it was when the player rolled. PF2e names every die it adds,
+   * so the card's own dice are what is checked.
+   */
+  it('a die PF2e did not add, while its own named dice are fine', () => {
+    const aimed = damage({
+      formula: '1d6 + 1d4 piercing',
+      dice: [
+        { slug: 'sneak-attack', label: 'Sneak Attack', diceNumber: 1, enabled: false },
+        { slug: 'aim', label: 'Aim', diceNumber: 1, enabled: true },
+      ],
+    });
+    expect(validateStrike(aimed, history())).toMatchObject({ kind: 'valid' });
+
+    const typed = damage({
+      dice: [{ slug: 'Wrote It', label: 'Wrote It', diceNumber: 8, enabled: true }],
+    });
+    expect(reason(typed, history())).toContain('not one PF2e added');
+  });
+
+  /*
+   * ⛔ THE TWO LIVE CARDS THIS RULE WAS REWRITTEN FOR (Forge, 2026-09-17). Both were declined by the old
+   * recomputed-formula rule, which expected an extra 1d6 and no Aim die. Both are legitimate.
+   */
+  it("applies Lewis's own aimed and sneaking hits", () => {
+    const diabla = damage({
+      formula: '(2 * (1d4 + 4)) slashing + (2 * 1d4) bludgeoning',
+      outcome: 'criticalSuccess',
+      total: 24,
+      min: 6,
+      max: 28,
+      dice: [
+        { slug: 'sneak-attack', label: 'Sneak Attack', diceNumber: 1, enabled: false },
+        { slug: 'aim-damage', label: 'Aim Damage', diceNumber: 1, enabled: true },
+      ],
+    });
+    const zels = damage({
+      formula: '1d6 + 1d4 piercing',
+      total: 3,
+      min: 2,
+      max: 10,
+      dice: [
+        { slug: 'sneak-attack', label: 'Sneak Attack', diceNumber: 1, enabled: false },
+        { slug: 'aim', label: 'Aim', diceNumber: 1, enabled: true },
+      ],
+    });
+
+    expect(validateStrike(diabla, history([attack({ outcome: 'criticalSuccess' })]))).toMatchObject(
+      {
+        kind: 'valid',
+      }
     );
-    expect(reason(damage(), history(), null)).toContain('could not be worked out');
+    expect(validateStrike(zels, history())).toMatchObject({ kind: 'valid' });
   });
 
   /** ⛔ Foundry accepts any total a player writes; the formula's own range is the check. */
   it('a total the formula cannot produce', () => {
-    expect(reason(damage({ total: 12 }), history(), FORMULA)).toContain('not possible');
-    expect(reason(damage({ total: 3 }), history(), FORMULA)).toContain('not possible');
+    expect(reason(damage({ total: 12 }), history())).toContain('not possible');
+    expect(reason(damage({ total: 3 }), history())).toContain('not possible');
   });
 });

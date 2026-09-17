@@ -4,7 +4,7 @@ import type { StrikeAttackFacts, StrikeDamageFacts } from './strikeFacts.js';
  * Whether a player's strike damage is safe to apply without the GM looking. Added 2026-09-14.
  *
  * ⛔ DECIDED WITH LEWIS: apply automatically only when the same character's attack against the same
- * target, just before, succeeded or crit, AND the total is possible for the weapon's damage formula.
+ * target, just before, succeeded or crit, AND the total is possible for the dice PF2e rolled.
  * Anything else waits in the roll deck for a tap. Why it is needed, measured on pf2e 8.5.0: Foundry
  * accepts a damage card with any total a player writes, a strike's Damage button works with no attack
  * at all, and a MISSED attack's card still rolls damage recorded as "success".
@@ -33,6 +33,23 @@ const sameStrike = (a: StrikeAttackFacts, b: StrikeAttackFacts) =>
 const deck = (reason: string): StrikeVerdict => ({ kind: 'deck', reason });
 
 /**
+ * ⛔ WHY NOT A RECOMPUTED FORMULA (changed 2026-09-17, decided with Lewis). Until now the GM's browser rolled
+ * the strike again and required the same formula. Measured live: it cannot agree. Damage that depends on the
+ * TARGET - an operative's Aim die, Sneak Attack's precision die - is worked out from the fight as it stands when
+ * the GM's browser checks, not when the player attacked: the aim mark is spent, an effect has ended, positions
+ * have moved. Diabla's aimed crit was declined for a formula with an extra 1d6 and no Aim die, and every aimed
+ * or sneaking hit went the same way.
+ *
+ * ⭐ So the card is read, not re-derived. PF2e writes a slug for every die a rule element added, so a die PF2e
+ * built can be told from one somebody typed. Together with the paired hit, the once-only rule and the total
+ * sitting inside the roll's own minimum and maximum, that is what an automatic apply rests on.
+ *
+ * ⚠️ STATED PLAINLY: this stops a mistaken or hand-edited card, not a player who forges flags from the console.
+ * Nothing in a browser can stop that, and the old formula check could not either.
+ */
+const NAMED = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
  * ⚠️ The attack is the LATEST matching one before the damage, and it must not already have had damage
  * rolled for it. Otherwise one hit could be followed by two damage rolls, both applied.
  */
@@ -53,11 +70,7 @@ function findAttack(damage: StrikeDamageFacts, history: StrikeHistory) {
   return { attack, alreadyDamaged };
 }
 
-export function validateStrike(
-  damage: StrikeDamageFacts,
-  history: StrikeHistory,
-  recomputedFormula: string | null
-): StrikeVerdict {
+export function validateStrike(damage: StrikeDamageFacts, history: StrikeHistory): StrikeVerdict {
   if (damage.targetToken === null) {
     return deck('the damage roll names no target');
   }
@@ -78,11 +91,11 @@ export function validateStrike(
       `the attack was a ${attack.outcome} but the damage was rolled as ${String(damage.outcome)}`
     );
   }
-  if (recomputedFormula === null) {
-    return deck("the weapon's damage formula could not be worked out");
-  }
-  if (damage.formula !== recomputedFormula) {
-    return deck(`the formula ${damage.formula} is not the weapon's ${recomputedFormula}`);
+  const unnamed = damage.dice.find(
+    (die) => die.enabled && die.diceNumber > 0 && !NAMED.test(die.slug)
+  );
+  if (unnamed !== undefined) {
+    return deck(`the die "${unnamed.label}" is not one PF2e added to this strike`);
   }
   if (damage.total < damage.min || damage.total > damage.max) {
     return deck(`a total of ${String(damage.total)} is not possible for ${damage.formula}`);

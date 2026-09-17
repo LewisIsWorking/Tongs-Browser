@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { OPTIONS, damage, world } from './support/buildAutoApplyWorld.js';
+import { world } from './support/buildAutoApplyWorld.js';
 
 describe('who is asking', () => {
   it('reads the role, the user and the system from the world', () => {
@@ -41,70 +41,6 @@ describe("the card's flags, and applying", () => {
     await ports.apply('d1', 'Scene.S.Token.X');
 
     expect(deck.apply).toHaveBeenCalledWith('d1', 'full', 'Scene.S.Token.X');
-  });
-});
-
-describe("PF2e's own formula", () => {
-  it("rolls the strike with no message, on the strike, with the attack's context and the target token", async () => {
-    const { ports, strike, token } = world();
-
-    expect(await ports.recomputeFormula(damage(), 'a1')).toBe('1d8 + 3 bludgeoning');
-    expect(await ports.recomputeFormula(damage({ outcome: 'criticalSuccess' }), 'a1')).toBe(
-      '2 * (1d8 + 3) bludgeoning'
-    );
-    expect(strike.seen[0]).toEqual({
-      kind: 'damage',
-      createMessage: false,
-      target: { document: token },
-      checkContext: { type: 'attack-roll', dc: 20, options: OPTIONS },
-      options: ['target:distance:10', 'target:range-increment:1'],
-      event: { shiftKey: false, ctrlKey: false, metaKey: false },
-    });
-    expect(strike.seen[1]).toMatchObject({ kind: 'critical' });
-  });
-
-  /*
-   * ⛔ Found live 2026-09-16: Diabla's aimed crit on Ovvat was declined. PF2e's getFormula is view only and
-   * drops the target, so the Aim die (`target:mark:aim`) was missing from the formula it was checked against.
-   */
-  it('never asks for a view-only formula, which leaves out damage that depends on the target', async () => {
-    const { ports, strike } = world();
-    await ports.recomputeFormula(damage({ outcome: 'criticalSuccess' }), 'a1');
-    expect(strike.seen[0]).not.toHaveProperty('getFormula');
-    expect(strike.seen[0]).toMatchObject({ createMessage: false });
-  });
-
-  it('skips the damage dialog whichever way this GM has it set, and survives a card with no options', async () => {
-    const shown = world(true);
-    await shown.ports.recomputeFormula(damage(), 'a1');
-    expect(shown.strike.seen[0]).toMatchObject({ event: { shiftKey: true } });
-
-    const bare = world();
-    await bare.ports.recomputeFormula(damage({ id: 'unknown' }), 'a1');
-    expect(bare.strike.seen[0]).toMatchObject({ options: [] });
-  });
-
-  /* ⛔ PF2e falls back to the GM's own target when given none, so an unfound target is still passed. */
-  it("never lets PF2e fall back to the GM's own target", async () => {
-    const { ports, strike } = world();
-    await ports.recomputeFormula(damage({ targetToken: 'Scene.S.Token.Gone' }), 'a1');
-    await ports.recomputeFormula(damage({ targetToken: null }), 'a1');
-    expect(strike.seen.map((each) => (each as { target: unknown }).target)).toEqual([
-      { document: null },
-      { document: null },
-    ]);
-  });
-
-  it('is null when the strike is missing, throws, or answers with no formula', async () => {
-    const { ports, strike } = world();
-
-    expect(await ports.recomputeFormula(damage({ strikeIndex: 5 }), 'a1')).toBeNull();
-    strike.damage = () => Promise.reject(new Error('no'));
-    expect(await ports.recomputeFormula(damage(), 'a1')).toBeNull();
-    strike.damage = () => Promise.resolve({ not: 'a formula' });
-    expect(await ports.recomputeFormula(damage(), 'a1')).toBeNull();
-    strike.damage = () => Promise.resolve(null);
-    expect(await ports.recomputeFormula(damage(), 'a1')).toBeNull();
   });
 });
 
