@@ -1,5 +1,4 @@
 import type { NameRules } from '../bands/bandSubject.js';
-import { MODULE_ID } from '../constants.js';
 
 /**
  * A Foundry encounter read into what the combat topic's tracker shows. Added 2026-09-16.
@@ -17,7 +16,8 @@ import { MODULE_ID } from '../constants.js';
  * otherwise "The creature", exactly as the health bands name it.
  *
  * 📜 Added 2026-09-17 for the encounter's wiki page: its name, the scene it is fought on, and each combatant's
- * initiative. The name is the GM's (`flags['tongs-browser'].encounterName`) when set, otherwise the scene's.
+ * initiative. The name is Foundry's own encounter name (the tracker's encounter menu, Edit Name) when the GM set
+ * one, otherwise the scene's.
  */
 export interface EncounterCombatant {
   readonly name: string;
@@ -60,7 +60,8 @@ export interface CombatLike {
   readonly turn?: number | null;
   readonly turns?: readonly CombatantLike[];
   readonly scene?: { readonly name?: string; readonly navName?: string } | null;
-  readonly flags?: Readonly<Record<string, { readonly encounterName?: unknown } | undefined>>;
+  /** Foundry's own encounter name; blank until the GM uses Edit Name. */
+  readonly name?: string | null;
 }
 
 /** Foundry's OWNER permission level. */
@@ -82,8 +83,8 @@ function naming(combat: CombatLike): { name?: string; location?: string } {
   /* ⛔ The navigation name when the GM set one: players see that, and the real name can be a spoiler. */
   const shown = combat.scene?.navName?.trim();
   const location = shown === undefined || shown === '' ? combat.scene?.name?.trim() : shown;
-  const given = combat.flags?.[MODULE_ID]?.encounterName;
-  const name = typeof given === 'string' && given.trim() !== '' ? given.trim() : location;
+  const given = combat.name?.trim();
+  const name = given === undefined || given === '' ? location : given;
   return {
     ...(name === undefined || name === '' ? {} : { name }),
     ...(location === undefined || location === '' ? {} : { location }),

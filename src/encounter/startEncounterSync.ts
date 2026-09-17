@@ -25,14 +25,14 @@ import type { LinkGlobals, LinkSettings } from './playerLinks.js';
  * ⛔ OFF UNTIL A GM TURNS IT ON, per world, like every automation Tongs has: a release must never start
  * posting to Telegram by surprise. The setting is read on each event, so turning it on needs no reload.
  *
- * ⚠️ WHICH CHANGES COUNT. A combat update counts only when it moves the round or the turn, or starts or stops the
- * encounter: saving the tracker id as a flag is also a combat update, and counting it would post again forever.
+ * ⚠️ WHICH CHANGES COUNT. A combat update counts only when it moves the round or the turn, starts or stops the
+ * encounter, or renames it (its wiki page is named after it): saving the tracker id as a flag is also a combat update, and counting it would post again forever.
  * A combatant joining, leaving, being hidden, defeated or reordered by initiative changes the tracker too.
  */
 const SYNC_ENCOUNTERS_SETTING = 'syncEncounters';
 const TRACKER_FLAG = 'trackerMessageId';
 
-const COMBAT_KEYS = ['round', 'turn', 'active', 'started'];
+const COMBAT_KEYS = ['round', 'turn', 'active', 'started', 'name'];
 const COMBATANT_KEYS = ['hidden', 'defeated', 'initiative'];
 
 interface FlaggedCombat extends CombatLike {
