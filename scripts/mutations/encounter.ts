@@ -25,8 +25,8 @@ export const ENCOUNTER_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/encounter/encounterSnapshot.ts',
-    find: '      enemies.push({ name: seen ? name : rules.mystifiedName, acted });',
-    replace: '      enemies.push({ name, acted });',
+    find: '      enemies.push({ name: seen ? name : rules.mystifiedName, acted, ...rolled });',
+    replace: '      enemies.push({ name, acted, ...rolled });',
     defect: "an enemy players only know as 'The creature' is named in the combat topic",
     tests: ['tests/unit/encounterSnapshot.test.ts'],
   },
@@ -53,5 +53,20 @@ export const ENCOUNTER_MUTATIONS: readonly RecordedMutation[] = [
     replace: "    if (on()) guard('on a turn', sync.changed(combat));",
     defect: 'saving the tracker id counts as a change, so the tracker is posted again and again',
     tests: ['tests/unit/encounterSyncWiring.test.ts'],
+  },
+  {
+    /* 📜 Added 2026-09-17: the encounter's wiki page lists the initiative order. */
+    file: 'src/encounter/encounterSnapshot.ts',
+    find: "      typeof combatant.initiative === 'number' ? { initiative: combatant.initiative } : {};",
+    replace: '      {};',
+    defect: "an encounter's wiki page has no initiative order",
+    tests: ['tests/unit/encounterWikiFields.test.ts'],
+  },
+  {
+    file: 'src/encounter/encounterSnapshot.ts',
+    find: "  const location = shown === undefined || shown === '' ? combat.scene?.name?.trim() : shown;",
+    replace: '  const location = combat.scene?.name?.trim();',
+    defect: "the public wiki names a scene by the GM's real name, which can spoil what is coming",
+    tests: ['tests/unit/encounterWikiFields.test.ts'],
   },
 ];
