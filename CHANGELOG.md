@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.38.4
+
+### Patch Changes
+
+- [#391](https://github.com/LewisIsWorking/Tongs-Browser/pull/391) [`4a75915`](https://github.com/LewisIsWorking/Tongs-Browser/commit/4a75915329b1a0677c6260e4abef65b909cbbcd9) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - An encounter's wiki page takes the name the GM gives it with Foundry's own Edit Name, in the combat tracker's encounter menu, and a rename is sent at once. Without a name it still takes the scene's.
+
 ## 0.38.3
 
 ### Patch Changes
