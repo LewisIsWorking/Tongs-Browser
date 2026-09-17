@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.38.3
+
+### Patch Changes
+
+- [#389](https://github.com/LewisIsWorking/Tongs-Browser/pull/389) [`19804ad`](https://github.com/LewisIsWorking/Tongs-Browser/commit/19804adab901cdd4a1cdcb3d17383d2cb2ec8cf5) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A synced encounter now sends its name, the scene players see it on and each combatant's initiative, so ComeOnOverUno can publish the fight to the campaign wiki. The GM can name an encounter with the `encounterName` flag; otherwise it takes the scene's name.
+
 ## 0.38.2
 
 ### Patch Changes
