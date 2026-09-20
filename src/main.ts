@@ -10,19 +10,15 @@ import { SettingKey } from './settings/SettingDefinitions.js';
 import { applySetting, readGestureConfig } from './settings/ApplySetting.js';
 import { SceneControlToggle } from './settings/SceneControlToggle.js';
 import { SettingsStore } from './settings/SettingsStore.js';
-import { registerAutoApplySetting, startAutoApply } from './automation/startAutoApply.js';
-import { registerSpellSavesSetting, startSpellSaves } from './automation/startSpellSaves.js';
-import { registerSpellDamageSetting, startSpellDamage } from './automation/startSpellDamage.js';
-import type { AutoGlobals } from './automation/buildAutoApply.js';
-import {
-  buildCooClient,
-  registerBandMenus,
-  registerBandSettings,
-  startBands,
-} from './bands/startBands.js';
+import { registerAutoApplySetting } from './automation/startAutoApply.js';
+import { registerSpellSavesSetting } from './automation/startSpellSaves.js';
+import { registerSpellDamageSetting } from './automation/startSpellDamage.js';
+import { buildCooClient, registerBandMenus, registerBandSettings } from './bands/startBands.js';
 import type { MenuStartGlobals } from './bands/startBands.js';
 import type { CooClient } from './bands/CooClient.js';
-import { registerEncounterSync, startEncounterSync } from './encounter/startEncounterSync.js';
+import { registerEncounterSync } from './encounter/startEncounterSync.js';
+import { registerWorldSwaps } from './swaps/startWorldSwaps.js';
+import { startFeatures } from './StartFeatures.js';
 
 /**
  * Module entry point.
@@ -75,6 +71,7 @@ Hooks.once('init', () => {
   cooClient = buildCooClient(settingsApi, globalThis);
   registerBandMenus(settingsApi, cooClient, globalThis as MenuStartGlobals);
   registerEncounterSync(settingsApi, cooClient, globalThis as MenuStartGlobals);
+  registerWorldSwaps(settingsApi);
 
   /*
    * ⚠️ Called at INIT, before Foundry builds the canvas, and nothing keeps the result. Both
@@ -174,17 +171,16 @@ Hooks.once('ready', () => {
     instance?.refreshTray();
   });
 
-  /* Phase 2: off per world until a GM turns it on. See automation/startAutoApply.ts. */
+  /* What each of these is, and which are off until a GM turns them on: StartFeatures.ts. */
   if (game !== undefined) {
-    startAutoApply(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals);
-    startSpellSaves(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals, document);
-    startSpellDamage(instance.getDeck(), Hooks, game.settings, globalThis as AutoGlobals);
-    /* Health bands: off until a party has a campaign. See bands/startBands.ts. */
-    startBands(Hooks, game.settings, globalThis, cooClient);
-    /* Encounter sync: off per world; its settings exist only if init built the client. */
-    if (cooClient !== null) {
-      startEncounterSync(Hooks, game.settings, globalThis, cooClient);
-    }
+    startFeatures({
+      deck: instance.getDeck(),
+      hooks: Hooks,
+      settings: game.settings,
+      globals: globalThis,
+      document,
+      client: cooClient,
+    });
   }
 
   const moduleEntry = game?.modules.get(MODULE_ID);
