@@ -34,6 +34,14 @@ jobs:
         with:
           # Changesets needs history to work out what has already been released.
           fetch-depth: 0
+          # ⛔ RELEASE_TOKEN, not the bot token, for the pushes to changeset-release/main. GitHub runs
+          #    no workflow for a push or a pull request made with GITHUB_TOKEN, so every "Version
+          #    Packages" PR arrived with no checks at all (#392, #394) - which meant main could not
+          #    require checks without making every release unmergeable. checkout persists this
+          #    token as the git credential, so it is the one changesets pushes with.
+          #    Falls back to the bot token while the secret does not exist, so nothing breaks
+          #    before it is added; the PRs just keep arriving unchecked until it is.
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
 
       - uses: actions/setup-node@v4
         with:
@@ -60,7 +68,8 @@ jobs:
           commit: 'chore: version packages'
           title: 'chore: version packages'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Same token as the checkout above, for the same reason: a PR opened with it gets checks.
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
       # Packaging runs here, in the same job that created the tag, rather than in a separate
       # workflow triggered by the tag.
