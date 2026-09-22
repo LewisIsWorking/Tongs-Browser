@@ -2,12 +2,13 @@
 
 Fixtures shared by the pure tests. No DOM, no assertions.
 
-| File                     | What it is                                       |
-| ------------------------ | ------------------------------------------------ |
-| `gestureHarness.ts`      | A gesture machine plus a clock you control       |
-| `gestureController.ts`   | A controller with its collaborators stubbed      |
-| `sequenceHarness.ts`     | Building and inspecting event sequences          |
-| `buildAutoApplyWorld.ts` | The Foundry behind the strike automation's ports |
+| File                     | What it is                                               |
+| ------------------------ | -------------------------------------------------------- |
+| `gestureHarness.ts`      | A gesture machine plus a clock you control               |
+| `gestureController.ts`   | A controller with its collaborators stubbed              |
+| `sequenceHarness.ts`     | Building and inspecting event sequences                  |
+| `buildAutoApplyWorld.ts` | The Foundry behind the strike automation's ports         |
+| `worldSwapTable.ts`      | A GM in a world, a fake ComeOnOverUno, a hand-fired beat |
 
 ## Time is an argument here
 
@@ -17,6 +18,9 @@ and their interactions testable in milliseconds and immune to flake.
 
 A test that waits for a real timer is a test that will eventually fail on a loaded CI machine, and
 the failure will look like a bug in the gesture rather than in the test.
+
+`worldSwapTable.ts` does hand its beat a zero-delay timer, which is not a wait: it resolves once the
+awaits already queued have run, so it does not get slower or flakier under load.
 
 ## Adoption is enforced
 

@@ -10,6 +10,7 @@ The module itself. Everything shipped in `dist/tongs-browser.js` comes from here
 | `ModuleParts.ts`         | Building the parts and handing them their dependencies      |
 | `BuildModifierBar.ts`    | Assembling the bar from `src/modifiers`                     |
 | `TrayWiring.ts`          | Connecting tray actions to the things they do               |
+| `StartFeatures.ts`       | What `ready` starts, and what needs the COO client first    |
 | `PointerStack.ts`        | The gesture layer and the pointer, joined up                |
 | `constants.ts`           | The handful of values more than one folder needs            |
 
@@ -29,6 +30,8 @@ The module itself. Everything shipped in `dist/tongs-browser.js` comes from here
 | `deck/`         | The GM roll deck: apply damage, roll saves  |
 | `automation/`   | Players' checked hits, without the GM       |
 | `bands/`        | Enemies' health bands, posted to Telegram   |
+| `encounter/`    | Encounters kept in step with Telegram       |
+| `swaps/`        | Answering ComeOnOverUno's world swaps       |
 
 ## The composition root is separate from the parts
 
