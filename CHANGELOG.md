@@ -1,5 +1,13 @@
 # tongs-browser
 
+## 0.39.1
+
+### Patch Changes
+
+- [#398](https://github.com/LewisIsWorking/Tongs-Browser/pull/398) [`1c902d2`](https://github.com/LewisIsWorking/Tongs-Browser/commit/1c902d2de88677b1699ff1f0dd6bba2944c27d9b) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The ComeOnOverUno sign-in now says what it is for. It used to promise only health bands, but the same
+  sign-in also drives encounter sync and the world-swap heartbeat, and the heartbeat is what makes
+  ComeOnOverUno ask the GM before another campaign closes the world. The menu hint says so plainly.
+
 ## 0.39.0
 
 ### Minor Changes
