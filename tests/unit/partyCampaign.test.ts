@@ -121,9 +121,7 @@ describe('the campaign of a combat', () => {
     expect(normalizeCampaign('Kibwe')).toBe('');
     expect(campaignForCombat([])).toEqual({ kind: 'none', characters: [] });
     expect(campaignProblem({ kind: 'one', code: 'C06' })).toBeNull();
-    expect(campaignProblem({ kind: 'none', characters: [] })).toContain(
-      'no player character'
-    );
+    expect(campaignProblem({ kind: 'none', characters: [] })).toContain('no player character');
     expect(campaignProblem({ kind: 'mixed', codes: ['C04', 'C06'] })).toContain('C04 and C06');
   });
 });
