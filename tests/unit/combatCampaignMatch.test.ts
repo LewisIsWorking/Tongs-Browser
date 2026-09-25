@@ -59,4 +59,15 @@ describe('telling the GM which characters could not be placed', () => {
     expect(choice).toEqual({ kind: 'none', characters: ['an unnamed character'] });
     expect(campaignProblem({ kind: 'none', characters: [] })).toContain('no player character');
   });
+
+/*
+ * ⛔ Found live 2026-09-25: after the move to the self-hosted Foundry every character is unowned until a GM
+ * reassigns it, and Changer's shot on a kobold in C04 posted no band. Being in a party is what counts.
+ */
+describe('placing a combat whose character no player owns', () => {
+  it('takes the campaign from its party all the same', () => {
+    const magniGuard: PartyCampaignEntry = { ...kibwe, name: 'Magni Guard', campaign: 'C04' };
+    const unowned = { actor: { ...character('Actor.Changer'), hasPlayerOwner: false } };
+    expect(combatCampaign(inCombat(unowned), [magniGuard])).toEqual({ kind: 'one', code: 'C04' });
+  });
 });

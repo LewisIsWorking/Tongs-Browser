@@ -79,22 +79,6 @@ describe('the campaign of a combat', () => {
     });
   });
 
-  /*
-   * ⛔ Found live 2026-09-25: after the move to the self-hosted Foundry every character is unowned until a
-   * GM reassigns it, and Changer's shot on a kobold in C04 posted no band. Being in a party is what counts.
-   */
-  it('takes the campaign from a character no player owns, when its party has one', () => {
-    const changer = {
-      combatant: {
-        actor: { uuid: 'Actor.Changer', name: 'Changer', type: 'character', hasPlayerOwner: false },
-      },
-      parties: [
-        { uuid: 'Actor.P', name: 'Magni Guard', campaign: 'C04', members: ['Actor.Changer'] },
-      ],
-    };
-    expect(combatCampaign(...combat(changer))).toEqual({ kind: 'one', code: 'C04' });
-  });
-
   /* ⛔ Found live: PF2e leaves a brand-new party out of its members' `actor.parties`. */
   it("finds a character through the party's own member list, whatever actor.parties says", () => {
     const character = {
