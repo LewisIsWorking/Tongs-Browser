@@ -65,21 +65,34 @@ describe('the campaign of a combat', () => {
     });
   });
 
-  it('counts only player characters: not enemies, not a player-owned companion, not an unowned or uuid-less PC', () => {
+  it('counts only characters: not enemies, not a player-owned companion, not a uuid-less PC', () => {
     const listed = (actor: object) => ({
       combatant: { actor },
-      parties: [
-        { uuid: 'Actor.X', name: 'X', campaign: 'C04', members: ['Actor.E', 'Actor.F', 'Actor.U'] },
-      ],
+      parties: [{ uuid: 'Actor.X', name: 'X', campaign: 'C04', members: ['Actor.E', 'Actor.F'] }],
     });
     const enemy = listed({ uuid: 'Actor.E', type: 'npc', hasPlayerOwner: false });
     const companion = listed({ uuid: 'Actor.F', type: 'familiar', hasPlayerOwner: true });
-    const unowned = listed({ uuid: 'Actor.U', type: 'character', hasPlayerOwner: false });
     const noUuid = { actor: { type: 'character', hasPlayerOwner: true } };
-    expect(combatCampaign(...combat(pc('C06'), enemy, companion, unowned, noUuid))).toEqual({
+    expect(combatCampaign(...combat(pc('C06'), enemy, companion, noUuid))).toEqual({
       kind: 'one',
       code: 'C06',
     });
+  });
+
+  /*
+   * ⛔ Found live 2026-09-25: after the move to the self-hosted Foundry every character is unowned until a
+   * GM reassigns it, and Changer's shot on a kobold in C04 posted no band. Being in a party is what counts.
+   */
+  it('takes the campaign from a character no player owns, when its party has one', () => {
+    const changer = {
+      combatant: {
+        actor: { uuid: 'Actor.Changer', name: 'Changer', type: 'character', hasPlayerOwner: false },
+      },
+      parties: [
+        { uuid: 'Actor.P', name: 'Magni Guard', campaign: 'C04', members: ['Actor.Changer'] },
+      ],
+    };
+    expect(combatCampaign(...combat(changer))).toEqual({ kind: 'one', code: 'C04' });
   });
 
   /* ⛔ Found live: PF2e leaves a brand-new party out of its members' `actor.parties`. */
@@ -109,7 +122,7 @@ describe('the campaign of a combat', () => {
     expect(campaignForCombat([])).toEqual({ kind: 'none', characters: [] });
     expect(campaignProblem({ kind: 'one', code: 'C06' })).toBeNull();
     expect(campaignProblem({ kind: 'none', characters: [] })).toContain(
-      'no player-owned character'
+      'no player character'
     );
     expect(campaignProblem({ kind: 'mixed', codes: ['C04', 'C06'] })).toContain('C04 and C06');
   });

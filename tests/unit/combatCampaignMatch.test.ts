@@ -58,7 +58,7 @@ describe('telling the GM which characters could not be placed', () => {
     );
     expect(choice).toEqual({ kind: 'none', characters: ['an unnamed character'] });
     expect(campaignProblem({ kind: 'none', characters: [] })).toContain(
-      'no player-owned character'
+      'no player character'
     );
   });
 });
