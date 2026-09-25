@@ -18,14 +18,19 @@ import type { CampaignChoice } from './partyCampaign.js';
  * `Scene.s.Token.t.Actor.id`, which no party lists. Foundry 14's `TokenDocument#baseActor` is the world
  * actor either way.
  *
- * ⚠️ PLAYER CHARACTERS ONLY: `type: "character"` and owned by a player. An enemy decides nothing, and a
- * familiar or companion a player owns follows its character.
+ * ⚠️ CHARACTERS ONLY: `type: "character"`. An enemy decides nothing, and a familiar or companion follows
+ * its character.
+ *
+ * ⛔ OWNERSHIP IS NOT ASKED, changed 2026-09-25. Found live on the self-hosted Foundry: moving the worlds off
+ * The Forge cleared every player login, so each character stays unowned until a GM reassigns it. Changer
+ * shot a kobold in C04 and no band was posted, because the only character in the fight "had no player
+ * owner". Being listed by a party with a campaign code is what makes a character one of a table's, and only
+ * a GM can put it there, so that is the whole test.
  */
 interface CombatantActor {
   readonly uuid?: string;
   readonly name?: string;
   readonly type?: string;
-  readonly hasPlayerOwner?: boolean;
 }
 
 export interface CampaignCombatant {
@@ -45,7 +50,7 @@ export function combatCampaign(
   return campaignForCombat(
     (combat?.combatants?.contents ?? []).flatMap((combatant) => {
       const actor = combatant.actor;
-      if (actor?.type !== 'character' || actor.hasPlayerOwner !== true) {
+      if (actor?.type !== 'character') {
         return [];
       }
       const uuid = combatant.token?.baseActor?.uuid ?? actor.uuid;

@@ -57,6 +57,6 @@ export function campaignProblem(choice: CampaignChoice): string | null {
     return `Tongs Browser posted no health band: this combat has characters from ${choice.codes.join(' and ')}, so it cannot tell which campaign it belongs to.`;
   }
   return choice.characters.length === 0
-    ? 'Tongs Browser posted no health band: this combat has no player-owned character to take a campaign from.'
+    ? 'Tongs Browser posted no health band: this combat has no player character to take a campaign from.'
     : `Tongs Browser posted no health band: no party with a Path Wars campaign lists ${choice.characters.join(', ')}. Add them to one, or set its campaign under Module Settings, Party campaigns.`;
 }
