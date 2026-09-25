@@ -59,6 +59,7 @@ describe('telling the GM which characters could not be placed', () => {
     expect(choice).toEqual({ kind: 'none', characters: ['an unnamed character'] });
     expect(campaignProblem({ kind: 'none', characters: [] })).toContain('no player character');
   });
+});
 
 /*
  * ⛔ Found live 2026-09-25: after the move to the self-hosted Foundry every character is unowned until a GM
