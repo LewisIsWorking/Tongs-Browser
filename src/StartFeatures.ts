@@ -10,6 +10,8 @@ import type { SwapGlobals } from './swaps/startWorldSwaps.js';
 import { startAfkGuard } from './swaps/startAfkGuard.js';
 import { foundryCreateUser } from './swaps/LiveUsers.js';
 import type { UserGlobals } from './swaps/LiveUsers.js';
+import { startWorldSize } from './world/startWorldSize.js';
+import type { SizeGlobals } from './world/startWorldSize.js';
 
 /**
  * Starting everything that waits for `ready`. Extracted from main.ts 2026-09-20, when adding world
@@ -56,4 +58,6 @@ export function startFeatures(parts: FeatureParts): void {
     ...(idleSeconds === undefined ? {} : { idleSeconds }),
     createUser: foundryCreateUser(globals as UserGlobals),
   });
+  /* One question at launch: is this world bigger than the GM asked to hear about? See src/world. */
+  startWorldSize(hooks, settings, client, globals as SizeGlobals);
 }
