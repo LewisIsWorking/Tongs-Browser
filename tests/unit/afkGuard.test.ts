@@ -104,7 +104,12 @@ describe('wiring it into Foundry', () => {
       passive: true,
     });
 
-    now = 2 * MIN; // past a one-minute limit
+    now = 30_000;
+    const onKey = gmEnv.target.addEventListener.mock.calls[0]?.[1] as () => void;
+    onKey(); // a keypress resets the idle clock
+    expect(idle?.()).toBe(0);
+
+    now = 2 * MIN + 30_000; // past a one-minute limit
     ticks[0]?.();
     await Promise.resolve();
     expect(logOut).toHaveBeenCalledTimes(1);
