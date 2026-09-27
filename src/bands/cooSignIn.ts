@@ -12,6 +12,18 @@ import type { MenuGlobals, MenuSettings } from './settingsMenu.js';
  */
 const SIGN_IN_MENU = 'cooSignIn';
 
+/*
+ * ⚠️ WHAT THE SIGN-IN IS FOR, said in full. It used to promise only health bands, because that was all it
+ * did; by 2026-09-22 the same sign-in also drove encounter sync and the world-swap heartbeat, and the
+ * heartbeat matters most - without it ComeOnOverUno thinks no GM is present and a player's Play closes this
+ * world without asking. A GM reading "health bands" had no reason to think signing in protected the table.
+ */
+export const SIGNED_IN =
+  'Signed in to ComeOnOverUno. Health bands, encounter sync and world-swap requests now work in this browser.';
+export const SIGN_IN_HINT =
+  'Sign this browser in to ComeOnOverUno for health bands, encounter sync and world-swap requests. ' +
+  'Without it, a player pressing Play for another campaign closes this world without asking. Only the GM needs to.';
+
 export interface SignInGlobals {
   readonly foundry?: {
     readonly applications?: {
@@ -44,9 +56,7 @@ export async function signIn(client: CooClient, globals: SignInGlobals): Promise
   }
   const ok = await client.signIn(username, password).catch(() => false);
   if (ok) {
-    globals.ui?.notifications?.info?.(
-      'Signed in to ComeOnOverUno. Health bands can now be posted.'
-    );
+    globals.ui?.notifications?.info?.(SIGNED_IN);
   } else {
     globals.ui?.notifications?.warn?.('ComeOnOverUno did not accept that sign-in.');
   }
@@ -66,7 +76,7 @@ export function registerSignInMenu(
       key: SIGN_IN_MENU,
       name: 'ComeOnOverUno sign-in',
       label: 'Sign in',
-      hint: 'Sign this browser in to ComeOnOverUno so it can post health bands. Only the GM needs to.',
+      hint: SIGN_IN_HINT,
       icon: 'fas fa-right-to-bracket',
     },
     async () => signIn(client, globals)

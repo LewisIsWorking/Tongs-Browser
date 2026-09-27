@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { registerSignInMenu, signIn } from '../../src/bands/cooSignIn.js';
+import { registerSignInMenu, SIGN_IN_HINT, SIGNED_IN, signIn } from '../../src/bands/cooSignIn.js';
 import type { CooClient } from '../../src/bands/CooClient.js';
 
 /**
@@ -71,5 +71,32 @@ describe('signing in', () => {
       throw new Error('You must provide a menu type that is a FormApplication or ApplicationV2');
     };
     expect(registerSignInMenu({ registerMenu: refusing }, client(true), g)).toBe(false);
+  });
+
+  /* ⛔ Found 2026-09-22: the toast still promised only health bands after the sign-in began driving the
+     world-swap heartbeat too, so a GM had no reason to think signing in protected the table. */
+  it('says what the sign-in is for, world swaps included, on success and in the menu hint', async () => {
+    const g = globals({ username: 'lewis', password: 'pw' });
+    await signIn(client(true), g);
+    expect(g.ui.notifications.info).toHaveBeenCalledWith(SIGNED_IN);
+    expect(SIGNED_IN).toMatch(/world-swap/);
+
+    const registerMenu = vi.fn();
+    class ApplicationV2 {
+      public render(): unknown {
+        return this;
+      }
+    }
+    const withApp = {
+      ...globals(null),
+      foundry: {
+        applications: { api: { ...globals(null).foundry.applications.api, ApplicationV2 } },
+      },
+    };
+    registerSignInMenu({ registerMenu }, client(true), withApp);
+    const hint = (registerMenu.mock.calls[0]?.[2] as { hint: string }).hint;
+    expect(hint).toBe(SIGN_IN_HINT);
+    expect(hint).toMatch(/world-swap/);
+    expect(hint).toMatch(/closes this world without asking/);
   });
 });

@@ -18,6 +18,7 @@ import type { MenuStartGlobals } from './bands/startBands.js';
 import type { CooClient } from './bands/CooClient.js';
 import { registerEncounterSync } from './encounter/startEncounterSync.js';
 import { registerWorldSwaps } from './swaps/startWorldSwaps.js';
+import { registerAfkGuard } from './swaps/startAfkGuard.js';
 import { registerWorldSizeSetting } from './world/startWorldSize.js';
 import { startFeatures } from './StartFeatures.js';
 
@@ -73,6 +74,7 @@ Hooks.once('init', () => {
   registerBandMenus(settingsApi, cooClient, globalThis as MenuStartGlobals);
   registerEncounterSync(settingsApi, cooClient, globalThis as MenuStartGlobals);
   registerWorldSwaps(settingsApi);
+  registerAfkGuard(settingsApi);
   registerWorldSizeSetting(settingsApi);
 
   /*

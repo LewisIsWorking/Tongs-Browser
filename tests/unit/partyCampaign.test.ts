@@ -65,18 +65,15 @@ describe('the campaign of a combat', () => {
     });
   });
 
-  it('counts only player characters: not enemies, not a player-owned companion, not an unowned or uuid-less PC', () => {
+  it('counts only characters: not enemies, not a player-owned companion, not a uuid-less PC', () => {
     const listed = (actor: object) => ({
       combatant: { actor },
-      parties: [
-        { uuid: 'Actor.X', name: 'X', campaign: 'C04', members: ['Actor.E', 'Actor.F', 'Actor.U'] },
-      ],
+      parties: [{ uuid: 'Actor.X', name: 'X', campaign: 'C04', members: ['Actor.E', 'Actor.F'] }],
     });
     const enemy = listed({ uuid: 'Actor.E', type: 'npc', hasPlayerOwner: false });
     const companion = listed({ uuid: 'Actor.F', type: 'familiar', hasPlayerOwner: true });
-    const unowned = listed({ uuid: 'Actor.U', type: 'character', hasPlayerOwner: false });
     const noUuid = { actor: { type: 'character', hasPlayerOwner: true } };
-    expect(combatCampaign(...combat(pc('C06'), enemy, companion, unowned, noUuid))).toEqual({
+    expect(combatCampaign(...combat(pc('C06'), enemy, companion, noUuid))).toEqual({
       kind: 'one',
       code: 'C06',
     });
@@ -108,9 +105,7 @@ describe('the campaign of a combat', () => {
     expect(normalizeCampaign('Kibwe')).toBe('');
     expect(campaignForCombat([])).toEqual({ kind: 'none', characters: [] });
     expect(campaignProblem({ kind: 'one', code: 'C06' })).toBeNull();
-    expect(campaignProblem({ kind: 'none', characters: [] })).toContain(
-      'no player-owned character'
-    );
+    expect(campaignProblem({ kind: 'none', characters: [] })).toContain('no player character');
     expect(campaignProblem({ kind: 'mixed', codes: ['C04', 'C06'] })).toContain('C04 and C06');
   });
 });

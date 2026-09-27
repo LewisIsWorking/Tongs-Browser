@@ -67,7 +67,7 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/bands/combatCampaign.ts',
-    find: "      if (actor?.type !== 'character' || actor.hasPlayerOwner !== true) {",
+    find: "      if (actor?.type !== 'character') {",
     replace: '      if (actor === null || actor === undefined) {',
     defect: "an enemy's party, or a companion's, decides which campaign hears about the fight",
     tests: ['tests/unit/partyCampaign.test.ts'],

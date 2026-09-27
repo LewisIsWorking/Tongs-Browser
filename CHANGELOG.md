@@ -1,5 +1,27 @@
 # tongs-browser
 
+## 0.40.0
+
+### Minor Changes
+
+- [#402](https://github.com/LewisIsWorking/Tongs-Browser/pull/402) [`478d783`](https://github.com/LewisIsWorking/Tongs-Browser/commit/478d783c4bb51e61f0c413936687f6b21a29a529) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A GM's Tongs can now add a new player to the running world without a restart: COO's heartbeat reply lists the players to create, each with a one-time password for this world only, and Tongs creates them with COO's exact id and confirms which it made. The heartbeat also reports how long the GM has been idle.
+
+  New world setting "Sign out an idle GM (minutes)", default 120: after that long with no mouse or keyboard activity a GM is asked "Still there?" and, five minutes later, signed out, so an unattended browser no longer holds the world for other campaigns. 0 turns it off.
+
+## 0.39.2
+
+### Patch Changes
+
+- [#400](https://github.com/LewisIsWorking/Tongs-Browser/pull/400) [`6e466a1`](https://github.com/LewisIsWorking/Tongs-Browser/commit/6e466a1cb298473c1ce98b237bb4f82eaa444cfd) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Health bands and encounter sync find the campaign again on the self-hosted Foundry. Moving the worlds off The Forge left every character unowned until a GM reassigns it, and Tongs only took a campaign from player-owned characters, so a fight posted no band with "this combat has no player-owned character". Any character in a party with a campaign now counts.
+
+## 0.39.1
+
+### Patch Changes
+
+- [#398](https://github.com/LewisIsWorking/Tongs-Browser/pull/398) [`1c902d2`](https://github.com/LewisIsWorking/Tongs-Browser/commit/1c902d2de88677b1699ff1f0dd6bba2944c27d9b) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The ComeOnOverUno sign-in now says what it is for. It used to promise only health bands, but the same
+  sign-in also drives encounter sync and the world-swap heartbeat, and the heartbeat is what makes
+  ComeOnOverUno ask the GM before another campaign closes the world. The menu hint says so plainly.
+
 ## 0.39.0
 
 ### Minor Changes
