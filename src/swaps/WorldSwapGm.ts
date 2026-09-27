@@ -54,6 +54,16 @@ export interface WorldSwapPorts {
 export type BeatOutcome = 'not-gm' | 'no-world' | 'signed-out' | 'failed' | 'beat';
 
 const AWAITING = 'AwaitingGm';
+const EXPIRED = 'Expired';
+
+/**
+ * ⚠️ 2026-09-27: A LATE ANSWER USED TO READ AS "It will ask again". The dialog stays open until the GM clicks,
+ * but COO's request expires after 2 minutes (answered 200, state Expired) and vanishes on a server restart
+ * (404). Neither is ever offered again, so promising a re-ask left Lewis waiting on nothing. Say it is gone.
+ */
+function gone(requester: string): string {
+  return `${requester}'s request had already expired, so nothing changed. They can press Play again.`;
+}
 
 export class WorldSwapGm {
   private readonly ports: WorldSwapPorts;
@@ -105,12 +115,21 @@ export class WorldSwapGm {
       `/api/foundry/swap/${encodeURIComponent(request.id)}/decision`,
       { approve }
     );
+    if (response !== 'signed-out' && response.status === 404) {
+      this.ports.notify(gone(request.requester));
+      return;
+    }
     if (response === 'signed-out' || response.status !== 200) {
       /* Forgotten on purpose: the next heartbeat asks again rather than losing the answer silently. */
       this.seen.delete(request.id);
       this.ports.notify(
         `Could not tell COO about ${request.requester}'s world swap. It will ask again.`
       );
+      return;
+    }
+    const after = (await response.json().catch(() => null)) as { state?: unknown } | null;
+    if (after?.state === EXPIRED) {
+      this.ports.notify(gone(request.requester));
     }
   }
 }
