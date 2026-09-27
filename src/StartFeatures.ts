@@ -7,14 +7,11 @@ import type { CooClient } from './bands/CooClient.js';
 import { startEncounterSync } from './encounter/startEncounterSync.js';
 import { startWorldSwaps } from './swaps/startWorldSwaps.js';
 import type { SwapGlobals } from './swaps/startWorldSwaps.js';
-<<<<<<< HEAD
-import { startWorldSize } from './world/startWorldSize.js';
-import type { SizeGlobals } from './world/startWorldSize.js';
-=======
 import { startAfkGuard } from './swaps/startAfkGuard.js';
 import { foundryCreateUser } from './swaps/LiveUsers.js';
 import type { UserGlobals } from './swaps/LiveUsers.js';
->>>>>>> origin/main
+import { startWorldSize } from './world/startWorldSize.js';
+import type { SizeGlobals } from './world/startWorldSize.js';
 
 /**
  * Starting everything that waits for `ready`. Extracted from main.ts 2026-09-20, when adding world
@@ -57,14 +54,10 @@ export function startFeatures(parts: FeatureParts): void {
   /* Encounter sync: off per world; its settings exist only if init built the client. */
   startEncounterSync(hooks, settings, globals, client);
   /* World swaps: tells COO a GM is here, and asks before another campaign takes the server. */
-<<<<<<< HEAD
-  startWorldSwaps(settings, globals as SwapGlobals, client);
-  /* One question at launch: is this world bigger than the GM asked to hear about? See src/world. */
-  startWorldSize(hooks, settings, client, globals as SizeGlobals);
-=======
   startWorldSwaps(settings, globals as SwapGlobals, client, undefined, {
     ...(idleSeconds === undefined ? {} : { idleSeconds }),
     createUser: foundryCreateUser(globals as UserGlobals),
   });
->>>>>>> origin/main
+  /* One question at launch: is this world bigger than the GM asked to hear about? See src/world. */
+  startWorldSize(hooks, settings, client, globals as SizeGlobals);
 }
