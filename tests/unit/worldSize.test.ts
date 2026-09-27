@@ -21,10 +21,15 @@ const size = (over: Partial<Record<string, unknown>> = {}) => ({
   },
 });
 
-const world = (options: { role?: number; limit?: unknown; body?: unknown; status?: number } = {}) => {
+const world = (
+  options: { role?: number; limit?: unknown; body?: unknown; status?: number } = {}
+) => {
   const warn = vi.fn();
   const call = vi.fn(async () =>
-    Promise.resolve({ status: options.status ?? 200, json: async () => Promise.resolve(options.body ?? size()) })
+    Promise.resolve({
+      status: options.status ?? 200,
+      json: async () => Promise.resolve(options.body ?? size()),
+    })
   );
   const settings = { register: vi.fn(), get: () => options.limit ?? 100 };
   const globals = {
@@ -52,7 +57,10 @@ describe('reading the size the server measured', () => {
     expect(readWorldSize({ size: { bytes: 1 } })).toBeNull();
     expect(readWorldSize(null)).toBeNull();
     /* Missing halves are not a reason to say nothing: the total is what the warning is about. */
-    expect(readWorldSize({ size: { world: 'x', bytes: 5 } })).toMatchObject({ files: 0, assetBytes: 0 });
+    expect(readWorldSize({ size: { world: 'x', bytes: 5 } })).toMatchObject({
+      files: 0,
+      assetBytes: 0,
+    });
   });
 });
 
@@ -112,7 +120,9 @@ describe('asking at launch', () => {
     expect(await checkWorldSize(empty.settings, empty.client, empty.globals)).toBeNull();
 
     const out = world();
-    const signedOut = { call: vi.fn(async () => Promise.resolve('signed-out' as const)) } as unknown as CooClient;
+    const signedOut = {
+      call: vi.fn(async () => Promise.resolve('signed-out' as const)),
+    } as unknown as CooClient;
     expect(await checkWorldSize(out.settings, signedOut, out.globals)).toBeNull();
     expect(out.warn).not.toHaveBeenCalled();
   });
