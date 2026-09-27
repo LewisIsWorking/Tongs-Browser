@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.41.0
+
+### Minor Changes
+
+- [#404](https://github.com/LewisIsWorking/Tongs-Browser/pull/404) [`803481a`](https://github.com/LewisIsWorking/Tongs-Browser/commit/803481ae1a057b81674a1db4c9256f19d6105aac) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The GM is warned at launch when the world is bigger on disk than a limit they set (100 MB by default, under "Warn when this world passes (MB)"). ComeOnOverUno measures it, so it works on worlds the server hosts; elsewhere Tongs says nothing.
+
 ## 0.40.0
 
 ### Minor Changes
