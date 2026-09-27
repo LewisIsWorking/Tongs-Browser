@@ -7,6 +7,9 @@ import type { CooClient } from './bands/CooClient.js';
 import { startEncounterSync } from './encounter/startEncounterSync.js';
 import { startWorldSwaps } from './swaps/startWorldSwaps.js';
 import type { SwapGlobals } from './swaps/startWorldSwaps.js';
+import { startAfkGuard } from './swaps/startAfkGuard.js';
+import { foundryCreateUser } from './swaps/LiveUsers.js';
+import type { UserGlobals } from './swaps/LiveUsers.js';
 
 /**
  * Starting everything that waits for `ready`. Extracted from main.ts 2026-09-20, when adding world
@@ -37,11 +40,20 @@ export function startFeatures(parts: FeatureParts): void {
   startSpellDamage(deck, hooks, settings, globals as AutoGlobals);
   /* Health bands: off until a party has a campaign. See bands/startBands.ts. */
   startBands(hooks, settings, globals, client);
+  /* Idle GM sign-out: frees the world whether or not COO is signed in, so it starts before that check. */
+  const idleSeconds = startAfkGuard(settings, globals, {
+    target: parts.document,
+    now: () => Date.now(),
+    every: (run, ms) => setInterval(run, ms),
+  });
   if (client === null) {
     return;
   }
   /* Encounter sync: off per world; its settings exist only if init built the client. */
   startEncounterSync(hooks, settings, globals, client);
   /* World swaps: tells COO a GM is here, and asks before another campaign takes the server. */
-  startWorldSwaps(settings, globals as SwapGlobals, client);
+  startWorldSwaps(settings, globals as SwapGlobals, client, undefined, {
+    ...(idleSeconds === undefined ? {} : { idleSeconds }),
+    createUser: foundryCreateUser(globals as UserGlobals),
+  });
 }

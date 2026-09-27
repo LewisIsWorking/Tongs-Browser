@@ -4,7 +4,7 @@ import type { CooClient } from '../bands/CooClient.js';
 import { MODULE_ID } from '../constants.js';
 import { logger } from '../core/Logger.js';
 import { WorldSwapGm } from './WorldSwapGm.js';
-import type { SwapRequestView } from './WorldSwapGm.js';
+import type { SwapRequestView, WorldSwapPorts } from './WorldSwapGm.js';
 
 /**
  * Connecting the GM's half of world swapping to Foundry. Added 2026-09-20.
@@ -73,8 +73,17 @@ export function swapPrompt(request: SwapRequestView): string {
   );
 }
 
-function buildGm(settings: SwapSettings, globals: SwapGlobals, client: CooClient): WorldSwapGm {
+/** The heartbeat's optional abilities (2026-09-26): the GM's idle clock, and adding players live. */
+export type GmExtras = Pick<WorldSwapPorts, 'idleSeconds' | 'createUser'>;
+
+function buildGm(
+  settings: SwapSettings,
+  globals: SwapGlobals,
+  client: CooClient,
+  extras: GmExtras
+): WorldSwapGm {
   return new WorldSwapGm({
+    ...extras,
     isGm: () =>
       settings.get(MODULE_ID, APPROVE_SETTING) !== false && automationRole(globals) === 'act',
     worldId: () => {
@@ -109,9 +118,10 @@ export function startWorldSwaps(
     stop: (handle) => {
       clearInterval(handle as ReturnType<typeof setInterval>);
     },
-  }
+  },
+  extras: GmExtras = {}
 ): () => void {
-  const gm = buildGm(settings, globals, client);
+  const gm = buildGm(settings, globals, client, extras);
   const handle = timers.every(() => {
     gm.beat().catch((error: unknown) => {
       logger.warn(
