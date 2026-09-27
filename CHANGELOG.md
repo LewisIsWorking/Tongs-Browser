@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.41.1
+
+### Patch Changes
+
+- [#406](https://github.com/LewisIsWorking/Tongs-Browser/pull/406) [`a308659`](https://github.com/LewisIsWorking/Tongs-Browser/commit/a3086593f5fd9ca6c8f3c86b15e3db67f9d0c18a) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A GM answering a world-swap request that COO no longer holds (it expired after 2 minutes, or the server restarted) is now told the request had already expired and the player can press Play again. It used to say "It will ask again", which it never did.
+
 ## 0.41.0
 
 ### Minor Changes
