@@ -69,6 +69,12 @@ const BOUNDARY: readonly string[] = [
    * nothing it returns is ever shown.
    */
   'src/automation/recentStrikeMessages.ts',
+  /*
+   * ⚠️ Added 2026-09-27 with live-add. Like `BuildRequestProof`, it does NOT enumerate: it resolves
+   * one user by the id COO sent, only in a GM's browser, to set a password instead of creating them
+   * twice. It lists nothing and renders nothing. If it ever grows a listing, it must grow a filter.
+   */
+  'src/swaps/LiveUsers.ts',
 ];
 
 const sources = listSourceFiles().filter(

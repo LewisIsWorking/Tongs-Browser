@@ -1,4 +1,6 @@
 import type { CooResponse } from '../bands/CooClient.js';
+import { addLiveUsers, liveUsersOf } from './LiveUsers.js';
+import type { LiveUser } from './LiveUsers.js';
 
 /**
  * The GM's half of world swapping. Added 2026-09-20.
@@ -43,6 +45,10 @@ export interface WorldSwapPorts {
   readonly ask: (request: SwapRequestView) => Promise<boolean>;
   /** Tells the GM something they need to know, such as a decision that did not reach COO. */
   readonly notify: (message: string) => void;
+  /** Seconds since the GM last touched this page (2026-09-26). COO stops waiting on a GM idle for 2 hours. */
+  readonly idleSeconds?: () => number;
+  /** Creates a player in this running world (LiveUsers.ts). Present means COO may hand us players to add. */
+  readonly createUser?: (user: LiveUser) => Promise<boolean>;
 }
 
 export type BeatOutcome = 'not-gm' | 'no-world' | 'signed-out' | 'failed' | 'beat';
@@ -66,15 +72,24 @@ export class WorldSwapGm {
     if (worldId === '') {
       return 'no-world';
     }
-    const response = await this.ports.call('POST', '/api/foundry/presence', { worldId });
+    const idle = this.ports.idleSeconds?.();
+    const response = await this.ports.call('POST', '/api/foundry/presence', {
+      worldId,
+      ...(idle === undefined ? {} : { idleSeconds: Math.max(0, Math.round(idle)) }),
+      ...(this.ports.createUser === undefined ? {} : { liveUsers: true }),
+    });
     if (response === 'signed-out') {
       return 'signed-out';
     }
     if (response.status !== 200) {
       return 'failed';
     }
-    for (const request of pendingOf(await response.json())) {
+    const body = await response.json();
+    for (const request of pendingOf(body)) {
       await this.consider(request);
+    }
+    if (this.ports.createUser !== undefined) {
+      await addLiveUsers(worldId, liveUsersOf(body), this.ports.createUser, this.ports.call);
     }
     return 'beat';
   }
