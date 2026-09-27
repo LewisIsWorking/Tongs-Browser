@@ -50,6 +50,13 @@ describe('adding them', () => {
     });
   });
 
+  it('counts nothing confirmed when COO refuses or the session has ended', async () => {
+    const refused = vi.fn(() => Promise.resolve({ status: 403, json: () => Promise.resolve({}) }));
+    expect(await addLiveUsers('w2', [ryo], () => Promise.resolve(true), refused)).toBe(0);
+    const gone = vi.fn(() => Promise.resolve('signed-out' as const));
+    expect(await addLiveUsers('w2', [ryo], () => Promise.resolve(true), gone)).toBe(0);
+  });
+
   it('tells COO nothing when nothing was created', async () => {
     const call = vi.fn();
     expect(await addLiveUsers('w2', [ryo], () => Promise.resolve(false), call)).toBe(0);

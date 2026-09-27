@@ -59,7 +59,12 @@ export function startAfkGuard(
     {
       now: env.now,
       warn: async () => {
-        const answer = await globals.foundry?.applications?.api?.DialogV2?.confirm?.({
+        // No dialog must not read as "I'm here", or the clock resets forever; failing leaves it to the limit.
+        const dialog = globals.foundry?.applications?.api?.DialogV2;
+        if (!dialog?.confirm) {
+          throw new Error('Foundry has no DialogV2.confirm');
+        }
+        const answer = await dialog.confirm({
           window: { title: 'Still there?' },
           content:
             '<p>No activity for a while. In five minutes you will be signed out of Foundry, so this world ' +

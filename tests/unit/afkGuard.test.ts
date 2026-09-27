@@ -110,6 +110,60 @@ describe('wiring it into Foundry', () => {
     expect(logOut).toHaveBeenCalledTimes(1);
   });
 
+  const gmAt = (dialog: object | undefined) => {
+    let now = 0;
+    const logOut = vi.fn();
+    const ticks: (() => void)[] = [];
+    const idle = startAfkGuard(
+      settings(10),
+      {
+        game: { user: { isGM: true }, logOut },
+        ...(dialog === undefined
+          ? {}
+          : { foundry: { applications: { api: { DialogV2: dialog } } } }),
+      },
+      {
+        target: { addEventListener: vi.fn() },
+        now: () => now,
+        every: (run: () => void) => ticks.push(run),
+      }
+    );
+    const tickAt = async (ms: number) => {
+      now = ms;
+      ticks[0]?.();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    };
+    return { idle, logOut, tickAt };
+  };
+
+  it('asks "Still there?" through DialogV2 and reports the idle clock', async () => {
+    const confirm = vi.fn(() => Promise.resolve(true));
+    const { idle, logOut, tickAt } = gmAt({ confirm });
+    await tickAt(6 * MIN);
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ window: { title: 'Still there?' }, rejectClose: false })
+    );
+    expect(idle?.()).toBe(0); // "I'm here" reset it
+    await tickAt(7 * MIN);
+    expect(idle?.()).toBe(60);
+    expect(logOut).not.toHaveBeenCalled();
+  });
+
+  it('"Sign me out now" in the dialog signs out straight away', async () => {
+    const { logOut, tickAt } = gmAt({ confirm: () => Promise.resolve(false) });
+    await tickAt(6 * MIN);
+    expect(logOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('without a dialog, never counts as "I\'m here": it signs out at the limit', async () => {
+    const { idle, logOut, tickAt } = gmAt(undefined);
+    await tickAt(6 * MIN);
+    expect(logOut).not.toHaveBeenCalled();
+    expect(idle?.()).toBe(360); // not reset
+    await tickAt(10 * MIN);
+    expect(logOut).toHaveBeenCalledTimes(1);
+  });
+
   it('falls back to the join page when Foundry has no logOut', async () => {
     let now = 0;
     const assign = vi.fn();
