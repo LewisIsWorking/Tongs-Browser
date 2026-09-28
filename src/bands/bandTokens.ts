@@ -32,6 +32,7 @@ export interface TokenDocLike {
 
 export interface ActorLike {
   readonly isToken?: boolean;
+  readonly type?: string;
   readonly token?: TokenDocLike | null;
   readonly hasPlayerOwner?: boolean;
   readonly alliance?: string | null;
@@ -116,13 +117,12 @@ export function viewOf(token: TokenDocLike, globals: BandGlobals): TokenView | n
     inCombat: combatOfToken(globals, token.uuid) !== undefined,
     unseen: UNSEEN.some((slug) => actor.hasCondition?.(slug) === true),
     image: imageUrl(token.texture?.src, globals),
+    character: actor.type === 'character',
   };
 }
 
-const subjectOf = (token: TokenDocLike, globals: BandGlobals): BandSubject | null => {
-  const view = viewOf(token, globals);
-  return view === null ? null : readBandSubject(view, nameRules(globals));
-};
+const subjectOf = (view: TokenView | null, globals: BandGlobals): BandSubject | null =>
+  view === null ? null : readBandSubject(view, nameRules(globals));
 
 /** The encounter a token is fighting in, a started one first; undefined when it is in none. */
 export function combatOfToken(
@@ -137,12 +137,12 @@ export function combatOfToken(
  * The tokens an `updateActor` concerns: the synthetic actor's one token, or every token of a linked
  * actor, on the viewed scene or fighting in any encounter on another.
  */
-export function subjectsForActor(actor: unknown, globals: BandGlobals): (BandSubject | null)[] {
+export function viewsForActor(actor: unknown, globals: BandGlobals): (TokenView | null)[] {
   const doc = actor as ActorLike | null | undefined;
   if (doc?.isToken === true) {
     return [doc.token]
       .filter((t): t is TokenDocLike => t !== null && t !== undefined)
-      .map((token) => subjectOf(token, globals));
+      .map((token) => viewOf(token, globals));
   }
   if (doc === null || doc === undefined) {
     return [];
@@ -152,12 +152,21 @@ export function subjectsForActor(actor: unknown, globals: BandGlobals): (BandSub
   );
   /* One token document is one object, whether the scene or an encounter handed it over. */
   const tokens = new Set([...(doc.getActiveTokens?.(true, true) ?? []), ...fighting]);
-  return [...tokens].map((token) => subjectOf(token, globals));
+  return [...tokens].map((token) => viewOf(token, globals));
+}
+
+export function subjectsForActor(actor: unknown, globals: BandGlobals): (BandSubject | null)[] {
+  return viewsForActor(actor, globals).map((view) => subjectOf(view, globals));
+}
+
+/** Every token in every encounter, read as it is: the player-hit reporter's starting point. */
+export function combatViews(globals: BandGlobals): (TokenView | null)[] {
+  return allCombatants(globals).map(({ combatant }) =>
+    combatant.token ? viewOf(combatant.token, globals) : null
+  );
 }
 
 /** Every token in every encounter, to remember its band before anything changes. */
 export function combatSubjects(globals: BandGlobals): (BandSubject | null)[] {
-  return allCombatants(globals).map(({ combatant }) =>
-    combatant.token ? subjectOf(combatant.token, globals) : null
-  );
+  return combatViews(globals).map((view) => subjectOf(view, globals));
 }

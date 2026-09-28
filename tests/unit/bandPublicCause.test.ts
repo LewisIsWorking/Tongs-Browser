@@ -56,7 +56,11 @@ describe('the public cause', () => {
     seen.send(card());
     expect(await waiting).toEqual({
       gm: 'Turret Disintegrator from Changer; resistance acid -2',
-      shown: { text: 'Turret Disintegrator from Changer', attacker: changer },
+      shown: {
+        text: 'Turret Disintegrator from Changer',
+        attacker: changer,
+        item: 'Turret Disintegrator',
+      },
     });
 
     const unseen = hooks();
@@ -100,9 +104,10 @@ describe('what the reporter sends', () => {
     const posts: BandPost[] = [];
     let hp = 20;
     let image: string | null = 'https://assets.forge-vtt.com/u/animal.webp';
-    let shown: { text: string; attacker: typeof changer } | null = {
+    let shown: { text: string; attacker: typeof changer; item: string | null } | null = {
       text: 'Turret Disintegrator from Changer',
       attacker: changer,
+      item: 'Turret Disintegrator',
     };
     const reporter = new BandReporter({
       role: () => 'act',

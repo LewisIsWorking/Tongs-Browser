@@ -150,6 +150,6 @@ export async function watchCause(
     shown:
       attacker === null
         ? null
-        : { text: describePublicCause(item, attacker.name, origin.healing), attacker },
+        : { text: describePublicCause(item, attacker.name, origin.healing), attacker, item },
   };
 }

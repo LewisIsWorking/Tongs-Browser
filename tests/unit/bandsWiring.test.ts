@@ -33,6 +33,8 @@ describe('settings', () => {
     expect(scopes).toEqual({
       [SERVER_SETTING]: ['client', true],
       [REFRESH_SETTING]: ['client', false],
+      /* 2026-09-28: whether hits on player characters are posted, for the whole world. */
+      postPlayerHits: ['world', true],
     });
   });
 

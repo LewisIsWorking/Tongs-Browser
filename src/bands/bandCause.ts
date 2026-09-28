@@ -20,6 +20,8 @@ export const MANUAL_CAUSE = 'manual change';
 export interface PublicCause {
   readonly text: string;
   readonly attacker: SeenAttacker;
+  /** The item's name alone ("Cutlass"), or null when PF2e named none; the player-hit post words it itself. */
+  readonly item: string | null;
 }
 
 /** Both readings of one HP change: the GM's, always, and the table's, when it may know. */
