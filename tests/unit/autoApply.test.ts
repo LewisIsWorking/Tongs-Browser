@@ -125,6 +125,7 @@ describe('the active full GM', () => {
           hp: 10,
           inCombat: false,
           playerOwned: false,
+          isCharacter: false,
         }),
       },
       [attack, damage]

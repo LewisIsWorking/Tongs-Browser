@@ -3,7 +3,7 @@ import { AUTO_NOTE_FLAG } from '../deck/readMessageFacts.js';
 import type { AutomationRole } from './automationRole.js';
 import { readStrikeAttack, readStrikeDamage } from './strikeFacts.js';
 import type { StrikeDamageFacts, StrikeMessage } from './strikeFacts.js';
-import { checkTarget } from './targetCheck.js';
+import { checkPlayerTarget, checkTarget } from './targetCheck.js';
 import type { TargetState } from './targetCheck.js';
 import { validateStrike } from './validateStrike.js';
 import type { StrikeHistory } from './validateStrike.js';
@@ -43,6 +43,11 @@ export interface AutoApplyPorts {
   readonly isHandled: (message: StrikeMessage) => boolean;
   readonly authorIsPlayer: (message: StrikeMessage) => boolean;
   readonly attackerIsPlayers: (actorId: string) => boolean;
+  /** An attacker no player owns that is not a player character: a creature the GM runs. */
+  readonly attackerIsEnemy: (actorId: string) => boolean;
+  /** Each side has its own world setting, read on every card. */
+  readonly playerStrikesOn: () => boolean;
+  readonly enemyStrikesOn: () => boolean;
   readonly targetState: (tokenUuid: string) => TargetState;
   readonly apply: (messageId: string, tokenUuid: string) => Promise<ApplyOutcome>;
   readonly setFlag: (messageId: string, key: string, value: unknown) => Promise<void>;
@@ -100,12 +105,20 @@ export class AutoApply {
 
   private async decide(message: StrikeMessage): Promise<void> {
     const damage = readStrikeDamage(message, this.ports.systemId());
-    if (
-      damage === null ||
-      this.ports.isHandled(message) ||
-      !this.ports.authorIsPlayer(message) ||
-      !this.ports.attackerIsPlayers(damage.actorId)
-    ) {
+    if (damage === null || this.ports.isHandled(message)) {
+      return;
+    }
+    /*
+     * ⭐ Two sides (enemies' side added 2026-09-28, decided with Lewis). A player's hit on an enemy, as
+     * before; or an enemy's hit on a player character, which the GM rolls. Anything else is left alone.
+     */
+    const players =
+      this.ports.playerStrikesOn() &&
+      this.ports.authorIsPlayer(message) &&
+      this.ports.attackerIsPlayers(damage.actorId);
+    const enemies =
+      !players && this.ports.enemyStrikesOn() && this.ports.attackerIsEnemy(damage.actorId);
+    if (!players && !enemies) {
       return;
     }
 
@@ -121,7 +134,7 @@ export class AutoApply {
     }
 
     const token = verdict.targetToken;
-    const target = checkTarget(this.ports.targetState(token));
+    const target = (enemies ? checkPlayerTarget : checkTarget)(this.ports.targetState(token));
     if (target.kind === 'deck') {
       await this.decline(message, target.reason);
       return;
