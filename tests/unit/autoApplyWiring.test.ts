@@ -4,6 +4,7 @@ import { buildAutoApply } from '../../src/automation/buildAutoApply.js';
 import { recentStrikeMessages, RECENT_LIMIT } from '../../src/automation/recentStrikeMessages.js';
 import {
   AUTO_APPLY_SETTING,
+  ENEMY_STRIKES_SETTING,
   registerAutoApplySetting,
   startAutoApply,
 } from '../../src/automation/startAutoApply.js';
@@ -61,10 +62,15 @@ describe('the world setting', () => {
       AUTO_APPLY_SETTING,
       expect.objectContaining({ scope: 'world', default: false, type: Boolean, config: true })
     );
+    expect(register).toHaveBeenCalledWith(
+      'tongs-browser',
+      ENEMY_STRIKES_SETTING,
+      expect.objectContaining({ scope: 'world', default: false, type: Boolean, config: true })
+    );
   });
 });
 
-const setupWith = (enabled: boolean) => {
+const setupWith = (enabled: boolean, only?: string) => {
   const handlers = new Map<string, (...args: unknown[]) => void>();
   const hooks = {
     on(this: unknown, name: string, fn: (...args: never[]) => unknown) {
@@ -72,7 +78,10 @@ const setupWith = (enabled: boolean) => {
       return handlers.size;
     },
   };
-  const settings = { register: vi.fn(), get: vi.fn(() => enabled) };
+  const settings = {
+    register: vi.fn(),
+    get: vi.fn((_module: string, key: string) => enabled && (only === undefined || key === only)),
+  };
   const recent = vi.fn(() => []);
   const globals = {
     game: {
@@ -116,6 +125,11 @@ describe('the hooks', () => {
     on.recent.mockClear();
     on.handlers.get('canvasReady')?.();
     expect(on.recent).toHaveBeenCalled();
+  });
+
+  it("runs with only the enemies' setting on", () => {
+    const enemies = setup(true, ENEMY_STRIKES_SETTING);
+    expect(enemies.recent).toHaveBeenCalled();
   });
 });
 

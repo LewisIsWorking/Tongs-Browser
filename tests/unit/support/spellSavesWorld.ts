@@ -19,6 +19,7 @@ export const ENEMY: TargetState = {
   hp: 100,
   inCombat: true,
   playerOwned: false,
+  isCharacter: false,
 };
 
 export const castCard = (targets: string[] = [X1, X2]): CastMessage => ({

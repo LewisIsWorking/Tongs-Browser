@@ -40,7 +40,14 @@ export const world = () => {
       },
       actors: {
         get(this: unknown, id: string) {
-          return id === 'A' ? { hasPlayerOwner: true } : undefined;
+          const actors: Record<string, { hasPlayerOwner: boolean; type: string }> = {
+            A: { hasPlayerOwner: true, type: 'character' },
+            /* Every character is unowned after the move to the self-hosted Foundry, until a GM reassigns it. */
+            Unowned: { hasPlayerOwner: false, type: 'character' },
+            Goblin: { hasPlayerOwner: false, type: 'npc' },
+            Pet: { hasPlayerOwner: true, type: 'npc' },
+          };
+          return actors[id];
         },
       },
       combats: {

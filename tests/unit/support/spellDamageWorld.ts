@@ -20,6 +20,7 @@ export const ENEMY: TargetState = {
   hp: 100,
   inCombat: true,
   playerOwned: false,
+  isCharacter: false,
 };
 
 export const cast: SpellMessage = {
