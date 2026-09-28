@@ -2,7 +2,8 @@
 
 Phase 2 step 3: enemies' health told to the table. The band goes to the Path Wars campaign's combat
 topic when it changes, and the exact HP goes to the GM by DM on every change, both through the
-ComeOnOverUno server. Off until a party has a campaign.
+ComeOnOverUno server. Off until a party has a campaign. Since 2026-09-28 the same topic also hears when a
+player character is hurt: the damage, from what, and the HP left, with the character's picture.
 
 | File                    | What it is                                                                   |
 | ----------------------- | ---------------------------------------------------------------------------- |
@@ -17,6 +18,10 @@ ComeOnOverUno server. Off until a party has a campaign.
 | `bandCause.ts`          | What changed an enemy's HP, in words for the GM's DM, or "manual change"     |
 | `causeWatch.ts`         | Waiting for PF2e's damage-taken card after a change, and reading it          |
 | `BandReporter.ts`       | Deciding what to post and when: public only on a band change, one at a time  |
+| `bandPorts.ts`          | What both reporters share: who acts, the campaign, the cause, warning the GM |
+| `playerHit.ts`          | Whether an HP change is a hit on a player character, and its post            |
+| `PlayerHitReporter.ts`  | Posting those hits, in order, against the HP remembered before each          |
+| `startPlayerHits.ts`    | The player-hit setting, and building its reporter                            |
 | `CooClient.ts`          | Signing in to ComeOnOverUno and posting, keeping only a refresh token        |
 | `cooSignIn.ts`          | The GM-only sign-in menu in the module settings                              |
 | `startBands.ts`         | The settings, and connecting the reporter to Foundry's hooks                 |
@@ -34,6 +39,17 @@ ComeOnOverUno server. Off until a party has a campaign.
   told why.
 - **Every HP change is recorded with its cause** in the GM's DM (the brief's rule): the item and who used
   it, and the IWR PF2e applied, or "manual change". Never on the public line, since it names resistances.
+
+## Decided with Lewis, 2026-09-28: hits on player characters
+
+- **"Damage and HP left", in the open**: "Arktos takes 12 from Captain Vex's cutlass. 31/43 HP", with the
+  character's picture. Unlike a band, the exact numbers are public: a player character's HP is the table's.
+  Its own endpoint, `player-hit`, so the band's rule (never HP in public) stays absolute.
+- **A player character is `type: "character"`**, owned or not; since the self-hosted Foundry none are owned.
+- **On by default** (`postPlayerHits`), because it posts and never changes anything. Who hit it is told only
+  when players can see the attacker, exactly as for bands.
+- ⚠️ Foundry's `updateActor` carries only the new HP, so the old one is remembered from the fight's start.
+  A character first seen mid-change is remembered, not posted: a guessed amount would be a wrong one.
 
 ## Measured, not assumed
 
