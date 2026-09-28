@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.42.0
+
+### Minor Changes
+
+- [#408](https://github.com/LewisIsWorking/Tongs-Browser/pull/408) [`cb01b77`](https://github.com/LewisIsWorking/Tongs-Browser/commit/cb01b776414ea42fd465cd8093fc04ec1e0c25c9) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Enemies' checked strikes on player characters can now be applied at once, under a new world setting that is off until a GM turns it on. A player's hit on an unowned party member is no longer mistaken for a hit on an enemy.
+
 ## 0.41.1
 
 ### Patch Changes
