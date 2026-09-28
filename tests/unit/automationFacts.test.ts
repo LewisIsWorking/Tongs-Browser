@@ -148,6 +148,7 @@ describe('whether the target still qualifies', () => {
     hp: 20,
     inCombat: true,
     playerOwned: false,
+    isCharacter: false,
   };
   const reason = (overrides: Partial<typeof fine>) => {
     const verdict = checkTarget({ ...fine, ...overrides });
@@ -161,6 +162,8 @@ describe('whether the target still qualifies', () => {
   it('sends gone, friendly, down and out-of-combat targets to the deck', () => {
     expect(reason({ exists: false })).toContain('no longer on the scene');
     expect(reason({ playerOwned: true })).toContain("player's creature");
+    /* ⛔ Unowned since the move to the self-hosted Foundry: a party member is still no enemy. */
+    expect(reason({ isCharacter: true })).toContain('player character, not an enemy');
     expect(reason({ hp: 0 })).toContain('no hit points');
     expect(reason({ hp: null })).toContain('no hit points');
     expect(reason({ inCombat: false })).toContain('not in a running combat');

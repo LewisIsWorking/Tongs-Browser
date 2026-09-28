@@ -2,6 +2,7 @@
 
 Phase 2: players' checked strike damage applied to enemies, enemies' saves against players' spells
 rolled, and those spells' basic-save damage applied by degree of success, without waiting for the GM.
+Enemies' checked strikes on player characters too (2026-09-28), under a setting of their own.
 Each is off per world until a GM turns it on.
 
 | File                      | What it is                                                                   |
@@ -10,7 +11,7 @@ Each is off per world until a GM turns it on.
 | `strikeFacts.ts`          | A strike's attack and damage cards read into facts, against measured cards   |
 | `validateStrike.ts`       | Whether a damage roll follows a real hit and is possible for its weapon      |
 | `tokenCombats.ts`         | The encounters a token is in, searched across all of them, not the tracker's |
-| `targetCheck.ts`          | Whether the target is still an enemy standing in the fight on this scene     |
+| `targetCheck.ts`          | Whether the target is still an enemy (or, for an enemy's hit, a PC) standing |
 | `AutoApply.ts`            | Acting, queueing and catching up, around those decisions                     |
 | `recentStrikeMessages.ts` | The recent chat log, on the document boundary: GM only, visible only         |
 | `buildAutoApply.ts`       | The real Foundry behind `AutoApply`, every method called on its own object   |
@@ -35,6 +36,14 @@ Each is off per world until a GM turns it on.
 - **Spells:** the caster's browser records its targets on the cast card, the GM's browser rolls the
   enemies' saves, then applies a basic save's damage to each by its degree of success when the total
   fits: half on a success, full on a failure, double on a critical failure, none on a critical success.
+
+## Decided with Lewis, 2026-09-28: enemies' strikes
+
+- **Applied at once**, when the GM rolls an enemy's strike on a player character and it checks out by
+  the same rules as a player's. Its own world setting, `autoApplyEnemyStrikes`, off by default.
+- **A player character is `type: "character"`, never "owned by a player".** Since the move to the
+  self-hosted Foundry every character is unowned until a GM reassigns it. The players' rule looked only
+  at ownership, so a player's hit on an unowned party member would have been applied: fixed here too.
 
 ## Measured, not assumed (pf2e 8.5.0)
 

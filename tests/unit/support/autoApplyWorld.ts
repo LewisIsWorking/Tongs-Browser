@@ -55,11 +55,15 @@ export const harness = (overrides: Partial<AutoApplyPorts> = {}, log: StrikeMess
     isHandled: () => false,
     authorIsPlayer: () => true,
     attackerIsPlayers: () => true,
+    attackerIsEnemy: () => false,
+    playerStrikesOn: () => true,
+    enemyStrikesOn: () => false,
     targetState: () => ({
       exists: true,
       hp: 100,
       inCombat: true,
       playerOwned: false,
+      isCharacter: false,
     }),
     apply: vi.fn(() => Promise.resolve({ kind: 'applied' as const })),
     setFlag: (id, key, value) => {

@@ -16,6 +16,8 @@ import type { StrikeMessage } from './strikeFacts.js';
  * the world has to agree on it: players' browsers queue, the GM's applies.
  */
 export const AUTO_APPLY_SETTING = 'autoApplyStrikes';
+/** Enemies' checked strikes on player characters, added 2026-09-28. Off until a GM turns it on. */
+export const ENEMY_STRIKES_SETTING = 'autoApplyEnemyStrikes';
 
 interface SettingsLike {
   register(namespace: string, key: string, data: FoundrySettingRegistration): void;
@@ -38,6 +40,16 @@ export function registerAutoApplySetting(settings: SettingsLike): void {
     type: Boolean,
     default: false,
   });
+  settings.register(MODULE_ID, ENEMY_STRIKES_SETTING, {
+    name: "Auto-apply enemies' checked strike damage to player characters",
+    hint:
+      "When an enemy's strike you roll hits a player character and its damage checks out, your browser " +
+      'applies it at once. Anything that does not check out waits in the roll deck.',
+    scope: 'world',
+    config: true,
+    type: Boolean,
+    default: false,
+  });
 }
 
 /**
@@ -52,9 +64,14 @@ export function startAutoApply(
   settings: SettingsLike,
   globals: AutoGlobals
 ): AutoApply {
-  const auto = new AutoApply(buildAutoApply(globals, deck));
+  const on = (key: string) => settings.get(MODULE_ID, key) === true;
+  const auto = new AutoApply({
+    ...buildAutoApply(globals, deck),
+    playerStrikesOn: () => on(AUTO_APPLY_SETTING),
+    enemyStrikesOn: () => on(ENEMY_STRIKES_SETTING),
+  });
   const run = (label: string, work: () => Promise<void>): void => {
-    if (settings.get(MODULE_ID, AUTO_APPLY_SETTING) !== true) {
+    if (!on(AUTO_APPLY_SETTING) && !on(ENEMY_STRIKES_SETTING)) {
       return;
     }
     work().catch((error: unknown) => {

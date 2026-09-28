@@ -21,6 +21,16 @@ describe('who is asking', () => {
     expect(ports.attackerIsPlayers('A')).toBe(true);
     expect(ports.attackerIsPlayers('missing')).toBe(false);
   });
+
+  it('tells an enemy from a character, owned or not, and from a creature a player owns', () => {
+    const { ports } = world();
+
+    expect(ports.attackerIsEnemy('Goblin')).toBe(true);
+    expect(ports.attackerIsEnemy('A')).toBe(false);
+    expect(ports.attackerIsEnemy('Unowned')).toBe(false);
+    expect(ports.attackerIsEnemy('Pet')).toBe(false);
+    expect(ports.attackerIsEnemy('missing')).toBe(false);
+  });
 });
 
 describe("the card's flags, and applying", () => {
@@ -52,6 +62,7 @@ describe('the target as it is now', () => {
       hp: 30,
       inCombat: true,
       playerOwned: false,
+      isCharacter: false,
     });
   });
 
@@ -66,5 +77,15 @@ describe('the target as it is now', () => {
       inCombat: false,
     });
     expect(ports.targetState('not a token')).toMatchObject({ exists: false, inCombat: false });
+  });
+
+  it('reads a player character as one, whoever owns it', () => {
+    const { ports, token } = world();
+    Object.assign(token.actor, { type: 'character' });
+
+    expect(ports.targetState('Scene.S.Token.X')).toMatchObject({
+      playerOwned: false,
+      isCharacter: true,
+    });
   });
 });

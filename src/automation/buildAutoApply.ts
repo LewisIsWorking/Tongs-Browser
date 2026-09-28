@@ -28,6 +28,7 @@ interface Doc {
 
 interface ActorLike {
   readonly hasPlayerOwner?: boolean;
+  readonly type?: string;
   readonly system?: { readonly attributes?: { readonly hp?: { readonly value?: number } } };
 }
 
@@ -68,6 +69,13 @@ export function buildAutoApply(globals: AutoGlobals, deck: RollDeck): AutoApplyP
     authorIsPlayer: (message) =>
       (message.author as { isGM?: boolean } | null | undefined)?.isGM === false,
     attackerIsPlayers: (actorId) => globals.game?.actors?.get?.(actorId)?.hasPlayerOwner === true,
+    attackerIsEnemy: (actorId) => {
+      const actor = globals.game?.actors?.get?.(actorId);
+      return actor !== undefined && actor.hasPlayerOwner !== true && actor.type !== 'character';
+    },
+    /* Replaced by startAutoApply with the two world settings; off unless something says otherwise. */
+    playerStrikesOn: () => false,
+    enemyStrikesOn: () => false,
 
     targetState: (tokenUuid) => {
       const ids = parseTokenUuid(tokenUuid);
@@ -78,6 +86,7 @@ export function buildAutoApply(globals: AutoGlobals, deck: RollDeck): AutoApplyP
         hp: typeof hp === 'number' ? hp : null,
         inCombat: ids !== null && combatsWithToken(globals, ids.sceneId, ids.tokenId).length > 0,
         playerOwned: token?.actor?.hasPlayerOwner === true,
+        isCharacter: token?.actor?.type === 'character',
       };
     },
 
