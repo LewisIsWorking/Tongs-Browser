@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.44.0
+
+### Minor Changes
+
+- [#412](https://github.com/LewisIsWorking/Tongs-Browser/pull/412) [`1ad15c8`](https://github.com/LewisIsWorking/Tongs-Browser/commit/1ad15c8d12d07bef06b53ee3c0b3fbefb909d381) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Enemies' basic-save spells on player characters can now be handled by the GM's browser: it rolls each targeted character's save, then applies the damage by degree of success when it checks out. A new world setting, off until a GM turns it on.
+
 ## 0.43.0
 
 ### Minor Changes
