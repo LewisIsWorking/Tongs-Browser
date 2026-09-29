@@ -3,7 +3,7 @@
  *
  * ⛔ WHY. An unattended PC sitting in a world with Tongs running counts as "a GM is here", so every player who
  * needed that world restarted waited for an approval nobody could give: three players were stuck behind one
- * the weekend this was written. Signing out frees the world; COO also stops counting a GM idle for 2 hours
+ * the weekend this was written. Signing out frees the world; COO also stops counting a GM idle for 30 minutes (2 hours until 2026-09-29)
  * (the heartbeat reports idle time), which covers a tab too frozen to sign itself out.
  *
  * ⚠️ WARN FIRST. Five minutes before the limit the GM is asked "Still there?"; "I'm here" resets the clock.

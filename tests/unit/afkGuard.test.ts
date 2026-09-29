@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { AfkGuard, WARN_BEFORE_MS } from '../../src/swaps/AfkGuard.js';
-import { registerAfkGuard, startAfkGuard } from '../../src/swaps/startAfkGuard.js';
+import {
+  DEFAULT_AFK_MINUTES,
+  registerAfkGuard,
+  startAfkGuard,
+} from '../../src/swaps/startAfkGuard.js';
 
 /**
  * Signing out an idle GM. Written 2026-09-26 (Lewis: "a 2 hour afk GM auto kick timer").
@@ -75,13 +79,14 @@ describe('the idle GM guard', () => {
 describe('wiring it into Foundry', () => {
   const settings = (minutes: unknown) => ({ register: vi.fn(), get: vi.fn(() => minutes) });
 
-  it('registers a GM setting defaulting to two hours', () => {
-    const s = settings(120);
+  it('registers a GM setting defaulting to half an hour', () => {
+    expect(DEFAULT_AFK_MINUTES).toBe(30);
+    const s = settings(30);
     registerAfkGuard(s);
     expect(s.register.mock.calls[0]?.[2]).toMatchObject({
       scope: 'world',
       type: Number,
-      default: 120,
+      default: 30,
     });
   });
 
