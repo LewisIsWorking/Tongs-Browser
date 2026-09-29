@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.43.0
+
+### Minor Changes
+
+- [#410](https://github.com/LewisIsWorking/Tongs-Browser/pull/410) [`8d6aa5e`](https://github.com/LewisIsWorking/Tongs-Browser/commit/8d6aa5e623510dd1b6c5a47799d3740f348b47ba) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - When a player character takes damage in a fight, the campaign's combat topic now hears how much, from what when players can see the attacker, and the HP left, with the character's picture. A new world setting turns it off. Needs ComeOnOverUno with the player-hit endpoint.
+
 ## 0.42.0
 
 ### Minor Changes
