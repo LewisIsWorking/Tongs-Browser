@@ -1,12 +1,10 @@
-import { automationRole } from '../automation/automationRole.js';
 import type { RoleGlobals } from '../automation/automationRole.js';
 import { MODULE_ID } from '../constants.js';
 import { logger } from '../core/Logger.js';
 import { BandReporter } from './BandReporter.js';
-import { readSeenAttacker } from './attackerView.js';
-import { MANUAL_CAUSE } from './bandCause.js';
-import { combatOfToken, combatSubjects, subjectsForActor } from './bandTokens.js';
-import { combatCampaign } from './combatCampaign.js';
+import { combatSubjects, subjectsForActor } from './bandTokens.js';
+import { sharedBandPorts } from './bandPorts.js';
+import { registerPlayerHitSetting, buildPlayerHits } from './startPlayerHits.js';
 import { registerSignInMenu } from './cooSignIn.js';
 import type { SignInGlobals } from './cooSignIn.js';
 import { readPartyCampaigns } from '../foundry/PartyAccess.js';
@@ -17,7 +15,6 @@ import type { MenuSettings } from './settingsMenu.js';
 import type { BandGlobals } from './bandTokens.js';
 import { CooClient } from './CooClient.js';
 import type { CooPorts } from './CooClient.js';
-import { watchCause } from './causeWatch.js';
 
 /**
  * Health bands' settings, and connecting them to Foundry. Added 2026-09-14.
@@ -42,9 +39,6 @@ interface HooksLike {
   on(name: string, fn: (...args: never[]) => unknown): number;
   off(name: string, id: number): void;
 }
-
-/** How long to wait for PF2e's damage-taken card after an HP change before calling it manual. */
-const CAUSE_WINDOW_MS = 3000;
 
 export type StartGlobals = BandGlobals &
   RoleGlobals & {
@@ -73,6 +67,7 @@ export function registerBandSettings(settings: BandSettings): void {
     type: String,
     default: '',
   });
+  registerPlayerHitSetting(settings);
 }
 
 export type MenuStartGlobals = SignInGlobals & PartyCampaignGlobals & { readonly game?: unknown };
@@ -119,49 +114,27 @@ export function startBands(
 ): BandReporter {
   /* The sign-in menu's client when init built one: COO rotates refresh tokens, so they must be one. */
   const client = given ?? buildCooClient(settings, globals);
-  const systemId = () => globals.game?.system?.id ?? '';
-  const uuidOf = (actor: unknown) => {
-    const uuid = (actor as { uuid?: unknown } | null)?.uuid;
-    return typeof uuid === 'string' ? uuid : null;
-  };
-  const nameOf = (ref: string) => {
-    try {
-      return globals.fromUuidSync?.(ref)?.name ?? null;
-    } catch {
-      return null;
-    }
-  };
+  const shared = sharedBandPorts(hooks, globals);
   const reporter = new BandReporter({
-    role: () => automationRole(globals),
-    campaign: (tokenUuid) =>
-      combatCampaign(
-        combatOfToken(globals, tokenUuid),
-        readPartyCampaigns({ getGame: () => globals.game as FoundryGame | undefined })
-      ),
+    ...shared,
     subjectsFor: (actor) => subjectsForActor(actor, globals),
     combatSubjects: () => combatSubjects(globals),
     post: async (campaign, post) => client.postBand(campaign, post),
-    causeFor: async (actor) => {
-      const uuid = uuidOf(actor);
-      return uuid === null
-        ? { gm: MANUAL_CAUSE, shown: null }
-        : watchCause(hooks, systemId(), uuid, CAUSE_WINDOW_MS, nameOf, (attacker) =>
-            readSeenAttacker(globals, attacker)
-          );
-    },
-    warn: (message) => {
-      globals.ui?.notifications?.warn?.(message);
-    },
   });
 
+  /* ⭐ Hits on player characters, 2026-09-28: the same events, the same sign-in, reported beside the bands. */
+  const hits = buildPlayerHits(settings, globals, client, shared);
+  const failed = (what: string) => (error: unknown) => {
+    logger.warn(`${what} failed: ${error instanceof Error ? error.message : String(error)}`);
+  };
   hooks.on('updateActor', (actor: unknown, changes: unknown) => {
-    reporter.onActorUpdated(actor, changes).catch((error: unknown) => {
-      logger.warn(`Health bands failed: ${error instanceof Error ? error.message : String(error)}`);
-    });
+    reporter.onActorUpdated(actor, changes).catch(failed('Health bands'));
+    hits.onActorUpdated(actor, changes).catch(failed('Player hits'));
   });
   for (const name of ['canvasReady', 'createCombatant', 'updateCombat']) {
     hooks.on(name, () => {
       reporter.seed();
+      hits.seed();
     });
   }
   reporter.seed();

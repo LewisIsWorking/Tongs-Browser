@@ -27,6 +27,8 @@ export interface TokenView {
   readonly unseen: boolean;
   /** The token's art as a full URL, or null; see `bandTokens.imageUrl`. */
   readonly image: string | null;
+  /** A player character (`type: "character"`), owned or not: the player-hit reporter's subjects. */
+  readonly character?: boolean;
 }
 
 export interface NameRules {
