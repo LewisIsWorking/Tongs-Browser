@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.45.0
+
+### Minor Changes
+
+- [#414](https://github.com/LewisIsWorking/Tongs-Browser/pull/414) [`f7bb7f5`](https://github.com/LewisIsWorking/Tongs-Browser/commit/f7bb7f5bd339ca806e0bbe40f878c057bdbcc67f) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - An idle GM is now signed out after 30 minutes by default instead of 2 hours, with the "Still there?" prompt at 25. Worlds that saved their own value in "Sign out an idle GM (minutes)" keep it.
+
 ## 0.44.0
 
 ### Minor Changes
