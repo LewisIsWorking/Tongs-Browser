@@ -75,6 +75,12 @@ const BOUNDARY: readonly string[] = [
    * twice. It lists nothing and renders nothing. If it ever grows a listing, it must grow a filter.
    */
   'src/swaps/LiveUsers.ts',
+  /*
+   * ⚠️ Added 2026-09-29 with "Restore owners". It DOES enumerate every user and world document, and it is
+   * GM only, failing closed on `game.user.isGM !== true`, behind a restricted settings menu. A GM can
+   * already see everything it lists, so nothing is shown to anyone who could not see it before.
+   */
+  'src/owners/startRestoreOwners.ts',
 ];
 
 const sources = listSourceFiles().filter(
