@@ -4,7 +4,7 @@ import type { AutoApplyPorts } from './AutoApply.js';
 import { readSaveResult, readSpellDamage } from './spellDamageFacts.js';
 import type { SpellMessage } from './spellDamageFacts.js';
 import { readRecordedTargets, readSpellCast } from './spellFacts.js';
-import { checkTarget } from './targetCheck.js';
+import { checkPlayerTarget, checkTarget } from './targetCheck.js';
 import { validateSpellDamage } from './validateSpellDamage.js';
 import type { DamageGroup, SpellDamageHistory, SpellDamageRule } from './validateSpellDamage.js';
 
@@ -30,11 +30,15 @@ export type SpellDamagePorts = Pick<
   | 'isHandled'
   | 'authorIsPlayer'
   | 'attackerIsPlayers'
+  | 'attackerIsEnemy'
   | 'targetState'
   | 'setFlag'
   | 'unsetFlag'
 > & {
   readonly moduleId: string;
+  /** Each side has its own world setting, read on every card; see `startSpellDamage.ts`. */
+  readonly playerSpellsOn: () => boolean;
+  readonly enemySpellsOn: () => boolean;
   readonly recentMessages: () => readonly SpellMessage[];
   readonly spellRule: (
     spellUuid: string,
@@ -105,12 +109,17 @@ export class SpellDamage {
 
   private async decide(message: SpellMessage): Promise<void> {
     const damage = readSpellDamage(message, this.ports.systemId());
-    if (
-      damage === null ||
-      this.ports.isHandled(message) ||
-      !this.ports.authorIsPlayer(message) ||
-      !this.ports.attackerIsPlayers(damage.actorId)
-    ) {
+    if (damage === null || this.ports.isHandled(message)) {
+      return;
+    }
+    /* ⭐ Enemies' basic-save spells on player characters, 2026-09-28, beside the players' own. */
+    const players =
+      this.ports.playerSpellsOn() &&
+      this.ports.authorIsPlayer(message) &&
+      this.ports.attackerIsPlayers(damage.actorId);
+    const enemies =
+      !players && this.ports.enemySpellsOn() && this.ports.attackerIsEnemy(damage.actorId);
+    if (!players && !enemies) {
       return;
     }
     if (this.ports.flag(message, CLAIMED_FLAG) === true) {
@@ -124,7 +133,8 @@ export class SpellDamage {
       await this.decline(message, verdict.reason);
       return;
     }
-    const checks = verdict.targets.map((token) => checkTarget(this.ports.targetState(token)));
+    const check = enemies ? checkPlayerTarget : checkTarget;
+    const checks = verdict.targets.map((token) => check(this.ports.targetState(token)));
     const refused = checks.find((each) => each.kind === 'deck');
     if (refused !== undefined) {
       await this.decline(message, refused.reason);

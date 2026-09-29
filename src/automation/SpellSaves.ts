@@ -4,7 +4,7 @@ import { CLAIMED_FLAG, DECLINED_FLAG, PENDING_FLAG } from './AutoApply.js';
 import type { AutoApplyPorts } from './AutoApply.js';
 import { readRecordedTargets, readSpellCast } from './spellFacts.js';
 import type { CastMessage } from './spellFacts.js';
-import { checkTarget } from './targetCheck.js';
+import { checkPlayerTarget, checkTarget } from './targetCheck.js';
 
 /**
  * Rolling enemies' saves against players' spells without waiting for the GM. Added 2026-09-14.
@@ -29,11 +29,15 @@ export type SpellSavePorts = Pick<
   | 'isHandled'
   | 'authorIsPlayer'
   | 'attackerIsPlayers'
+  | 'attackerIsEnemy'
   | 'targetState'
   | 'setFlag'
   | 'unsetFlag'
 > & {
   readonly moduleId: string;
+  /** Each side has its own world setting, read on every card; see `startSpellDamage.ts`. */
+  readonly playerSpellsOn: () => boolean;
+  readonly enemySpellsOn: () => boolean;
   readonly saveControls: (message: CastMessage) => readonly SaveFacts[];
   readonly rollSave: (
     messageId: string,
@@ -86,11 +90,14 @@ export class SpellSaves {
     if (cast === null || this.ports.saveControls(message)[0]?.control !== 'spell-save') {
       return;
     }
-    if (
-      this.ports.isHandled(message) ||
-      !this.ports.authorIsPlayer(message) ||
-      !this.ports.attackerIsPlayers(cast.actorId)
-    ) {
+    /* ⭐ Enemies' spells on player characters, 2026-09-28 (Lewis: "The GM's browser rolls them"). */
+    const players =
+      this.ports.playerSpellsOn() &&
+      this.ports.authorIsPlayer(message) &&
+      this.ports.attackerIsPlayers(cast.actorId);
+    const enemies =
+      !players && this.ports.enemySpellsOn() && this.ports.attackerIsEnemy(cast.actorId);
+    if (this.ports.isHandled(message) || (!players && !enemies)) {
       return;
     }
     if (this.ports.flag(message, CLAIMED_FLAG) === true) {
@@ -101,7 +108,7 @@ export class SpellSaves {
     const recorded = readRecordedTargets(message, this.ports.moduleId);
     const verdicts = recorded.map((token) => ({
       token,
-      verdict: checkTarget(this.ports.targetState(token)),
+      verdict: (enemies ? checkPlayerTarget : checkTarget)(this.ports.targetState(token)),
     }));
     const rollers = verdicts.filter((each) => each.verdict.kind === 'ok').map((each) => each.token);
     if (rollers.length === 0) {
