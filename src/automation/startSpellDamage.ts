@@ -15,6 +15,8 @@ import type { SpellMessage } from './spellDamageFacts.js';
  * damage are separate decisions, and switching one on must not switch on the other.
  */
 export const SPELL_DAMAGE_SETTING = 'autoApplySpellDamage';
+/** Enemies' basic-save spells on player characters: their saves rolled AND the damage applied. 2026-09-28. */
+export const ENEMY_SPELLS_SETTING = 'autoApplyEnemySpells';
 
 interface SettingsLike {
   register(namespace: string, key: string, data: FoundrySettingRegistration): void;
@@ -47,6 +49,17 @@ export function registerSpellDamageSetting(settings: SettingsLike): void {
     type: Boolean,
     default: false,
   });
+  settings.register(MODULE_ID, ENEMY_SPELLS_SETTING, {
+    name: "Auto-roll player characters' saves against enemies' spells, and apply the damage",
+    hint:
+      "When an enemy's spell with a basic save you cast targets player characters, your browser rolls " +
+      "each character's save, then applies the damage by degree of success when it checks out. Anything " +
+      'that does not check out waits in the roll deck.',
+    scope: 'world',
+    config: true,
+    type: Boolean,
+    default: false,
+  });
 }
 
 /**
@@ -54,9 +67,17 @@ export function registerSpellDamageSetting(settings: SettingsLike): void {
  * the base 6d6, `loadVariant({ castRank: 5 }).getDamage()` gives the 10d6 the rank 5 card rolled, and
  * `getDamage` posts no message. Each Foundry method is called on its own object.
  */
-export function buildSpellDamagePorts(globals: AutoGlobals, deck: RollDeck): SpellDamagePorts {
+export function buildSpellDamagePorts(
+  globals: AutoGlobals,
+  deck: RollDeck,
+  sides: Pick<SpellDamagePorts, 'playerSpellsOn' | 'enemySpellsOn'> = {
+    playerSpellsOn: () => false,
+    enemySpellsOn: () => false,
+  }
+): SpellDamagePorts {
   return {
     ...buildAutoApply(globals, deck),
+    ...sides,
     moduleId: MODULE_ID,
     spellRule: async (spellUuid, castRank) => {
       const ids = /^Actor\.([^.]+)\.Item\.([^.]+)$/.exec(spellUuid);
@@ -92,9 +113,15 @@ export function startSpellDamage(
   settings: SettingsLike,
   globals: AutoGlobals
 ): SpellDamage {
-  const damage = new SpellDamage(buildSpellDamagePorts(globals, deck));
+  const on = (key: string) => settings.get(MODULE_ID, key) === true;
+  const damage = new SpellDamage(
+    buildSpellDamagePorts(globals, deck, {
+      playerSpellsOn: () => on(SPELL_DAMAGE_SETTING),
+      enemySpellsOn: () => on(ENEMY_SPELLS_SETTING),
+    })
+  );
   const run = (work: () => Promise<void>): void => {
-    if (settings.get(MODULE_ID, SPELL_DAMAGE_SETTING) === true) {
+    if (on(SPELL_DAMAGE_SETTING) || on(ENEMY_SPELLS_SETTING)) {
       work().catch((error: unknown) => {
         logger.warn(
           `Spell damage failed: ${error instanceof Error ? error.message : String(error)}`

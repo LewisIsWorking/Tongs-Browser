@@ -9,6 +9,7 @@ import type { AutoGlobals } from './buildAutoApply.js';
 import { TARGETS_FLAG } from './spellFacts.js';
 import type { CastMessage } from './spellFacts.js';
 import { SpellSaves } from './SpellSaves.js';
+import { ENEMY_SPELLS_SETTING } from './startSpellDamage.js';
 import type { SpellSavePorts } from './SpellSaves.js';
 
 /**
@@ -80,10 +81,15 @@ export function recordCastTargets(message: Creating, userId: string, globals: Sp
 export function buildSpellSavePorts(
   globals: SpellGlobals,
   deck: RollDeck,
-  doc: Document
+  doc: Document,
+  sides: Pick<SpellSavePorts, 'playerSpellsOn' | 'enemySpellsOn'> = {
+    playerSpellsOn: () => false,
+    enemySpellsOn: () => false,
+  }
 ): SpellSavePorts {
   return {
     ...buildAutoApply(globals, deck),
+    ...sides,
     moduleId: MODULE_ID,
     saveControls: (message) => readSaveControlsFromHtml(doc, message.content ?? ''),
     rollSave: async (id, index, tokens) => deck.rollSave(id, index, tokens),
@@ -97,8 +103,15 @@ export function startSpellSaves(
   globals: SpellGlobals,
   doc: Document
 ): SpellSaves {
-  const saves = new SpellSaves(buildSpellSavePorts(globals, deck, doc));
-  const on = () => settings.get(MODULE_ID, SPELL_SAVES_SETTING) === true;
+  const setting = (key: string) => settings.get(MODULE_ID, key) === true;
+  const saves = new SpellSaves(
+    buildSpellSavePorts(globals, deck, doc, {
+      playerSpellsOn: () => setting(SPELL_SAVES_SETTING),
+      enemySpellsOn: () => setting(ENEMY_SPELLS_SETTING),
+    })
+  );
+  /* Either side on: targets are recorded, and cards looked at. Each side's own setting decides the rest. */
+  const on = () => setting(SPELL_SAVES_SETTING) || setting(ENEMY_SPELLS_SETTING);
   const run = (work: () => Promise<void>): void => {
     if (on()) {
       work().catch((error: unknown) => {

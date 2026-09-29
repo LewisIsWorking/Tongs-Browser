@@ -2,7 +2,8 @@
 
 Phase 2: players' checked strike damage applied to enemies, enemies' saves against players' spells
 rolled, and those spells' basic-save damage applied by degree of success, without waiting for the GM.
-Enemies' checked strikes on player characters too (2026-09-28), under a setting of their own.
+Enemies' checked strikes and basic-save spells on player characters too (2026-09-28), under settings of
+their own.
 Each is off per world until a GM turns it on.
 
 | File                      | What it is                                                                   |
@@ -44,6 +45,11 @@ Each is off per world until a GM turns it on.
 - **A player character is `type: "character"`, never "owned by a player".** Since the move to the
   self-hosted Foundry every character is unowned until a GM reassigns it. The players' rule looked only
   at ownership, so a player's hit on an unowned party member would have been applied: fixed here too.
+
+- **Enemies' basic-save spells** (Lewis: "The GM's browser rolls them"): the GM casts, the GM's own
+  browser records the targets, rolls each player character's save, then applies the damage by degree of
+  success, by the same checks as a player's spell. One setting, `autoApplyEnemySpells`, covers both
+  halves, off by default. The players' spell settings are separate, and either side on records targets.
 
 ## Measured, not assumed (pf2e 8.5.0)
 

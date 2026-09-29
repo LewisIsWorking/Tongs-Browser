@@ -59,4 +59,35 @@ export const ENEMIES_MUTATIONS: readonly RecordedMutation[] = [
     defect: 'no hit on a player character ever reaches the combat topic, and nothing says so',
     tests: ['tests/unit/playerHitWiring.test.ts'],
   },
+  {
+    file: 'src/automation/SpellSaves.ts',
+    find: '      !players && this.ports.enemySpellsOn() && this.ports.attackerIsEnemy(cast.actorId);',
+    replace: '      !players && this.ports.attackerIsEnemy(cast.actorId);',
+    defect:
+      "player characters' saves are rolled against enemies' spells in a world whose GM never asked",
+    tests: ['tests/unit/spellEnemies.test.ts'],
+  },
+  {
+    file: 'src/automation/SpellDamage.ts',
+    find: '      !players && this.ports.enemySpellsOn() && this.ports.attackerIsEnemy(damage.actorId);',
+    replace: '      !players && this.ports.attackerIsEnemy(damage.actorId);',
+    defect: "enemies' spell damage is applied to player characters in a world whose GM never asked",
+    tests: ['tests/unit/spellEnemies.test.ts'],
+  },
+  {
+    file: 'src/automation/SpellDamage.ts',
+    find: '    const check = enemies ? checkPlayerTarget : checkTarget;',
+    replace: '    const check = checkPlayerTarget;',
+    defect:
+      "a player's spell damage is applied to the party's own characters, and never to an enemy",
+    tests: ['tests/unit/spellEnemies.test.ts', 'tests/unit/spellDamage.test.ts'],
+  },
+  {
+    /* ⚠️ The GM casts an enemy's spell, so the GM's own browser must record its targets. */
+    file: 'src/automation/startSpellSaves.ts',
+    find: '  const on = () => setting(SPELL_SAVES_SETTING) || setting(ENEMY_SPELLS_SETTING);',
+    replace: '  const on = () => setting(SPELL_SAVES_SETTING);',
+    defect: "an enemy's spell never records its targets, so no character's save is ever rolled",
+    tests: ['tests/unit/spellEnemiesWiring.test.ts'],
+  },
 ];
