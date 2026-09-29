@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.46.0
+
+### Minor Changes
+
+- [#416](https://github.com/LewisIsWorking/Tongs-Browser/pull/416) [`033168e`](https://github.com/LewisIsWorking/Tongs-Browser/commit/033168ec96e540551cd181fe2b9ec04b74f6c86d) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - New GM button, "Restore owners", in the module settings. It lists every player whose Foundry user was removed in the move off The Forge, with the characters, items and journals they owned, and gives those back to whichever current user the GM picks. It only adds access and never removes any, and it never guesses who is who.
+
 ## 0.45.0
 
 ### Minor Changes
