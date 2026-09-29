@@ -7,6 +7,9 @@ import { AfkGuard } from './AfkGuard.js';
  */
 const AFK_SETTING = 'gmAfkMinutes';
 const TICK_MS = 30_000;
+/** 30, not the original 120 (Lewis, 2026-09-29: "Reduce the afk time to 30 mins"): two hours of an unattended GM
+ *  holding a world was two hours of players unable to switch or be added. */
+export const DEFAULT_AFK_MINUTES = 30;
 const ACTIVITY = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'] as const;
 
 interface AfkSettings {
@@ -41,7 +44,7 @@ export function registerAfkGuard(settings: AfkSettings): void {
     config: true,
     type: Number,
     range: { min: 0, max: 480, step: 5 },
-    default: 120,
+    default: DEFAULT_AFK_MINUTES,
   });
 }
 
@@ -54,7 +57,7 @@ export function startAfkGuard(
   if (globals.game?.user?.isGM !== true) {
     return undefined;
   }
-  const minutes = Number(settings.get(MODULE_ID, AFK_SETTING) ?? 120);
+  const minutes = Number(settings.get(MODULE_ID, AFK_SETTING) ?? DEFAULT_AFK_MINUTES);
   const guard = new AfkGuard(
     {
       now: env.now,
@@ -83,7 +86,7 @@ export function startAfkGuard(
         }
       },
     },
-    Number.isFinite(minutes) ? minutes : 120
+    Number.isFinite(minutes) ? minutes : DEFAULT_AFK_MINUTES
   );
   for (const type of ACTIVITY) {
     env.target.addEventListener(
