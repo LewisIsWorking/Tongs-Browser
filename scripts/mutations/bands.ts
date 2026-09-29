@@ -140,9 +140,9 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/bands/causeWatch.ts',
-    find: '        : { text: describePublicCause(item, attacker.name, origin.healing), attacker },',
+    find: '        : { text: describePublicCause(item, attacker.name, origin.healing), attacker, item },',
     replace:
-      '        : { text: describeCause(readCauseFacts(message, systemId, nameOf)), attacker },',
+      '        : { text: describeCause(readCauseFacts(message, systemId, nameOf)), attacker, item },',
     defect:
       "the combat topic is told the creature's resistances and weaknesses along with what hit it",
     tests: ['tests/unit/bandPublicCause.test.ts'],
