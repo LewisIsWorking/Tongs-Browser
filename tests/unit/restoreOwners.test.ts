@@ -114,6 +114,31 @@ describe('restoring owners', () => {
     expect(w.actors.updateDocuments).not.toHaveBeenCalled();
   });
 
+  it('copes with documents and users missing their optional fields', async () => {
+    const w = world({ [OLD_RYO]: NEW_RYO });
+    const actors = w.globals.game?.collections?.get('Actor')?.contents as object[];
+    actors.push({ id: null }, { id: 'a9', ownership: { [OLD_RYO]: 2 } }, { id: 'a8' });
+    (w.globals.game?.users?.contents as object[]).push({ id: null }, { id: 'NoName0000000001' });
+    w.store['restoredOwners'] = undefined;
+
+    expect(await restoreOwners(w.settings, w.globals)).toBe(2);
+    const content = (w.input.mock.calls[0]?.[0] as { content: string }).content;
+    expect(content).toContain('2 owned: Kitt, (unnamed)');
+    expect(content).toContain('>NoName0000000001</option>');
+  });
+
+  it('opens the dialog when the settings button is clicked', async () => {
+    const w = world(null);
+    startRestoreOwners(w.settings, w.globals);
+    const data = (w.settings.registerMenu as ReturnType<typeof vi.fn>).mock.calls[0]?.[2] as {
+      type: new () => { render(): unknown };
+    };
+    new data.type().render();
+    await vi.waitFor(() => {
+      expect(w.input).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('registers a GM-only settings button', () => {
     const w = world(null);
     expect(startRestoreOwners(w.settings, w.globals)).toBe(true);

@@ -82,9 +82,7 @@ export function ownershipUpdates(
         levels: new Map<string, number>(),
       };
       const level = Math.max(
-        doc.ownership[group.oldId] ?? 0,
-        doc.ownership[to] ?? 0,
-        entry.levels.get(to) ?? 0
+        ...[doc.ownership[group.oldId], doc.ownership[to], entry.levels.get(to)].map((n) => n ?? 0)
       );
       entry.levels.set(to, level);
       merged.set(key, entry);
