@@ -10,6 +10,8 @@ import type { SwapGlobals } from './swaps/startWorldSwaps.js';
 import { startAfkGuard } from './swaps/startAfkGuard.js';
 import { foundryCreateUser } from './swaps/LiveUsers.js';
 import type { UserGlobals } from './swaps/LiveUsers.js';
+import { startRestoreOwners } from './owners/startRestoreOwners.js';
+import type { OwnerGlobals } from './owners/startRestoreOwners.js';
 import { startWorldSize } from './world/startWorldSize.js';
 import type { SizeGlobals } from './world/startWorldSize.js';
 
@@ -42,6 +44,8 @@ export function startFeatures(parts: FeatureParts): void {
   startSpellDamage(deck, hooks, settings, globals as AutoGlobals);
   /* Health bands: off until a party has a campaign. See bands/startBands.ts. */
   startBands(hooks, settings, globals, client);
+  /* Restore owners: a GM button giving players back what their pre-move user owned. See src/owners. */
+  startRestoreOwners(settings, globals as OwnerGlobals);
   /* Idle GM sign-out: frees the world whether or not COO is signed in, so it starts before that check. */
   const idleSeconds = startAfkGuard(settings, globals, {
     target: parts.document,
