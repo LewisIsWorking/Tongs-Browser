@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.47.0
+
+### Minor Changes
+
+- [#418](https://github.com/LewisIsWorking/Tongs-Browser/pull/418) [`be8dd18`](https://github.com/LewisIsWorking/Tongs-Browser/commit/be8dd188c8e3b7b0b96570c00732a09a475c5f9f) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A loading screen over Foundry's black start-up. Opening a big world kept the screen black for a minute or two while Foundry prepared every character; now a "Opening <world>" screen with a moving bar and the current stage (preparing characters and items, getting the map ready) shows from the moment Tongs loads until the world is ready. The bar keeps moving even while Foundry is too busy to respond, and the screen never blocks clicks and gets out of the way if the world fails to load.
+
 ## 0.46.0
 
 ### Minor Changes
