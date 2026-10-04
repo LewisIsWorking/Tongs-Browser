@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.47.1
+
+### Patch Changes
+
+- [#420](https://github.com/LewisIsWorking/Tongs-Browser/pull/420) [`7c3465d`](https://github.com/LewisIsWorking/Tongs-Browser/commit/7c3465df97ef3a3c9a5318b5edac1631306227d3) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Enemies' basic-save spell damage now applies when the enemy's token is unlinked, as most are. Its spell lives on the token's own actor, and the damage was refused with "the spell's damage formula could not be worked out".
+
 ## 0.47.0
 
 ### Minor Changes
