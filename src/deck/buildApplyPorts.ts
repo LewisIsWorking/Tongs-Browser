@@ -50,10 +50,17 @@ export function parseTokenUuid(uuid: string): { sceneId: string; tokenId: string
     : null;
 }
 
+/**
+ * How long to wait for PF2e to report a landing. ⛔ Measured live 2026-10-04: a busy GM machine took
+ * 9.4 and 17.5 seconds from the click to PF2e's `damage-taken`, nearly all of it Foundry's server saving
+ * the HP change. The old 10 seconds reported damage that DID land as unconfirmed, inviting a second apply.
+ */
+export const LANDED_TIMEOUT_MS = 30_000;
+
 export function buildApplyPorts(
   globals: DeckGlobals,
   doc: Document,
-  landedTimeoutMs = 10_000
+  landedTimeoutMs = LANDED_TIMEOUT_MS
 ): ApplyPorts {
   const systemId = globals.game?.system?.id ?? '';
 

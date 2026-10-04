@@ -129,6 +129,19 @@ describe('knowing the damage landed', () => {
     await expect(landing).resolves.toBe(true);
   });
 
+  /** ⛔ Measured live 2026-10-04: PF2e's damage-taken came 17.5 seconds after the click on a busy GM. */
+  it('waits long enough by default for a slow server to report the landing', async () => {
+    vi.useFakeTimers();
+    const Hooks = hooksWith();
+    const ports = buildApplyPorts({ Hooks, game: { system: { id: 'pf2e' } } } as DeckGlobals, doc);
+
+    const landing = ports.landed('Scene.S1.Token.T1');
+    vi.advanceTimersByTime(17_500);
+    Hooks.fire(taken('T1'));
+
+    await expect(landing).resolves.toBe(true);
+  });
+
   it('resolves false and unhooks when nothing arrives in time', async () => {
     vi.useFakeTimers();
     const Hooks = hooksWith();
