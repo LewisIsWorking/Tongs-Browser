@@ -82,11 +82,17 @@ export function buildSpellDamagePorts(
     spellRule: async (spellUuid, castRank) => {
       const ids = /^Actor\.([^.]+)\.Item\.([^.]+)$/.exec(spellUuid);
       try {
+        /*
+         * ⛔ Found live 2026-10-03: an enemy's token is usually UNLINKED, so its spell is
+         * "Scene.S.Token.T.Actor.A.Item.I", on the token's own actor. The world actor A does not hold it.
+         * Foundry's own lookup reads both forms; the world actor is only the fallback.
+         */
+        const found = globals.fromUuidSync?.(spellUuid) as SpellItem | null | undefined;
         const owner =
           ids === null
             ? undefined
             : (globals.game?.actors?.get?.(String(ids[1])) as SpellOwner | undefined);
-        const spell = owner?.items?.get?.(String(ids?.[2]));
+        const spell = found ?? owner?.items?.get?.(String(ids?.[2]));
         if (spell === undefined) {
           return null;
         }

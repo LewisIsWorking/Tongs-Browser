@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import type { AutoGlobals } from '../../src/automation/buildAutoApply.js';
 import {
+  buildSpellDamagePorts,
   ENEMY_SPELLS_SETTING,
   SPELL_DAMAGE_SETTING,
   registerSpellDamageSetting,
@@ -104,5 +106,24 @@ describe("enemies' spells on player characters", () => {
       startSpellDamage({} as RollDeck, { on: () => 1 }, { register: vi.fn(), get }, globals);
       expect(recent.mock.calls.length > 0).toBe(runs);
     }
+  });
+
+  /* ⛔ Found live 2026-10-03: an enemy's token is usually unlinked, so its spell lives on the token's own actor. */
+  it("finds an unlinked token's spell through Foundry's own lookup", async () => {
+    const token = 'Scene.S.Token.T.Actor.C.Item.S';
+    const spell = {
+      system: { defense: { save: { basic: true } } },
+      loadVariant: () => null,
+      getDamage: () =>
+        Promise.resolve({ template: { damage: { roll: { formula: '2d4 electricity' } } } }),
+    };
+    const globals = {
+      fromUuidSync: (uuid: string) => (uuid === token ? spell : undefined),
+    } as AutoGlobals;
+
+    expect(await buildSpellDamagePorts(globals, {} as RollDeck).spellRule(token, 1)).toEqual({
+      formula: '2d4 electricity',
+      basic: true,
+    });
   });
 });

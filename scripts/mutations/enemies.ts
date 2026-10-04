@@ -90,4 +90,12 @@ export const ENEMIES_MUTATIONS: readonly RecordedMutation[] = [
     defect: "an enemy's spell never records its targets, so no character's save is ever rolled",
     tests: ['tests/unit/spellEnemiesWiring.test.ts'],
   },
+  {
+    /* ⛔ Found live 2026-10-03: an enemy's token is usually unlinked, its spell on the token's own actor. */
+    file: 'src/automation/startSpellDamage.ts',
+    find: '        const spell = found ?? owner?.items?.get?.(String(ids?.[2]));',
+    replace: '        const spell = owner?.items?.get?.(String(ids?.[2]));',
+    defect: "an unlinked enemy's spell damage is never applied: its formula cannot be worked out",
+    tests: ['tests/unit/spellEnemiesWiring.test.ts'],
+  },
 ];
