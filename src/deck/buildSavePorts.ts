@@ -1,4 +1,4 @@
-import { buildApplyPorts, parseTokenUuid } from './buildApplyPorts.js';
+import { LANDED_TIMEOUT_MS, buildApplyPorts, parseTokenUuid } from './buildApplyPorts.js';
 import type { DeckGlobals } from './buildApplyPorts.js';
 import type { SavePorts } from './rollSaveThroughSystem.js';
 import { watchMessages } from './watchMessages.js';
@@ -15,7 +15,7 @@ import { watchMessages } from './watchMessages.js';
 export function buildSavePorts(
   globals: DeckGlobals,
   doc: Document,
-  landedTimeoutMs = 10_000
+  landedTimeoutMs = LANDED_TIMEOUT_MS
 ): SavePorts {
   const shared = buildApplyPorts(globals, doc, landedTimeoutMs);
 

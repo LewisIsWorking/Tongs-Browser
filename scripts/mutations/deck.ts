@@ -157,4 +157,13 @@ export const DECK_MUTATIONS: readonly RecordedMutation[] = [
     defect: 'a stray swipe while choosing who rolls throws the half-made choice away',
     tests: ['tests/dom/deckPanelSwipe.test.ts'],
   },
+  {
+    /* ⛔ Measured live 2026-10-04: PF2e's damage-taken took 17.5 seconds on a busy GM. */
+    file: 'src/deck/buildApplyPorts.ts',
+    find: 'export const LANDED_TIMEOUT_MS = 30_000;',
+    replace: 'export const LANDED_TIMEOUT_MS = 10_000;',
+    defect:
+      'damage that landed slowly is reported as unconfirmed, and its card kept for a second apply',
+    tests: ['tests/unit/buildApplyPorts.test.ts'],
+  },
 ];
