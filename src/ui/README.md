@@ -1,15 +1,18 @@
 # src/ui
 
-| File                     | What it is                                                     |
-| ------------------------ | -------------------------------------------------------------- |
-| `TrayActions.ts`         | The handler contract, and which buttons are gated behind what  |
-| `TrayActionList.ts`      | Every button the tray can show, as a flat list                 |
-| `MapBuildingButtons.ts`  | The GM map-building cluster: select, cut, copy, paste, restack |
-| `CreateSheetFlow.ts`     | Walking a user through making a character sheet                |
-| `CreateSheetRoute.ts`    | Whether a create goes direct or through the relay              |
-| `CreateSheetMessages.ts` | What the create flow says, as data                             |
-| `PartyAccessFlow.ts`     | Choosing which parties players may add characters to           |
-| `ChoiceMenu.ts`          | The pick-one-of-these list those flows are built from          |
+| File                            | What it is                                                     |
+| ------------------------------- | -------------------------------------------------------------- |
+| `TrayActions.ts`                | The handler contract, and which buttons are gated behind what  |
+| `TrayActionList.ts`             | Every button the tray can show, as a flat list                 |
+| `MapBuildingButtons.ts`         | The GM map-building cluster: select, cut, copy, paste, restack |
+| `CreateSheetFlow.ts`            | Walking a user through making a character sheet                |
+| `CreateSheetRoute.ts`           | Whether a create goes direct or through the relay              |
+| `CreateSheetMessages.ts`        | What the create flow says, as data                             |
+| `PartyAccessFlow.ts`            | Choosing which parties players may add characters to           |
+| `ChoiceMenu.ts`                 | The pick-one-of-these list those flows are built from          |
+| `LoadingOverlay.ts`             | The screen over Foundry's black start-up (CSS-animated bar)    |
+| `startLoadingOverlay.ts`        | Moving that screen through init, setup and ready               |
+| `showLoadingOverlayOnImport.ts` | Putting it up as Tongs is imported, first thing in main.ts     |
 
 > ⚠️ **This table listed ONE of eight files until 2026-09-09, and said "One file" in prose.** Six
 > modules had been added since it was written and none of them appeared here. An incomplete contents

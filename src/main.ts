@@ -1,3 +1,4 @@
+import './ui/showLoadingOverlayOnImport.js'; // ⏳ first: the loading screen over Foundry's black start-up
 import '../styles/tongs-browser.css';
 
 import { TongsBrowser } from './TongsBrowser.js';
