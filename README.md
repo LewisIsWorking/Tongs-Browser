@@ -113,6 +113,19 @@ says so plainly rather than failing quietly when nobody is logged in.
 
 Nobody is shown a sheet, party or folder they did not already have permission to see.
 
+### New players are welcomed
+
+A player who joins and owns no character sheet is welcomed to the world, asked what to call their
+character, and gets a sheet in the campaign's party: the party a GM gave a campaign code. A GM's
+browser makes it, owned by the player and assigned as their character. With no GM online the request
+waits, and is made the moment one joins.
+
+The new sheet then opens beside a checklist of what PF2e needs at level 1: ancestry, heritage,
+background, class, attribute boosts and equipment, each ticked as it is filled in.
+
+It does nothing until a party has a campaign code. The world setting **Welcome new players** (on by
+default) switches it off.
+
 ## Settings
 
 All settings are per client, so every player configures their own device.
