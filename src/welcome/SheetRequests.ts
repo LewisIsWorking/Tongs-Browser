@@ -2,6 +2,7 @@ import type { SheetCreationOutcome } from '../foundry/SheetCreationTypes.js';
 import { pickParty } from './campaignParty.js';
 import type { CampaignParty } from './campaignParty.js';
 import type { SheetRequest, SheetResult } from './sheetRequest.js';
+import type { ImportBuild } from './importBuild.js';
 
 /**
  * The GM's browser making the sheets new players asked for. Added 2026-10-05.
@@ -23,6 +24,8 @@ export interface NewSheet {
   readonly ownerId: string;
   readonly partyUuid: string;
   readonly requestId: string;
+  /** The player's ComeOnOverUno export, carried onto the sheet for their browser to apply. */
+  readonly importBuild: ImportBuild | null;
 }
 
 export interface SheetRequestPorts {
@@ -95,6 +98,7 @@ export class SheetRequests {
       ownerId: user.userId,
       partyUuid: pick.party.uuid,
       requestId: request.id,
+      importBuild: request.importBuild,
     });
     if (outcome.kind === 'notCreated') {
       await this.ports.answer(user.userId, {

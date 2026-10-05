@@ -9,6 +9,9 @@
  *    stays on the user until a GM's browser connects and makes the sheet. The answer is written back to the
  *    same user, where the player's browser sees it, now or at their next visit.
  */
+import { readImportBuild } from './importBuild.js';
+import type { ImportBuild } from './importBuild.js';
+
 export const REQUEST_FLAG = 'sheetRequest';
 export const RESULT_FLAG = 'sheetResult';
 /** On the created actor, so a request finished twice (a crash between create and answer) makes one sheet. */
@@ -24,6 +27,8 @@ export interface SheetRequest {
   /** The campaign party the player picked, or null when there was only one to pick. */
   readonly partyUuid: string | null;
   readonly at: number;
+  /** A ComeOnOverUno export the player chose to start from, or null for a blank sheet. */
+  readonly importBuild: ImportBuild | null;
 }
 
 export type SheetResult =
@@ -55,6 +60,7 @@ export function readSheetRequest(raw: unknown): SheetRequest | null {
     name: cleanName(value['name']),
     partyUuid: typeof party === 'string' && party !== '' ? party : null,
     at: value['at'],
+    importBuild: readImportBuild(value['importBuild']),
   };
 }
 

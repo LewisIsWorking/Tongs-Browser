@@ -29,7 +29,7 @@ describe('the welcome window', () => {
     expect(document.querySelector('#tongs-welcome select')).toBeNull();
     document.querySelector<HTMLInputElement>('#tongs-welcome input')!.value = 'Theo';
     click('Create my character');
-    expect(act.create).toHaveBeenCalledWith('Theo', null);
+    expect(act.create).toHaveBeenCalledWith('Theo', null, null);
   });
 
   it('creates on Enter in the name box', () => {
@@ -38,7 +38,7 @@ describe('the welcome window', () => {
     const input = document.querySelector<HTMLInputElement>('#tongs-welcome input')!;
     input.value = 'Vex';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-    expect(act.create).toHaveBeenCalledWith('Vex', null);
+    expect(act.create).toHaveBeenCalledWith('Vex', null, null);
   });
 
   it('offers a choice of campaign when there are several, and sends the one chosen', () => {
@@ -52,7 +52,7 @@ describe('the welcome window', () => {
     ]);
     select.value = 'Actor.B';
     click('Create my character');
-    expect(act.create).toHaveBeenCalledWith('', 'Actor.B');
+    expect(act.create).toHaveBeenCalledWith('', 'Actor.B', null);
   });
 
   it('says a GM will make it later when none is online, and OK closes it', () => {

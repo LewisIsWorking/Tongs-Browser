@@ -31,6 +31,7 @@ describe('reading a request', () => {
       name: 'Vex',
       partyUuid: 'Actor.P',
       at: 5,
+      importBuild: null,
     });
   });
 

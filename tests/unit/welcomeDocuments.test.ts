@@ -38,7 +38,11 @@ const game = (isGM: boolean, actors: WelcomeActor[] = []): WelcomeGame => ({
 describe('the GM listings', () => {
   it('lists players with a well formed request, never a GM', () => {
     expect(pendingRequests(game(true))).toEqual([
-      { userId: 'u1', userName: 'Melody', request: { ...request, partyUuid: null } },
+      {
+        userId: 'u1',
+        userName: 'Melody',
+        request: { ...request, partyUuid: null, importBuild: null },
+      },
     ]);
   });
 

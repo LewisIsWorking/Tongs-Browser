@@ -16,6 +16,8 @@ import { startWorldSize } from './world/startWorldSize.js';
 import { registerWelcomeSettings, startSheetRequests } from './welcome/startSheetRequests.js';
 import type { WelcomeGlobals } from './welcome/startSheetRequests.js';
 import { startWelcome } from './welcome/startWelcome.js';
+import { startImport } from './welcome/startImport.js';
+import type { ImportGlobals } from './welcome/startImport.js';
 import type { SizeGlobals } from './world/startWorldSize.js';
 
 /**
@@ -54,6 +56,7 @@ export function startFeatures(parts: FeatureParts): void {
   registerWelcomeSettings(settings);
   startSheetRequests(hooks, settings, globals as WelcomeGlobals);
   startWelcome(hooks, settings, globals, parts.document);
+  startImport(hooks, globals as ImportGlobals);
   /* Idle GM sign-out: frees the world whether or not COO is signed in, so it starts before that check. */
   const idleSeconds = startAfkGuard(settings, globals, {
     target: parts.document,

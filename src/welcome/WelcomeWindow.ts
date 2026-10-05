@@ -1,4 +1,6 @@
 import type { CampaignParty } from './campaignParty.js';
+import type { ImportBuild } from './importBuild.js';
+import { ImportPicker } from './ImportPicker.js';
 
 /**
  * The window a new player sees when they join a world with no character in it. Added 2026-10-05.
@@ -18,6 +20,7 @@ const CSS = `
 #${ROOT_ID} label { display: block; margin: 0 0 .3rem; font-size: .9rem; color: #a8a8b3; }
 #${ROOT_ID} input, #${ROOT_ID} select { width: 100%; box-sizing: border-box; margin: 0 0 1rem; padding: .55rem;
   border-radius: 6px; border: 1px solid #3a3a44; background: #111114; color: #e6e6ea; font-size: 1rem; }
+#${ROOT_ID} .tw-import-status { font-size: .85rem; color: #a8a8b3; }
 #${ROOT_ID} .tw-buttons { display: flex; gap: .6rem; justify-content: flex-end; flex-wrap: wrap; }
 #${ROOT_ID} button { padding: .55rem 1rem; border-radius: 6px; border: 1px solid #3a3a44; background: #26262c;
   color: #e6e6ea; font-size: .95rem; cursor: pointer; width: auto; }
@@ -30,7 +33,11 @@ export type WelcomeFace =
   | { readonly kind: 'refused'; readonly reason: string };
 
 export interface WelcomeActions {
-  readonly create: (name: string, partyUuid: string | null) => void;
+  readonly create: (
+    name: string,
+    partyUuid: string | null,
+    importBuild: ImportBuild | null
+  ) => void;
   readonly later: () => void;
   readonly retry: () => void;
 }
@@ -75,8 +82,9 @@ export class WelcomeWindow {
       const name = this.field(card, 'input', 'Character name') as HTMLInputElement;
       name.maxLength = 60;
       const select = this.partyChoice(card, face.parties);
+      const picker = new ImportPicker(this.doc, card, name);
       const go = (): void => {
-        this.actions.create(name.value, select?.value ?? null);
+        this.actions.create(name.value, select?.value ?? null, picker.chosen);
       };
       name.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') go();
