@@ -137,3 +137,14 @@ describe('the checklist panel', () => {
     expect(panel()).toBeNull();
   });
 });
+
+describe('keys in the name box', () => {
+  it('ignores every key but Enter', () => {
+    const act = actions();
+    new WelcomeWindow(document, act).show({ kind: 'ask', world: 'W', parties: [] });
+    document
+      .querySelector<HTMLInputElement>('#tongs-welcome input')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+    expect(act.create).not.toHaveBeenCalled();
+  });
+});

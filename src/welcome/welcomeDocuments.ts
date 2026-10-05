@@ -90,7 +90,8 @@ export async function answerRequest(
     return;
   }
   const user = game.users?.contents.find((each) => each.id === userId);
-  const actorId = result.kind === 'created' ? (result.actorUuid.split('.').pop() ?? '') : '';
+  const actorId =
+    result.kind === 'created' ? result.actorUuid.slice(result.actorUuid.lastIndexOf('.') + 1) : '';
   await user?.update?.({
     [`flags.${MODULE_ID}.-=${REQUEST_FLAG}`]: null,
     [`flags.${MODULE_ID}.${RESULT_FLAG}`]: result,

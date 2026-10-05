@@ -134,8 +134,8 @@ export const CREATION_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/foundry/CreateSheetDeps.ts',
-    find: '      return actor.create(data);',
-    replace: '      const create = actor.create;\n      return create(data);',
+    find: '      return actor.create(withFlags);',
+    replace: '      const create = actor.create;\n      return create(withFlags);',
     /*
      * ⛔ THE BUG THAT MEANT CREATION HAD NEVER WORKED IN A REAL FOUNDRY. Recorded 2026-09-12. This
      * is the shape it shipped in: `create` read off `Actor`, then called bare. Foundry's

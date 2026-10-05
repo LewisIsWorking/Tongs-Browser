@@ -160,3 +160,24 @@ describe('the checklist', () => {
     expect(guideText()).toBeNull();
   });
 });
+
+describe('finishing the checklist', () => {
+  it('Done marks a fully built sheet finished and closes the checklist', () => {
+    const t = player();
+    const sheet = {
+      ...madeSheet({ madeForRequest: 'r1' }),
+      ancestry: { name: 'Dwarf' },
+      heritage: { name: 'Rock Dwarf' },
+      background: { name: 'Acolyte' },
+      class: { name: 'Fighter' },
+      system: { build: { attributes: { manual: true } } },
+      inventory: { contents: [1] },
+    };
+    t.actors.push(sheet);
+    startWelcome(t.hooks, t.settings, t.globals, document);
+    expect(guideText()).toContain('Theo is ready!');
+    press('Done');
+    expect(sheet.setFlag).toHaveBeenCalledWith('tongs-browser', GUIDE_DONE_FLAG, true);
+    expect(guideText()).toBeNull();
+  });
+});
