@@ -9,6 +9,7 @@ Fixtures shared by the DOM tests. Nothing here asserts anything.
 | `moduleUnderTest.ts`     | The module started up in a test page                      |
 | `diagnosticsSnapshot.ts` | One diagnostics snapshot, in the shape the report expects |
 | `keyboardRecording.ts`   | Capturing what the keyboard synthesizer dispatched        |
+| `welcomePlayer.ts`       | A player's browser for the new-player welcome             |
 
 ## Why `touchEvents.ts` builds plain `Event`s
 

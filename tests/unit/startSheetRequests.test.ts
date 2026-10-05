@@ -7,6 +7,8 @@ import {
   sharedParties,
   startSheetRequests,
 } from '../../src/welcome/startSheetRequests.js';
+import { readImportBuild, storedImport } from '../../src/welcome/importBuild.js';
+import { COO_EXPORT } from './support/cooFoundryExport.js';
 import type { WelcomeGlobals, WelcomeSettings } from '../../src/welcome/startSheetRequests.js';
 
 /** The GM side wired to Foundry: settings, hooks, and a real request served end to end. 2026-10-05. */
@@ -35,7 +37,7 @@ const flags =
   (scope: string, key: string): unknown =>
     scope === 'tongs-browser' ? values[key] : undefined;
 
-function table(isGM = true) {
+function table(isGM = true, request: Record<string, unknown> = {}) {
   const update = vi.fn(async () => Promise.resolve());
   const gm = { id: 'gm', name: 'GM', isGM: true };
   const player = {
@@ -43,7 +45,7 @@ function table(isGM = true) {
     name: 'Melody',
     character: null,
     update,
-    getFlag: flags({ sheetRequest: { id: 'r1', name: 'Theo', at: 1 } }),
+    getFlag: flags({ sheetRequest: { id: 'r1', name: 'Theo', at: 1, ...request } }),
   };
   const party = {
     uuid: 'Actor.P',
@@ -115,6 +117,26 @@ describe('serving from the GM browser', () => {
     expect(addMembers).toHaveBeenCalledOnce();
     expect(info).toHaveBeenCalledWith('Tongs made Theo for Melody, in The Party.');
     expect(names).toContain('updateUser');
+  });
+
+  it("carries the player's chosen export onto the sheet, for their browser to apply", async () => {
+    const create = vi.fn(async () => Promise.resolve({ id: 'NEW', uuid: 'Actor.NEW' }));
+    vi.stubGlobal('Actor', { create });
+    vi.stubGlobal('fromUuid', async () => Promise.resolve({ addMembers: vi.fn() }));
+    const stored = storedImport(readImportBuild(COO_EXPORT)!);
+    const { game, update } = table(true, { importBuild: stored });
+    startSheetRequests({ on: vi.fn() }, settingsWith({ [WELCOME_SETTING]: true }), {
+      game,
+      ui: { notifications: { info: vi.fn() } },
+    } as unknown as WelcomeGlobals);
+    await vi.waitFor(() => {
+      expect(update).toHaveBeenCalled();
+    });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flags: { 'tongs-browser': { madeForRequest: 'r1', importBuild: stored } },
+      })
+    );
   });
 
   it('does nothing when switched off, or in a player browser', async () => {
