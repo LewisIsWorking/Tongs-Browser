@@ -35,6 +35,8 @@ export async function createSheetWithFoundry(request: {
   name: string;
   ownerId: string;
   partyUuid: string;
+  /** Module flags for the new actor; the welcome marks the request it was made for (src/welcome). */
+  flags?: Record<string, unknown>;
 }): Promise<SheetCreationOutcome> {
   const globals = globalThis as CreationGlobals;
 
@@ -54,7 +56,8 @@ export async function createSheetWithFoundry(request: {
       if (actor?.create === undefined) {
         throw new Error('Foundry has no Actor.create on this client.');
       }
-      return actor.create(data);
+      const withFlags = request.flags === undefined ? data : { ...data, flags: request.flags };
+      return actor.create(withFlags);
     },
     addToParty: async (partyUuid, sheet) => {
       const resolve = globals.fromUuid;

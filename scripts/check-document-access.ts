@@ -81,6 +81,13 @@ const BOUNDARY: readonly string[] = [
    * already see everything it lists, so nothing is shown to anyone who could not see it before.
    */
   'src/owners/startRestoreOwners.ts',
+  /*
+   * ⚠️ Added 2026-10-05 with the new-player welcome. It DOES enumerate users and actors. The GM listings
+   * (pending requests, the sheet made for one) return nothing to a non-GM, and the player's listing
+   * keeps only character sheets they OWN, `isOwner === true`, failing closed. Nothing it lists is shown
+   * to anyone who could not already open it.
+   */
+  'src/welcome/welcomeDocuments.ts',
 ];
 
 const sources = listSourceFiles().filter(

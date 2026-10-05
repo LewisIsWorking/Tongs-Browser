@@ -32,6 +32,7 @@ The module itself. Everything shipped in `dist/tongs-browser.js` comes from here
 | `bands/`        | Enemies' health bands, posted to Telegram   |
 | `encounter/`    | Encounters kept in step with Telegram       |
 | `swaps/`        | Answering ComeOnOverUno's world swaps       |
+| `welcome/`      | New players: a sheet, then a checklist      |
 
 ## The composition root is separate from the parts
 
