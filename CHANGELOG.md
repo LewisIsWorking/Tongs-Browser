@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.48.0
+
+### Minor Changes
+
+- [#424](https://github.com/LewisIsWorking/Tongs-Browser/pull/424) [`edc3361`](https://github.com/LewisIsWorking/Tongs-Browser/commit/edc33610719283bd7a74078025e7206e6136131d) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - New players are welcomed. A player with no character sheet is asked for a name, and a GM's browser makes the sheet in the campaign's party (the party with a campaign code), owned by them and assigned as their character. With no GM online the request waits and is made the moment one joins. The new sheet then opens with a checklist: ancestry, heritage, background, class, attribute boosts and equipment, ticked off as they are filled in. A world setting, "Welcome new players", switches it off.
+
 ## 0.47.2
 
 ### Patch Changes
