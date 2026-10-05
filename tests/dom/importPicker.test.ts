@@ -59,6 +59,15 @@ describe('the import picker', () => {
     expect(w.name.value).toBe('Vex');
   });
 
+  it('describes an export that has no name, and leaves the name box empty', async () => {
+    const w = open();
+    w.choose(json({ items: [{ name: 'Toughness', type: 'feat' }] }));
+    await vi.waitFor(() => {
+      expect(w.status()).toBe('Will import Level 1.');
+    });
+    expect(w.name.value).toBe('');
+  });
+
   it.each([
     ['not JSON', new Blob(['{nope'])],
     ['JSON that is not a character', json({ hello: 1 })],

@@ -16,7 +16,7 @@ export const WELCOME_IMPORT_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/welcome/startImport.ts',
-    find: '        sheet.getFlag?.(MODULE_ID, IMPORT_DONE_FLAG) === true ||',
+    find: '        sheet.getFlag(MODULE_ID, IMPORT_DONE_FLAG) === true ||',
     replace: '        false ||',
     defect:
       'the import runs again on every visit, asking the player the same PF2e choices each time',

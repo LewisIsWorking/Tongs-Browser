@@ -17,11 +17,14 @@ import type { WelcomeActor, WelcomeGame } from './welcomeDocuments.js';
  *    are skipped. Two tabs of the same new player at once could both run it; that is the accepted gap.
  */
 export interface ImportSheet extends WelcomeActor {
-  readonly items?: {
-    readonly contents?: readonly { readonly type?: string; readonly name?: string }[];
+  /* Every Foundry Actor has these; only a sheet carrying an import is ever treated as one. */
+  readonly items: {
+    readonly contents: readonly { readonly type: string; readonly name: string }[];
   };
-  update?(data: Record<string, unknown>): Promise<unknown>;
-  createEmbeddedDocuments?(type: string, data: readonly object[]): Promise<unknown>;
+  getFlag(scope: string, key: string): unknown;
+  setFlag(scope: string, key: string, value: unknown): Promise<unknown>;
+  update(data: Record<string, unknown>): Promise<unknown>;
+  createEmbeddedDocuments(type: string, data: readonly object[]): Promise<unknown>;
 }
 
 interface Pack {
@@ -32,8 +35,10 @@ interface Pack {
 }
 
 export interface ImportGlobals {
-  readonly game?: WelcomeGame & { readonly packs?: { get(id: string): Pack | undefined } };
-  readonly ui?: { readonly notifications?: { info?(message: string): unknown } };
+  readonly game?: WelcomeGame & {
+    readonly packs?: { get(id: string | undefined): Pack | undefined };
+  };
+  readonly ui?: { readonly notifications: { info(message: string): unknown } };
 }
 
 /** Where PF2e keeps each kind of item. Measured on PF2e 8.5, 2026-10-05. */
@@ -60,10 +65,10 @@ export function startImport(hooks: WelcomeHooks, globals: ImportGlobals): void {
 
   const run = (): void => {
     for (const sheet of ownCharacters(globals.game) as ImportSheet[]) {
-      const build = readImportBuild(sheet.getFlag?.(MODULE_ID, IMPORT_FLAG));
+      const build = readImportBuild(sheet.getFlag(MODULE_ID, IMPORT_FLAG));
       if (
         build === null ||
-        sheet.getFlag?.(MODULE_ID, IMPORT_DONE_FLAG) === true ||
+        sheet.getFlag(MODULE_ID, IMPORT_DONE_FLAG) === true ||
         running.has(sheet.uuid)
       ) {
         continue;
@@ -71,8 +76,8 @@ export function startImport(hooks: WelcomeHooks, globals: ImportGlobals): void {
       running.add(sheet.uuid);
       void applyImport(build, sheetPorts(sheet, globals))
         .then(async (report) => {
-          await sheet.setFlag?.(MODULE_ID, IMPORT_DONE_FLAG, true);
-          globals.ui?.notifications?.info?.(describeReport(report));
+          await sheet.setFlag(MODULE_ID, IMPORT_DONE_FLAG, true);
+          globals.ui?.notifications.info(describeReport(report));
         })
         .catch((error: unknown) => {
           logger.warn(`Import failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -89,12 +94,9 @@ export function startImport(hooks: WelcomeHooks, globals: ImportGlobals): void {
 function sheetPorts(sheet: ImportSheet, globals: ImportGlobals): ImportPorts {
   return {
     has: (type, name) =>
-      (sheet.items?.contents ?? []).some(
-        (item) => item.type === type && sameName(item.name ?? '', name)
-      ),
+      sheet.items.contents.some((item) => item.type === type && sameName(item.name, name)),
     find: async (type, name) => {
-      const id = PACKS[type];
-      const pack = id === undefined ? undefined : globals.game?.packs?.get(id);
+      const pack = globals.game?.packs?.get(PACKS[type]);
       if (pack === undefined) {
         return null;
       }
@@ -108,7 +110,7 @@ function sheetPorts(sheet: ImportSheet, globals: ImportGlobals): ImportPorts {
       const stats = (data['_stats'] ?? {}) as Record<string, unknown>;
       return { ...data, _stats: { ...stats, compendiumSource: doc.uuid ?? null } };
     },
-    update: async (data) => sheet.update?.(data),
-    createItem: async (data) => sheet.createEmbeddedDocuments?.('Item', [data]),
+    update: async (data) => sheet.update(data),
+    createItem: async (data) => sheet.createEmbeddedDocuments('Item', [data]),
   };
 }

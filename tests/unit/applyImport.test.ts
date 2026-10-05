@@ -106,6 +106,18 @@ describe('applying an import', () => {
     expect(updates).toEqual([{ 'system.details.level.value': 1 }]);
     expect(created[0]).toEqual({ name: 'Sudden Charge', type: 'feat', system: { from: 'pf2e' } });
   });
+
+  it('still slots a feat whose compendium copy has no system data', async () => {
+    const { ports, created } = sheet({
+      find: async (type, name) => Promise.resolve(name === 'Sudden Charge' ? { name, type } : null),
+    });
+    await applyImport(BUILD, ports);
+    expect(created[0]).toEqual({
+      name: 'Sudden Charge',
+      type: 'feat',
+      system: { location: 'class-1' },
+    });
+  });
 });
 
 describe('the report', () => {

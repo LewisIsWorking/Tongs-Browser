@@ -14,7 +14,12 @@ afterEach(() => {
 const STORED = storedImport(readImportBuild(COO_EXPORT)!);
 
 function world(
-  options: { flags?: Record<string, unknown>; isGM?: boolean; isOwner?: boolean } = {}
+  options: {
+    flags?: Record<string, unknown>;
+    isGM?: boolean;
+    isOwner?: boolean;
+    noUi?: boolean;
+  } = {}
 ) {
   const flags: Record<string, unknown> = { importBuild: STORED, ...options.flags };
   const created: Record<string, unknown>[] = [];
@@ -25,7 +30,7 @@ function world(
     name: 'Theo',
     type: 'character',
     isOwner: options.isOwner ?? true,
-    items: { contents: [{ type: 'background', name: 'Acolyte' }] },
+    items: { contents: [{ type: 'feat', name: 'Toughness' }] },
     getFlag: (_scope: string, key: string) => flags[key],
     setFlag: vi.fn(async (_scope: string, key: string, value: unknown) => {
       flags[key] = value;
@@ -37,19 +42,29 @@ function world(
       return Promise.resolve();
     }),
   };
-  const pack = (names: string[]) => ({
+  /* `bare` documents carry no uuid or _stats; `gone` ones are in the index but not the pack. */
+  const pack = (names: string[], shape: 'full' | 'bare' | 'gone' = 'full') => ({
     getIndex: async () =>
       Promise.resolve(names.map((name, index) => ({ _id: String(index), name }))),
     getDocument: async (id: string) =>
-      Promise.resolve({
-        uuid: `Compendium.pf2e.x.Item.${id}`,
-        toObject: () => ({ name: names[Number(id)], type: 'x', _stats: { a: 1 } }),
-      }),
+      Promise.resolve(
+        shape === 'gone'
+          ? null
+          : {
+              ...(shape === 'full' ? { uuid: `Compendium.pf2e.x.Item.${id}` } : {}),
+              toObject: () => ({
+                name: names[Number(id)],
+                type: 'x',
+                ...(shape === 'full' ? { _stats: { a: 1 } } : {}),
+              }),
+            }
+      ),
   });
   const packs: Record<string, ReturnType<typeof pack>> = {
     'pf2e.ancestries': pack(['Dwarf']),
     'pf2e.heritages': pack(['Rock Dwarf']),
-    'pf2e.classes': pack(['Fighter']),
+    'pf2e.classes': pack(['Fighter'], 'bare'),
+    'pf2e.feats-srd': pack(['Sudden Charge'], 'gone'),
   };
   const info = vi.fn();
   const handlers: (() => void)[] = [];
@@ -57,9 +72,9 @@ function world(
     game: {
       user: { id: 'u1', isGM: options.isGM ?? false },
       actors: { contents: [sheet] },
-      packs: { get: (id: string) => packs[id] },
+      packs: { get: (id: string | undefined) => packs[id ?? ''] },
     },
-    ui: { notifications: { info } },
+    ...(options.noUi === true ? {} : { ui: { notifications: { info } } }),
   } as unknown as ImportGlobals;
   const hooks = { on: (_name: string, fn: () => void) => handlers.push(fn) };
   return {
@@ -92,11 +107,13 @@ describe('importing onto a new sheet', () => {
       'Fighter',
       'Scribing Lore',
     ]);
+    /* This world has no backgrounds pack, so Acolyte cannot be found. */
     expect(t.created[0]).toMatchObject({
       _stats: { a: 1, compendiumSource: 'Compendium.pf2e.x.Item.0' },
     });
+    expect(t.created[2]).toMatchObject({ _stats: { compendiumSource: null } });
     expect(t.info.mock.calls[0]?.[0]).toContain(
-      'Not found, add by hand: Dwarven Weapon Familiarity, Sudden Charge.'
+      'Not found, add by hand: Acolyte, Dwarven Weapon Familiarity, Sudden Charge.'
     );
   });
 
@@ -110,6 +127,15 @@ describe('importing onto a new sheet', () => {
     });
     t.fire();
     expect(t.update).toHaveBeenCalledOnce();
+  });
+
+  it('still finishes before Foundry has its notifications up', async () => {
+    const t = world({ noUi: true });
+    startImport(t.hooks, t.globals);
+    await vi.waitFor(() => {
+      expect(t.flags['importDone']).toBe(true);
+    });
+    expect(t.info).not.toHaveBeenCalled();
   });
 
   it('does nothing for a GM, a sheet already imported, or a sheet with no import', async () => {
@@ -133,6 +159,16 @@ describe('importing onto a new sheet', () => {
       expect(warn).toHaveBeenCalledWith('Import failed: offline');
     });
     expect(t.flags['importDone']).toBeUndefined();
+  });
+
+  it('logs a failure that is not an Error, too', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    const t = world();
+    t.update.mockRejectedValueOnce('offline');
+    startImport(t.hooks, t.globals);
+    await vi.waitFor(() => {
+      expect(warn).toHaveBeenCalledWith('Import failed: offline');
+    });
   });
 });
 

@@ -87,5 +87,6 @@ describe('an untrusted file', () => {
     expect(build?.attributes).toBeNull();
     expect(build?.keyAttribute).toBeNull();
     expect(describeImport(build!)).toBe('Level 1');
+    expect(readImportBuild(storedImport(build!))).toEqual(build);
   });
 });
