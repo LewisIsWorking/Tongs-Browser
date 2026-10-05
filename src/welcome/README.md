@@ -19,6 +19,10 @@ proves who asked. The answer travels back on the same User.
 | `WelcomeWindow.ts`      | The welcome window: ask, waiting, and turned down                             |
 | `buildGuide.ts`         | The checklist, read from the sheet                                            |
 | `GuidePanel.ts`         | The checklist panel                                                           |
+| `importBuild.ts`        | Reading a ComeOnOverUno "Foundry VTT" export, as untrusted input              |
+| `ImportPicker.ts`       | The welcome's optional file picker for that export                            |
+| `applyImport.ts`        | Filling the sheet from PF2e's compendiums, by the names the export gives      |
+| `startImport.ts`        | Running it once, in the owning player's browser                               |
 
 ## Decided with Lewis, 2026-10-05
 
@@ -41,5 +45,16 @@ proves who asked. The answer travels back on the same User.
   sheet must not stop a new player being welcomed.
 - ⛔ **PF2e's `ancestry`, `heritage`, `background` and `class` are prototype getters.** Spreading the actor
   drops them, so the checklist's view is built field by field.
+- ⭐ **An import is applied in the PLAYER's browser, not the GM's** (added 2026-10-05). The GM's browser only
+  makes the sheet and carries the import onto it as a flag. Measured live: PF2e's Dwarf asks "Clan Weapon"
+  and the Fighter asks for a skill on the screen of whoever adds them, so the player makes their own choices.
+- ⛔ **Nothing from the file becomes item data.** COO's export gives only a name and a type per item, so each
+  is PF2e's own compendium document found by that name. Lore is the exception (no compendium), made from a
+  name and a rank. Unknown types are dropped, text is cut, numbers clamped, and the stored copy re-read.
+- ⚠️ **Final modifiers, not boosts.** The export has no boost choices, so the sheet is set to PF2e's manual
+  attributes with the export's modifiers. Spells are not added: a spell needs a spellcasting entry the
+  export does not describe, so the player is told how many to add.
+- ⚠️ **A reload resumes it.** Items already on the sheet are skipped (and still counted as imported), and
+  `importDone` is set only at the end. Measured live: a run cut short mid-prompt finished on the next visit.
 - ⚠️ **Inert until a GM gives a party a campaign code.** The GM side shares the campaign parties in a
   hidden world setting, because a player cannot see a party they are not in.

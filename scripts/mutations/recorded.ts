@@ -7,6 +7,7 @@ import { DECK_MUTATIONS } from './deck.ts';
 import { INTERACTION_MUTATIONS } from './interaction.ts';
 import { SWAP_MUTATIONS } from './swaps.ts';
 import { WELCOME_MUTATIONS } from './welcome.ts';
+import { WELCOME_IMPORT_MUTATIONS } from './welcomeImport.ts';
 import type { RecordedMutation } from './shape.ts';
 
 export type { RecordedMutation } from './shape.ts';
@@ -27,4 +28,5 @@ export const RECORDED: readonly RecordedMutation[] = [
   ...ENCOUNTER_MUTATIONS,
   ...SWAP_MUTATIONS,
   ...WELCOME_MUTATIONS,
+  ...WELCOME_IMPORT_MUTATIONS,
 ];

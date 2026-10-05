@@ -2,6 +2,7 @@ import { MODULE_ID } from '../constants.js';
 import { readGmPresence } from '../foundry/DesignatedGm.js';
 import { guideSteps } from './buildGuide.js';
 import { GuidePanel } from './GuidePanel.js';
+import { storedImport } from './importBuild.js';
 import {
   MADE_FOR_FLAG,
   REQUEST_FLAG,
@@ -55,7 +56,7 @@ export function startWelcome(
     );
 
   const welcome = new WelcomeWindow(doc, {
-    create: (name, partyUuid) => {
+    create: (name, partyUuid, importBuild) => {
       const id = globals.crypto?.randomUUID?.() ?? `${String(Date.now())}-${String(Math.random())}`;
       void me()
         ?.unsetFlag?.(MODULE_ID, RESULT_FLAG)
@@ -65,6 +66,7 @@ export function startWelcome(
             name: cleanName(name),
             partyUuid,
             at: Date.now(),
+            importBuild: importBuild === null ? null : storedImport(importBuild),
           })
         );
     },

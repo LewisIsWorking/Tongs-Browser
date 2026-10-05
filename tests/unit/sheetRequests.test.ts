@@ -16,7 +16,7 @@ function world(overrides: Partial<SheetRequestPorts> = {}) {
     {
       userId: 'u1',
       userName: 'Melody',
-      request: { id: 'r1', name: 'Theo', partyUuid: null, at: 1 },
+      request: { id: 'r1', name: 'Theo', partyUuid: null, at: 1, importBuild: null },
     },
   ];
   const ports: SheetRequestPorts = {

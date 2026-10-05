@@ -83,7 +83,11 @@ describe('the GM side when things fail', () => {
   it('answers with an empty uuid when Foundry made a sheet but gave no uuid', async () => {
     const answers: SheetResult[] = [];
     let pending = [
-      { userId: 'u1', userName: 'M', request: { id: 'r1', name: 'T', partyUuid: null, at: 1 } },
+      {
+        userId: 'u1',
+        userName: 'M',
+        request: { id: 'r1', name: 'T', partyUuid: null, at: 1, importBuild: null },
+      },
     ];
     await new SheetRequests({
       isDesignatedGm: () => true,

@@ -123,6 +123,12 @@ waits, and is made the moment one joins.
 The new sheet then opens beside a checklist of what PF2e needs at level 1: ancestry, heritage,
 background, class, attribute boosts and equipment, each ticked as it is filled in.
 
+A player can also start from a character made in ComeOnOverUno's PF2e Character Creator or Viewer:
+export it as "Foundry VTT" and choose the file on the welcome. Once the sheet is made, their own browser
+fills it from PF2e's compendiums (ancestry, heritage, background, class, feats and lore) and sets the
+attribute modifiers, asking them any choices PF2e needs. Anything it cannot find, and any spells, it
+lists for them to add by hand.
+
 It does nothing until a party has a campaign code. The world setting **Welcome new players** (on by
 default) switches it off.
 

@@ -7,6 +7,7 @@ import type { FoundryGame } from '../foundry/PartyAccess.js';
 import { logger } from '../core/Logger.js';
 import { campaignParties } from './campaignParty.js';
 import type { CampaignParty } from './campaignParty.js';
+import { IMPORT_FLAG, storedImport } from './importBuild.js';
 import { MADE_FOR_FLAG } from './sheetRequest.js';
 import { SheetRequests } from './SheetRequests.js';
 import { actorMadeFor, answerRequest, pendingRequests } from './welcomeDocuments.js';
@@ -87,7 +88,14 @@ export function startSheetRequests(
         name: sheet.name,
         ownerId: sheet.ownerId,
         partyUuid: sheet.partyUuid,
-        flags: { [MODULE_ID]: { [MADE_FOR_FLAG]: sheet.requestId } },
+        flags: {
+          [MODULE_ID]: {
+            [MADE_FOR_FLAG]: sheet.requestId,
+            ...(sheet.importBuild === null
+              ? {}
+              : { [IMPORT_FLAG]: storedImport(sheet.importBuild) }),
+          },
+        },
       }),
     answer: async (userId, result) => answerRequest(game(), userId, result),
     tellGm: (text) => globals.ui?.notifications?.info?.(text),
