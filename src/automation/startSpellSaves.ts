@@ -154,7 +154,7 @@ export function startSpellSaves(
     (message: Creating, _data: unknown, _options: unknown, userId: string) => {
       if (on()) {
         recordCastTargets(message, userId, globals);
-        tagSaveWithCast(message, userId, globals, (token) => saves.castRollingFor(token));
+        tagSaveWithCast(message, userId, globals, saves.castRollingFor);
       }
     }
   );

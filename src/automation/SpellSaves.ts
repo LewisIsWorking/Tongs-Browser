@@ -2,6 +2,8 @@ import type { SaveFacts } from '../deck/deckFacts.js';
 import type { SaveOutcome } from '../deck/rollSaveThroughSystem.js';
 import { CLAIMED_FLAG, DECLINED_FLAG, PENDING_FLAG } from './AutoApply.js';
 import type { AutoApplyPorts } from './AutoApply.js';
+import { recastRun } from './recasts.js';
+import { readSpellDamage } from './spellDamageFacts.js';
 import { readRecordedTargets, readSpellCast } from './spellFacts.js';
 import type { CastMessage } from './spellFacts.js';
 import { checkPlayerTarget, checkTarget } from './targetCheck.js';
@@ -47,6 +49,8 @@ export type SpellSavePorts = Pick<
 };
 
 const UNCONFIRMED = 'saves were started earlier and never confirmed; check before rolling them';
+const RECAST =
+  'the same spell at the same targets was posted again moments after an earlier card; that card holds the save';
 
 export class SpellSaves {
   private readonly ports: SpellSavePorts;
@@ -64,9 +68,8 @@ export class SpellSaves {
   }
 
   /** The cast whose save this browser is rolling for that token right now, for the save card's flag. */
-  public castRollingFor(tokenUuid: string): string | null {
-    return this.rolling?.tokens.includes(tokenUuid) === true ? this.rolling.castId : null;
-  }
+  public readonly castRollingFor = (tokenUuid: string): string | null =>
+    this.rolling?.tokens.includes(tokenUuid) === true ? this.rolling.castId : null;
 
   public async onMessageCreated(message: CastMessage): Promise<void> {
     if (this.ports.role() === 'act') {
@@ -118,6 +121,10 @@ export class SpellSaves {
       await this.decline(message, UNCONFIRMED);
       return;
     }
+    if (this.isRecast(message)) {
+      await this.decline(message, RECAST);
+      return;
+    }
 
     const recorded = readRecordedTargets(message, this.ports.moduleId);
     const verdicts = recorded.map((token) => ({
@@ -153,6 +160,21 @@ export class SpellSaves {
       await this.ports.unsetFlag(message.id, CLAIMED_FLAG);
     }
     await this.decline(message, outcome.reason);
+  }
+
+  /** 🔁 A re-click of an earlier cast (`recasts.ts`): only the first card of the run is rolled. */
+  private isRecast(message: CastMessage): boolean {
+    const systemId = this.ports.systemId();
+    const recent = this.ports.recentMessages();
+    const casts = [...recent, message].flatMap((m) => {
+      const cast = readSpellCast(m, systemId);
+      return cast === null
+        ? []
+        : [{ ...cast, targets: readRecordedTargets(m, this.ports.moduleId) }];
+    });
+    const self = casts.find((each) => each.id === message.id);
+    const damages = recent.flatMap((m) => readSpellDamage(m, systemId) ?? []);
+    return self !== undefined && recastRun(self, casts, damages)[0]?.id !== message.id;
   }
 
   private async decline(message: CastMessage, reason: string): Promise<void> {

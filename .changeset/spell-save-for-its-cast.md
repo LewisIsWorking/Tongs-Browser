@@ -2,4 +2,4 @@
 'tongs-browser': patch
 ---
 
-Automatic spell saves now belong to the cast they answer. When a player cast the same spell several times while no GM was connected, every save landed after the last cast, and the damage could be applied by an earlier cast's save (C04: Kreski took 1 from a Daze his critical success should have shrugged off). Queued saves are also rolled one cast at a time.
+Automatic spell saves roll once per cast. A spell posted again at the same targets moments later (a re-click) no longer gets saves of its own: only the first card is rolled, the others say why, and the damage uses that first save. Separate casts queued while no GM was connected are each paired with their own save instead of whichever landed first. Found on C04, where one Daze at Kreski rolled three Will saves.

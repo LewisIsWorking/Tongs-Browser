@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { PENDING_FLAG } from '../../src/automation/AutoApply.js';
+import { DECLINED_FLAG, PENDING_FLAG } from '../../src/automation/AutoApply.js';
+import { RECAST_WINDOW_MS, isRecast } from '../../src/automation/recasts.js';
 import type { SaveResultFacts, SpellDamageFacts } from '../../src/automation/spellDamageFacts.js';
 import { readSaveResult } from '../../src/automation/spellDamageFacts.js';
 import { tagSaveWithCast } from '../../src/automation/startSpellSaves.js';
@@ -44,21 +45,48 @@ const save = (castId: string, outcome: string, timestamp: number): SaveResultFac
   outcome,
   castId,
 });
-const casts = [cast('c1', 1_000), cast('c2', 1_500), cast('c3', 1_800)];
+/* The C04 cards: three posts within twenty seconds, then the damage. */
+const casts = [cast('c1', 1_000), cast('c2', 13_000), cast('c3', 21_000)];
+const later = { ...damage, timestamp: 23_000 };
+/* Three real casts, each a turn apart, queued until a GM connected. */
+const TURN = RECAST_WINDOW_MS * 30;
+const spaced = [cast('c1', 1_000), cast('c2', 1_000 + TURN), cast('c3', 1_000 + 2 * TURN)];
+const afterSpaced = { ...damage, timestamp: 2_000 + 2 * TURN };
 
 describe('a save names its cast', () => {
-  it("pairs the damage with ITS cast's save, never an earlier cast's save that landed later", () => {
-    const early = [save('c1', 'success', 90_000), save('c2', 'success', 90_001)];
-    expect(validateSpellDamage(damage, { casts, damages: [], saves: early }, RULE).kind).toBe(
-      'wait'
+  it('reads three posts in twenty seconds as ONE cast, whose first save takes the damage', () => {
+    const verdict = validateSpellDamage(
+      later,
+      { casts, damages: [], saves: [save('c1', 'success', 90_000)] },
+      RULE
     );
+    expect(verdict).toEqual({
+      kind: 'valid',
+      targets: [X1],
+      groups: [{ optionId: 'half', targetTokenUuids: [X1] }],
+    });
+  });
 
-    const all = [...early, save('c3', 'criticalSuccess', 90_002)];
-    expect(validateSpellDamage(damage, { casts, damages: [], saves: all }, RULE)).toEqual({
+  it("pairs the damage with ITS cast's save, never an earlier cast's save that landed later", () => {
+    const early = [save('c1', 'success', 9e9), save('c2', 'success', 9e9 + 1)];
+    const history = { casts: spaced, damages: [], saves: early };
+    expect(validateSpellDamage(afterSpaced, history, RULE).kind).toBe('wait');
+
+    const all = [...early, save('c3', 'criticalSuccess', 9e9 + 2)];
+    expect(validateSpellDamage(afterSpaced, { ...history, saves: all }, RULE)).toEqual({
       kind: 'valid',
       targets: [X1],
       groups: [],
     });
+  });
+
+  it('is a recast only for the same spell at the same targets, quickly, with no damage between', () => {
+    const [c1, c2] = casts as [CastWithTargets, CastWithTargets];
+    expect(isRecast(c1, c2, [])).toBe(true);
+    expect(isRecast(c1, { ...c2, targets: [X1, 'Scene.S.Token.Other'] }, [])).toBe(false);
+    expect(isRecast(c1, { ...c2, timestamp: c1.timestamp + RECAST_WINDOW_MS + 1 }, [])).toBe(false);
+    expect(isRecast(c1, { ...c2, castRank: 3 }, [])).toBe(false);
+    expect(isRecast(c1, c2, [{ ...damage, timestamp: 5_000 }])).toBe(false);
   });
 
   it('reads the cast from the save card, and none from a save Tongs did not roll', () => {
@@ -99,7 +127,11 @@ describe('a save names its cast', () => {
 
 describe('rolling queued casts', () => {
   it('rolls one cast at a time even when catch-ups overlap, naming the cast being rolled', async () => {
-    const cards = ['c1', 'c2', 'c3'].map((id) => ({ ...castCard([X1]), id }));
+    const cards = ['c1', 'c2', 'c3'].map((id, turn) => ({
+      ...castCard([X1]),
+      id,
+      timestamp: 1 + turn * TURN,
+    }));
     const seen: string[] = [];
     let inFlight = 0;
     const { saves, flags } = harness({
@@ -122,5 +154,28 @@ describe('rolling queued casts', () => {
       'c3 in flight 1 names c3',
     ]);
     expect(saves.castRollingFor(X1)).toBeNull();
+  });
+
+  it('rolls only the first of three posts in twenty seconds, and notes why on the others', async () => {
+    const cards = [1_000, 13_000, 21_000].map((timestamp, i) => ({
+      ...castCard([X1]),
+      id: `c${String(i + 1)}`,
+      timestamp,
+    }));
+    const rolled: string[] = [];
+    const { saves, flags } = harness({
+      recentMessages: () => cards,
+      rollSave: (id) => {
+        rolled.push(id);
+        return Promise.resolve({ kind: 'rolled' });
+      },
+    });
+    for (const card of cards) flags.set(`${card.id}.${PENDING_FLAG}`, true);
+
+    await saves.catchUp();
+
+    expect(rolled).toEqual(['c1']);
+    expect(String(flags.get(`c3.${DECLINED_FLAG}`))).toContain('posted again moments after');
+    expect(flags.get(`c2.${PENDING_FLAG}`)).toBeUndefined();
   });
 });
