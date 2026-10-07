@@ -33,14 +33,14 @@ const vex: PublicCause = {
 
 describe('what counts as a hit on a player character', () => {
   it('is a loss of HP on a character fighting in an encounter, with its picture', () => {
-    expect(readPlayerHit(arktos, 43)).toEqual({
+    expect(readPlayerHit(arktos, { hp: 43, sp: 0 })).toEqual({
       name: 'Arktos',
       damage: 12,
       hp: 31,
       maxHp: 43,
       characterImage: 'https://foundry.example/arktos.webp',
     });
-    expect(readPlayerHit({ ...arktos, hp: -5, image: null }, 10)).toEqual({
+    expect(readPlayerHit({ ...arktos, hp: -5, image: null }, { hp: 10, sp: 0 })).toEqual({
       name: 'Arktos',
       damage: 10,
       hp: 0,
@@ -50,12 +50,12 @@ describe('what counts as a hit on a player character', () => {
 
   /* ⛔ Unowned since the move to the self-hosted Foundry: a character is a character, owned or not. */
   it('is none of an enemy, a hidden or out-of-combat token, healing, or an HP nobody remembered', () => {
-    expect(readPlayerHit({ ...arktos, character: false }, 43)).toBeNull();
-    expect(readPlayerHit({ ...arktos, inCombat: false }, 43)).toBeNull();
-    expect(readPlayerHit({ ...arktos, hidden: true }, 43)).toBeNull();
-    expect(readPlayerHit({ ...arktos, maxHp: 0 }, 43)).toBeNull();
-    expect(readPlayerHit(arktos, 31)).toBeNull();
-    expect(readPlayerHit(arktos, 20)).toBeNull();
+    expect(readPlayerHit({ ...arktos, character: false }, { hp: 43, sp: 0 })).toBeNull();
+    expect(readPlayerHit({ ...arktos, inCombat: false }, { hp: 43, sp: 0 })).toBeNull();
+    expect(readPlayerHit({ ...arktos, hidden: true }, { hp: 43, sp: 0 })).toBeNull();
+    expect(readPlayerHit({ ...arktos, maxHp: 0 }, { hp: 43, sp: 0 })).toBeNull();
+    expect(readPlayerHit(arktos, { hp: 31, sp: 0 })).toBeNull();
+    expect(readPlayerHit(arktos, { hp: 20, sp: 0 })).toBeNull();
     expect(readPlayerHit(arktos, undefined)).toBeNull();
   });
 
@@ -67,8 +67,8 @@ describe('what counts as a hit on a player character', () => {
   });
 });
 
-const reporter = (overrides: Partial<PlayerHitPorts> = {}) => {
-  let view: TokenView = { ...arktos, hp: 43 };
+const reporter = (overrides: Partial<PlayerHitPorts> = {}, start: Partial<TokenView> = {}) => {
+  let view: TokenView = { ...arktos, hp: 43, ...start };
   const posts: [string, PlayerHitPost][] = [];
   const warn = vi.fn();
   const ports: PlayerHitPorts = {
@@ -90,7 +90,13 @@ const reporter = (overrides: Partial<PlayerHitPorts> = {}) => {
     view = { ...view, hp };
     await hits.onActorUpdated({}, { system: { attributes: { hp: { value: hp } } } });
   };
-  return { hits, posts, warn, hurt };
+  /* ⚠️ Foundry's update carries only what changed: a hit soaked by Stamina carries only `hp.sp.value`. */
+  const tire = async (sp: number, hp?: number) => {
+    view = { ...view, sp, ...(hp === undefined ? {} : { hp }) };
+    const pool = hp === undefined ? { sp: { value: sp } } : { value: hp, sp: { value: sp } };
+    await hits.onActorUpdated({}, { system: { attributes: { hp: pool } } });
+  };
+  return { hits, posts, warn, hurt, tire };
 };
 
 describe('the reporter', () => {
@@ -149,5 +155,50 @@ describe('the reporter', () => {
     await hits.onActorUpdated({}, { name: 'Renamed' });
     await hits.onActorUpdated({}, { system: { attributes: { hp: { value: 1 } } } });
     expect(posts).toEqual([]);
+  });
+});
+
+/**
+ * ⛔ REGRESSION, 2026-10-07, Kibwe: the world plays PF2e's Stamina variant, and six of seven hits in one enemy
+ * phase changed only `hp.sp.value`. The reporter looked at `hp.value` alone, so only Tarsus's last hit, the one
+ * that ran out of Stamina, reached the combat topic.
+ */
+describe('stamina hits (Kibwe lost six of seven hits to Stamina Points)', () => {
+  const lorn = { hp: 52, maxHp: 52, sp: 14, maxSp: 14 };
+
+  it('posts a hit that only spends Stamina Points, with the SP left', async () => {
+    const { hits, posts, tire } = reporter({}, lorn);
+    hits.seed();
+
+    await tire(7);
+
+    expect(posts).toEqual([
+      ['C04', expect.objectContaining({ damage: 7, hp: 52, maxHp: 52, sp: 7, maxSp: 14 })],
+    ]);
+  });
+
+  it('counts a hit that runs out of Stamina and carries into HP as one hit', async () => {
+    const { hits, posts, tire } = reporter({}, lorn);
+    hits.seed();
+
+    await tire(0, 46);
+
+    expect(posts).toEqual([['C04', expect.objectContaining({ damage: 20, hp: 46, sp: 0 })]]);
+  });
+
+  it('posts nothing when Stamina is recovered', async () => {
+    const { hits, posts, tire } = reporter({}, { ...lorn, sp: 3 });
+    hits.seed();
+
+    await tire(14);
+
+    expect(posts).toEqual([]);
+  });
+
+  it('leaves a character without a Stamina pool as before, with no SP in the post', () => {
+    expect(readPlayerHit(arktos, { hp: 43, sp: 0 })).not.toHaveProperty('sp');
+    expect(readPlayerHit({ ...arktos, sp: 2, maxSp: 0 }, { hp: 43, sp: 0 })).not.toHaveProperty(
+      'maxSp'
+    );
   });
 });
