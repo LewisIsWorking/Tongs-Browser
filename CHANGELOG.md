@@ -1,5 +1,13 @@
 # tongs-browser
 
+## 0.49.2
+
+### Patch Changes
+
+- [#428](https://github.com/LewisIsWorking/Tongs-Browser/pull/428) [`88c67e7`](https://github.com/LewisIsWorking/Tongs-Browser/commit/88c67e7befe3983560fcdb9bd1fa6a2efbf2bbf3) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Health band DMs to the GM now show the HP before the hit ("3 → 2/16 HP"), so you can tell at a glance whether the band should have changed and reached the combat topic.
+
+- [#432](https://github.com/LewisIsWorking/Tongs-Browser/pull/432) [`dfdd683`](https://github.com/LewisIsWorking/Tongs-Browser/commit/dfdd68303ab053e86da290c5e32da67f2b8c7356) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Automatic spell saves roll once per cast. A spell posted again at the same targets moments later (a re-click) no longer gets saves of its own: only the first card is rolled, the others say why, and the damage uses that first save. Separate casts queued while no GM was connected are each paired with their own save instead of whichever landed first. Found on C04, where one Daze at Kreski rolled three Will saves.
+
 ## 0.49.1
 
 ### Patch Changes
