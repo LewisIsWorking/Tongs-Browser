@@ -32,6 +32,8 @@ interface HooksLike {
 /** A message being created, which its author's browser may still add flags to. */
 interface Creating extends CastMessage {
   updateSource(changes: object): unknown;
+  /** Foundry 14's message modes; `applyRollMode` is the deprecated name it replaced. */
+  applyMode?(mode: string): unknown;
 }
 
 export interface SpellGlobals extends AutoGlobals {
@@ -101,6 +103,8 @@ export function tagSaveWithCast(
   const castId = castFor(token);
   if (castId !== null) {
     message.updateSource({ flags: { [MODULE_ID]: { [SAVE_FOR_CAST_FLAG]: castId } } });
+    /* ⛔ GM-ONLY (Lewis, 2026-10-07): the players see the degrees on the saves card, never the roll. */
+    message.applyMode?.('blind');
   }
 }
 

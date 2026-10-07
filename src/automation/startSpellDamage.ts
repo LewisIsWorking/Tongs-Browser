@@ -70,7 +70,7 @@ export function registerSpellDamageSetting(settings: SettingsLike): void {
 export function buildSpellDamagePorts(
   globals: AutoGlobals,
   deck: RollDeck,
-  sides: Pick<SpellDamagePorts, 'playerSpellsOn' | 'enemySpellsOn'> = {
+  sides: Pick<SpellDamagePorts, 'playerSpellsOn' | 'enemySpellsOn' | 'onApplied'> = {
     playerSpellsOn: () => false,
     enemySpellsOn: () => false,
   }
@@ -117,13 +117,15 @@ export function startSpellDamage(
   deck: RollDeck,
   hooks: HooksLike,
   settings: SettingsLike,
-  globals: AutoGlobals
+  globals: AutoGlobals,
+  onApplied?: SpellDamagePorts['onApplied']
 ): SpellDamage {
   const on = (key: string) => settings.get(MODULE_ID, key) === true;
   const damage = new SpellDamage(
     buildSpellDamagePorts(globals, deck, {
       playerSpellsOn: () => on(SPELL_DAMAGE_SETTING),
       enemySpellsOn: () => on(ENEMY_SPELLS_SETTING),
+      ...(onApplied === undefined ? {} : { onApplied }),
     })
   );
   const run = (work: () => Promise<void>): void => {

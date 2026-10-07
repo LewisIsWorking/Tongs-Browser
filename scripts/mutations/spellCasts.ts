@@ -20,4 +20,18 @@ export const SPELL_CAST_MUTATIONS: readonly RecordedMutation[] = [
     defect: 'a cast card posted again moments later rolls the same save a second time',
     tests: ['tests/unit/spellSaveForCast.test.ts'],
   },
+  {
+    file: 'src/automation/SaveSummary.ts',
+    find: '    this.queue = turn.catch(() => undefined);',
+    replace: '    this.queue = Promise.resolve();',
+    defect: 'a spell at two targets whose saves land together posts two saves cards',
+    tests: ['tests/unit/saveSummary.test.ts'],
+  },
+  {
+    file: 'src/automation/startSpellSaves.ts',
+    find: "    message.applyMode?.('blind');",
+    replace: '',
+    defect: 'the players see the save Tongs rolled, number and all, beside the card that hides it',
+    tests: ['tests/unit/spellSaveForCast.test.ts'],
+  },
 ];
