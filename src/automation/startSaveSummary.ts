@@ -19,7 +19,7 @@ import { SPELL_SAVES_SETTING } from './startSpellSaves.js';
  * who rolled the saves, and the pop-up belongs to whoever cast the spell.
  */
 export interface SummaryGlobals extends AutoGlobals, BandGlobals {
-  readonly game?: AutoGlobals['game'] & BandGlobals['game'];
+  readonly game?: NonNullable<AutoGlobals['game']> & NonNullable<BandGlobals['game']>;
   readonly ChatMessage?: { create?(data: object): Promise<unknown> };
   readonly ui?: { readonly notifications?: { info?(message: string, options?: object): unknown } };
 }
