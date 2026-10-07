@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { DECLINED_FLAG, PENDING_FLAG } from '../../src/automation/AutoApply.js';
-import { RECAST_WINDOW_MS, isRecast } from '../../src/automation/recasts.js';
+import { RECAST_WINDOW_MS, isRecast, recastRun } from '../../src/automation/recasts.js';
 import type { SaveResultFacts, SpellDamageFacts } from '../../src/automation/spellDamageFacts.js';
 import { readSaveResult } from '../../src/automation/spellDamageFacts.js';
 import { tagSaveWithCast } from '../../src/automation/startSpellSaves.js';
@@ -87,6 +87,11 @@ describe('a save names its cast', () => {
     expect(isRecast(c1, { ...c2, timestamp: c1.timestamp + RECAST_WINDOW_MS + 1 }, [])).toBe(false);
     expect(isRecast(c1, { ...c2, castRank: 3 }, [])).toBe(false);
     expect(isRecast(c1, c2, [{ ...damage, timestamp: 5_000 }])).toBe(false);
+  });
+
+  it('ends a run of re-clicks posted in the same millisecond instead of looping', () => {
+    const [c1, c2] = [cast('c1', 1_000), cast('c2', 1_000)];
+    expect(recastRun(c2, [c1, c2], []).map((each) => each.id)).toEqual(['c1', 'c2']);
   });
 
   it('reads the cast from the save card, and none from a save Tongs did not roll', () => {

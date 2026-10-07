@@ -5,7 +5,7 @@ import type { AutoApplyPorts } from './AutoApply.js';
 import { recastRun } from './recasts.js';
 import { readSpellDamage } from './spellDamageFacts.js';
 import { readRecordedTargets, readSpellCast } from './spellFacts.js';
-import type { CastMessage } from './spellFacts.js';
+import type { CastMessage, SpellCastFacts } from './spellFacts.js';
 import { checkPlayerTarget, checkTarget } from './targetCheck.js';
 
 /**
@@ -121,7 +121,7 @@ export class SpellSaves {
       await this.decline(message, UNCONFIRMED);
       return;
     }
-    if (this.isRecast(message)) {
+    if (this.isRecast(message, cast)) {
       await this.decline(message, RECAST);
       return;
     }
@@ -163,18 +163,18 @@ export class SpellSaves {
   }
 
   /** 🔁 A re-click of an earlier cast (`recasts.ts`): only the first card of the run is rolled. */
-  private isRecast(message: CastMessage): boolean {
+  private isRecast(message: CastMessage, cast: SpellCastFacts): boolean {
     const systemId = this.ports.systemId();
-    const recent = this.ports.recentMessages();
-    const casts = [...recent, message].flatMap((m) => {
-      const cast = readSpellCast(m, systemId);
-      return cast === null
+    const recent = this.ports.recentMessages().filter((m) => m.id !== message.id);
+    const self = { ...cast, targets: readRecordedTargets(message, this.ports.moduleId) };
+    const casts = recent.flatMap((m) => {
+      const each = readSpellCast(m, systemId);
+      return each === null
         ? []
-        : [{ ...cast, targets: readRecordedTargets(m, this.ports.moduleId) }];
+        : [{ ...each, targets: readRecordedTargets(m, this.ports.moduleId) }];
     });
-    const self = casts.find((each) => each.id === message.id);
     const damages = recent.flatMap((m) => readSpellDamage(m, systemId) ?? []);
-    return self !== undefined && recastRun(self, casts, damages)[0]?.id !== message.id;
+    return recastRun(self, [...casts, self], damages)[0] !== self;
   }
 
   private async decline(message: CastMessage, reason: string): Promise<void> {

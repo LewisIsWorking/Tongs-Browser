@@ -116,7 +116,7 @@ export function validateSpellDamage(
      every save rolled after the last of them, so by time alone all of them looked like the last cast's.
      🔁 A cast posted again moments later is the same cast (`recasts.ts`): its save is the run's first. */
   const run = recastRun(cast, casts, history.damages);
-  const first = run[0] ?? cast;
+  const first = run[0];
   const next = Math.min(
     ...casts.filter((each) => each.timestamp > cast.timestamp).map((each) => each.timestamp),
     Infinity

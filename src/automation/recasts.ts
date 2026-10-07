@@ -47,8 +47,8 @@ export function recastRun(
   cast: CastWithTargets,
   casts: readonly CastWithTargets[],
   damages: readonly SpellDamageFacts[]
-): CastWithTargets[] {
-  const run = [cast];
+): readonly [CastWithTargets, ...CastWithTargets[]] {
+  const run: [CastWithTargets, ...CastWithTargets[]] = [cast];
   let first = cast;
   for (;;) {
     const earliest = first;
