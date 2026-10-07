@@ -130,10 +130,24 @@ export const AUTOMATION_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/automation/validateSpellDamage.ts',
-    find: '        each.timestamp < next',
-    replace: '        each.timestamp > 0',
+    find: 'each.timestamp >= first.timestamp && each.timestamp < next',
+    replace: 'each.timestamp >= first.timestamp && each.timestamp > 0',
     defect: "a save rolled against a later cast of the same spell decides an earlier cast's damage",
     tests: ['tests/unit/validateSpellDamage.test.ts'],
+  },
+  {
+    file: 'src/automation/validateSpellDamage.ts',
+    find: '          : run.some((member) => member.id === each.castId))',
+    replace: '          : true)',
+    defect: "a save Tongs rolled for an earlier cast decides a later cast's damage",
+    tests: ['tests/unit/spellSaveForCast.test.ts'],
+  },
+  {
+    file: 'src/automation/SpellSaves.ts',
+    find: '    return recastRun(self, [...casts, self], damages)[0] !== self;',
+    replace: '    return false;',
+    defect: 'a cast card posted again moments later rolls the same save a second time',
+    tests: ['tests/unit/spellSaveForCast.test.ts'],
   },
   {
     file: 'src/deck/applyThroughSystem.ts',
