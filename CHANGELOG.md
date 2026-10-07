@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.50.0
+
+### Minor Changes
+
+- [#433](https://github.com/LewisIsWorking/Tongs-Browser/pull/433) [`614d3f8`](https://github.com/LewisIsWorking/Tongs-Browser/commit/614d3f88ed0c7b15c9f36068724910e8564d990f) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Spell saves Tongs rolls are now GM-only (blind), and a saves card goes to the chat instead: each target's degree of success in words (critical success, success, failure, critical failure), never the number. When the spell's damage lands, the same card adds what each target took and its health band, as posted to Telegram, with names hidden as the bands hide them. Whoever cast the spell also gets a pop-up with the same summary.
+
 ## 0.49.2
 
 ### Patch Changes
