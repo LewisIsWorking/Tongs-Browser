@@ -96,6 +96,27 @@ describe('the saves card', () => {
     }
   });
 
+  it('posts for a cast with no author, and carries on after a card Foundry refused', async () => {
+    let refuse = true;
+    const { posted, land } = world({
+      castMessage: () => cast,
+      post: (content, flags) => {
+        if (refuse) {
+          refuse = false;
+          return Promise.reject(new Error('no chat'));
+        }
+        posted.push({ content, flags });
+        return Promise.resolve();
+      },
+    });
+    await land(save('s1', X1, 'success'));
+    await expect(land(save('s2', X2, 'success'))).rejects.toThrow('no chat');
+    await land(save('s2', X2, 'failure'));
+
+    expect(posted).toHaveLength(1);
+    expect(posted[0]?.flags.casterUserId).toBeNull();
+  });
+
   it('posts nothing for a save Tongs did not roll, a browser that is not acting, or a lost cast', async () => {
     const untagged = world();
     await untagged.land(save('s1', X1, 'success', null));

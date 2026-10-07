@@ -50,6 +50,10 @@ describe('who the card names, and whose band it shows', () => {
     expect(
       summaryTarget({ ...kreski, inCombat: false }, { ...RULES, nameVisibility: false })
     ).toEqual({ name: 'Kreski', band: null });
+    /* Out of combat there is no band, but the name still follows PF2e's name visibility. */
+    const unnamed = { ...kreski, inCombat: false, playersCanSeeName: false };
+    expect(summaryTarget(unnamed, RULES).name).toBe('The creature');
+    expect(summaryTarget(unnamed, { ...RULES, nameVisibility: false }).name).toBe('Kreski');
   });
 });
 

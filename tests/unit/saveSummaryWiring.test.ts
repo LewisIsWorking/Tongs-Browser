@@ -115,6 +115,12 @@ describe("the caster's pop-up", () => {
 
     expect(info).toHaveBeenCalledTimes(1);
     expect(info).toHaveBeenCalledWith('Daze: Kreski', { permanent: true });
+
+    /* A browser with no user yet (still loading) pops up nothing. */
+    const { globals: loading, info: quiet } = globalsWith();
+    Object.defineProperty(loading.game, 'user', { value: undefined });
+    start(loading, false)(summaryCard('player'));
+    expect(quiet).not.toHaveBeenCalled();
   });
 
   it('logs a failed card instead of throwing into Foundry', async () => {
