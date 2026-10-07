@@ -33,14 +33,14 @@ const vex: PublicCause = {
 
 describe('what counts as a hit on a player character', () => {
   it('is a loss of HP on a character fighting in an encounter, with its picture', () => {
-    expect(readPlayerHit(arktos, 43)).toEqual({
+    expect(readPlayerHit(arktos, { hp: 43, sp: 0 })).toEqual({
       name: 'Arktos',
       damage: 12,
       hp: 31,
       maxHp: 43,
       characterImage: 'https://foundry.example/arktos.webp',
     });
-    expect(readPlayerHit({ ...arktos, hp: -5, image: null }, 10)).toEqual({
+    expect(readPlayerHit({ ...arktos, hp: -5, image: null }, { hp: 10, sp: 0 })).toEqual({
       name: 'Arktos',
       damage: 10,
       hp: 0,
@@ -50,12 +50,12 @@ describe('what counts as a hit on a player character', () => {
 
   /* ⛔ Unowned since the move to the self-hosted Foundry: a character is a character, owned or not. */
   it('is none of an enemy, a hidden or out-of-combat token, healing, or an HP nobody remembered', () => {
-    expect(readPlayerHit({ ...arktos, character: false }, 43)).toBeNull();
-    expect(readPlayerHit({ ...arktos, inCombat: false }, 43)).toBeNull();
-    expect(readPlayerHit({ ...arktos, hidden: true }, 43)).toBeNull();
-    expect(readPlayerHit({ ...arktos, maxHp: 0 }, 43)).toBeNull();
-    expect(readPlayerHit(arktos, 31)).toBeNull();
-    expect(readPlayerHit(arktos, 20)).toBeNull();
+    expect(readPlayerHit({ ...arktos, character: false }, { hp: 43, sp: 0 })).toBeNull();
+    expect(readPlayerHit({ ...arktos, inCombat: false }, { hp: 43, sp: 0 })).toBeNull();
+    expect(readPlayerHit({ ...arktos, hidden: true }, { hp: 43, sp: 0 })).toBeNull();
+    expect(readPlayerHit({ ...arktos, maxHp: 0 }, { hp: 43, sp: 0 })).toBeNull();
+    expect(readPlayerHit(arktos, { hp: 31, sp: 0 })).toBeNull();
+    expect(readPlayerHit(arktos, { hp: 20, sp: 0 })).toBeNull();
     expect(readPlayerHit(arktos, undefined)).toBeNull();
   });
 

@@ -29,6 +29,12 @@ export interface TokenView {
   readonly image: string | null;
   /** A player character (`type: "character"`), owned or not: the player-hit reporter's subjects. */
   readonly character?: boolean;
+  /**
+   * PF2e's Stamina variant (measured 2026-10-07, Kibwe): a hit spends Stamina Points before HP, and Foundry's
+   * update then carries only `hp.sp.value`. Present only when the actor has a Stamina pool.
+   */
+  readonly sp?: number;
+  readonly maxSp?: number;
 }
 
 export interface NameRules {

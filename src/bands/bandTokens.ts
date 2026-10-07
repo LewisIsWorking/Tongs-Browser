@@ -37,7 +37,14 @@ export interface ActorLike {
   readonly hasPlayerOwner?: boolean;
   readonly alliance?: string | null;
   readonly system?: {
-    readonly attributes?: { readonly hp?: { readonly value?: number; readonly max?: number } };
+    readonly attributes?: {
+      readonly hp?: {
+        readonly value?: number;
+        readonly max?: number;
+        /** PF2e's Stamina variant: Stamina Points, spent before HP. Absent when the variant is off. */
+        readonly sp?: { readonly value?: number; readonly max?: number } | null;
+      };
+    };
     readonly traits?: { readonly value?: readonly string[] };
   };
   getActiveTokens?(linked: boolean, document: boolean): readonly TokenDocLike[];
@@ -118,7 +125,17 @@ export function viewOf(token: TokenDocLike, globals: BandGlobals): TokenView | n
     unseen: UNSEEN.some((slug) => actor.hasCondition?.(slug) === true),
     image: imageUrl(token.texture?.src, globals),
     character: actor.type === 'character',
+    ...stamina(hp.sp),
   };
+}
+
+/** Stamina Points, only when the variant gives this actor a pool; see `TokenView.sp`. */
+function stamina(
+  sp: { readonly value?: number; readonly max?: number } | null | undefined
+): { sp: number; maxSp: number } | Record<string, never> {
+  return typeof sp?.value === 'number' && typeof sp.max === 'number' && sp.max > 0
+    ? { sp: sp.value, maxSp: sp.max }
+    : {};
 }
 
 const subjectOf = (view: TokenView | null, globals: BandGlobals): BandSubject | null =>

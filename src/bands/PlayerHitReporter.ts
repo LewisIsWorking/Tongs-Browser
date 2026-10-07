@@ -4,8 +4,8 @@ import type { TokenView } from './bandSubject.js';
 import type { PostOutcome } from './CooClient.js';
 import { campaignProblem } from './partyCampaign.js';
 import type { CampaignChoice } from './partyCampaign.js';
-import { readPlayerHit, withCause } from './playerHit.js';
-import type { PlayerHitPost } from './playerHit.js';
+import { healthOf, readPlayerHit, withCause } from './playerHit.js';
+import type { Health, PlayerHitPost } from './playerHit.js';
 
 /**
  * Telling the combat topic when a player character is hurt. Added 2026-09-28, beside `BandReporter`, which
@@ -16,6 +16,9 @@ import type { PlayerHitPost } from './playerHit.js';
  * ⚠️ The HP before a change is remembered, from the fight's start (`seed`) and every change since, because
  * Foundry's `updateActor` carries only the new value. A character first seen mid-change is remembered and not
  * posted: a guessed amount would be a wrong one.
+ *
+ * ⚠️ STAMINA (2026-10-07): with PF2e's Stamina variant a hit can change only `hp.sp.value`. Kibwe lost six of
+ * seven hits to that before this looked at Stamina Points too; see `playerHit.ts`.
  *
  * ⚠️ One post at a time, in order, so a burst of hits reaches the topic in the order they landed.
  */
@@ -36,7 +39,7 @@ export interface PlayerHitPorts {
 
 export class PlayerHitReporter {
   private readonly ports: PlayerHitPorts;
-  private readonly hp = new Map<string, number>();
+  private readonly health = new Map<string, Health>();
   private queue: Promise<void> = Promise.resolve();
   private lastProblem: string | null = null;
 
@@ -47,17 +50,21 @@ export class PlayerHitReporter {
   /** Remembers every character's HP without posting, so the first hit has something to compare against. */
   public seed(): void {
     for (const view of this.ports.combatViews()) {
-      if (view?.character === true && !this.hp.has(view.tokenUuid)) {
-        this.hp.set(view.tokenUuid, view.hp);
+      if (view?.character === true && !this.health.has(view.tokenUuid)) {
+        this.health.set(view.tokenUuid, healthOf(view));
       }
     }
   }
 
-  /** Foundry's `updateActor`: only a change to HP is looked at. */
+  /** Foundry's `updateActor`: only a change to HP or Stamina Points is looked at. */
   public async onActorUpdated(actor: unknown, changes: unknown): Promise<void> {
-    const hp = (changes as { system?: { attributes?: { hp?: { value?: unknown } } } } | null)
-      ?.system?.attributes?.hp;
-    if (this.ports.role() !== 'act' || hp?.value === undefined || !this.ports.enabled()) {
+    const hp = (
+      changes as {
+        system?: { attributes?: { hp?: { value?: unknown; sp?: { value?: unknown } } } };
+      } | null
+    )?.system?.attributes?.hp;
+    const changed = hp?.value !== undefined || hp?.sp?.value !== undefined;
+    if (this.ports.role() !== 'act' || !changed || !this.ports.enabled()) {
       return;
     }
     const views = this.ports.viewsFor(actor).filter((view) => view?.character === true);
@@ -69,8 +76,8 @@ export class PlayerHitReporter {
       if (view === null) {
         continue;
       }
-      const hit = readPlayerHit(view, this.hp.get(view.tokenUuid));
-      this.hp.set(view.tokenUuid, view.hp);
+      const hit = readPlayerHit(view, this.health.get(view.tokenUuid));
+      this.health.set(view.tokenUuid, healthOf(view));
       if (hit === null) {
         continue;
       }

@@ -40,17 +40,24 @@ export const ENEMIES_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/bands/playerHit.ts',
-    find: '    view.hp >= before',
-    replace: '    view.hp > before',
+    find: '  if (damage <= 0) {',
+    replace: '  if (damage < 0) {',
     defect: 'a change that cost a character no HP is posted as "takes 0"',
     tests: ['tests/unit/playerHit.test.ts'],
   },
   {
     file: 'src/bands/PlayerHitReporter.ts',
-    find: "    if (this.ports.role() !== 'act' || hp?.value === undefined || !this.ports.enabled()) {",
-    replace: "    if (this.ports.role() !== 'act' || hp?.value === undefined) {",
+    find: "    if (this.ports.role() !== 'act' || !changed || !this.ports.enabled()) {",
+    replace: "    if (this.ports.role() !== 'act' || !changed) {",
     defect: 'hits on player characters are still posted after a GM turns the setting off',
     tests: ['tests/unit/playerHit.test.ts', 'tests/unit/playerHitWiring.test.ts'],
+  },
+  {
+    file: 'src/bands/PlayerHitReporter.ts',
+    find: '    const changed = hp?.value !== undefined || hp?.sp?.value !== undefined;',
+    replace: '    const changed = hp?.value !== undefined;',
+    defect: 'a hit that only spends Stamina Points is never posted (Kibwe lost six of seven hits)',
+    tests: ['tests/unit/playerHitStamina.test.ts'],
   },
   {
     file: 'src/bands/startBands.ts',

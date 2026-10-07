@@ -53,6 +53,10 @@ player character is hurt: the damage, from what, and the HP left, with the chara
 
 ## Measured, not assumed
 
+- **PF2e's Stamina variant spends Stamina Points first** (2026-10-07, the Kibwe world). A hit soaked by Stamina
+  changes only `system.attributes.hp.sp.value`, so `updateActor` carries no `hp.value`. In one enemy phase 6 of 7
+  hits went to SP and were never posted. A player hit is now the fall in HP and SP together, and the post carries
+  the SP left when the character has a pool. Enemies (NPCs) have no Stamina pool, so bands still read HP alone.
 - `updateActor` fires for linked and unlinked tokens alike; an unlinked token's change arrives as its
   synthetic actor with `isToken: true` (pf2e 8.5.0).
 - PF2e's name rule is `playersCanSeeName || !game.pf2e.settings.tokens.nameVisibility`, else "The

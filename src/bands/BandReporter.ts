@@ -95,6 +95,7 @@ export class BandReporter {
         hp: subject.hp,
         maxHp: subject.maxHp,
         announce: before?.segments !== subject.segments,
+        ...(before === undefined ? {} : { previousHp: before.hp }),
         ...(subject.image === null ? {} : { targetImage: subject.image }),
       };
       await this.enqueue(choice.code, post, cause);

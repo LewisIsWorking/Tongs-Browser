@@ -42,6 +42,7 @@ describe('an HP change, end to end', () => {
       hp: 13,
       maxHp: 28,
       announce: true,
+      previousHp: 28,
       cause: 'Longsword from Valeros; weakness cold-iron +3',
     });
   });
