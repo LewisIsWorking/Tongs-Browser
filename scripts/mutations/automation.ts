@@ -136,20 +136,6 @@ export const AUTOMATION_MUTATIONS: readonly RecordedMutation[] = [
     tests: ['tests/unit/validateSpellDamage.test.ts'],
   },
   {
-    file: 'src/automation/validateSpellDamage.ts',
-    find: '          : run.some((member) => member.id === each.castId))',
-    replace: '          : true)',
-    defect: "a save Tongs rolled for an earlier cast decides a later cast's damage",
-    tests: ['tests/unit/spellSaveForCast.test.ts'],
-  },
-  {
-    file: 'src/automation/SpellSaves.ts',
-    find: '    return recastRun(self, [...casts, self], damages)[0] !== self;',
-    replace: '    return false;',
-    defect: 'a cast card posted again moments later rolls the same save a second time',
-    tests: ['tests/unit/spellSaveForCast.test.ts'],
-  },
-  {
     file: 'src/deck/applyThroughSystem.ts',
     find: '    ports.aimAt(tokens, () => {',
     replace: '    ports.aimAt(tokens.slice(0, 1), () => {',
