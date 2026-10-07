@@ -1,3 +1,5 @@
+import { MODULE_ID } from '../constants.js';
+import { SAVE_FOR_CAST_FLAG } from './spellFacts.js';
 import type { CastMessage } from './spellFacts.js';
 
 /**
@@ -48,6 +50,8 @@ export interface SaveResultFacts {
   readonly spellUuid: string;
   readonly tokenUuid: string;
   readonly outcome: string;
+  /** The cast card this save answers, when Tongs rolled it (`SAVE_FOR_CAST_FLAG`); absent otherwise. */
+  readonly castId?: string;
 }
 
 interface Flags {
@@ -108,5 +112,15 @@ export function readSaveResult(message: SpellMessage, systemId: string): SaveRes
   ) {
     return null;
   }
-  return { id: message.id, timestamp: message.timestamp, spellUuid, tokenUuid, outcome };
+  const castId = (message.flags?.[MODULE_ID] as Record<string, unknown> | undefined)?.[
+    SAVE_FOR_CAST_FLAG
+  ];
+  return {
+    id: message.id,
+    timestamp: message.timestamp,
+    spellUuid,
+    tokenUuid,
+    outcome,
+    ...(typeof castId === 'string' ? { castId } : {}),
+  };
 }

@@ -16,6 +16,13 @@
  */
 export const TARGETS_FLAG = 'targets';
 
+/**
+ * On a SAVE card Tongs rolled: the id of the cast card it answers. Added 2026-10-07, because PF2e's save
+ * card names the spell but not the cast (measured on C04's Daze), so three casts of one spell, queued
+ * while no GM was connected, had all three saves land after the last cast and were told apart by nobody.
+ */
+export const SAVE_FOR_CAST_FLAG = 'forCast';
+
 export interface SpellCastFacts {
   readonly id: string;
   readonly timestamp: number;

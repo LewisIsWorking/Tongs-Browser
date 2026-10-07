@@ -2,8 +2,10 @@ import type { SaveFacts } from '../deck/deckFacts.js';
 import type { SaveOutcome } from '../deck/rollSaveThroughSystem.js';
 import { CLAIMED_FLAG, DECLINED_FLAG, PENDING_FLAG } from './AutoApply.js';
 import type { AutoApplyPorts } from './AutoApply.js';
+import { recastRun } from './recasts.js';
+import { readSpellDamage } from './spellDamageFacts.js';
 import { readRecordedTargets, readSpellCast } from './spellFacts.js';
-import type { CastMessage } from './spellFacts.js';
+import type { CastMessage, SpellCastFacts } from './spellFacts.js';
 import { checkPlayerTarget, checkTarget } from './targetCheck.js';
 
 /**
@@ -47,14 +49,27 @@ export type SpellSavePorts = Pick<
 };
 
 const UNCONFIRMED = 'saves were started earlier and never confirmed; check before rolling them';
+const RECAST =
+  'the same spell at the same targets was posted again moments after an earlier card; that card holds the save';
 
 export class SpellSaves {
   private readonly ports: SpellSavePorts;
   private readonly working = new Set<string>();
+  /**
+   * ⛔ ONE CARD AT A TIME (2026-10-07). Start-up, `canvasReady` and `userConnected` each catch up, and
+   * overlapping catch-ups rolled three queued Dazes' saves within two seconds, so no save could be told
+   * apart by when it landed. In turn, each save is tagged with the one cast being rolled.
+   */
+  private queue: Promise<void> = Promise.resolve();
+  private rolling: { readonly castId: string; readonly tokens: readonly string[] } | null = null;
 
   public constructor(ports: SpellSavePorts) {
     this.ports = ports;
   }
+
+  /** The cast whose save this browser is rolling for that token right now, for the save card's flag. */
+  public readonly castRollingFor = (tokenUuid: string): string | null =>
+    this.rolling?.tokens.includes(tokenUuid) === true ? this.rolling.castId : null;
 
   public async onMessageCreated(message: CastMessage): Promise<void> {
     if (this.ports.role() === 'act') {
@@ -78,8 +93,10 @@ export class SpellSaves {
       return;
     }
     this.working.add(message.id);
+    const turn = this.queue.then(async () => this.decide(message));
+    this.queue = turn.catch(() => undefined);
     try {
-      await this.decide(message);
+      await turn;
     } finally {
       this.working.delete(message.id);
     }
@@ -104,6 +121,10 @@ export class SpellSaves {
       await this.decline(message, UNCONFIRMED);
       return;
     }
+    if (this.isRecast(message, cast)) {
+      await this.decline(message, RECAST);
+      return;
+    }
 
     const recorded = readRecordedTargets(message, this.ports.moduleId);
     const verdicts = recorded.map((token) => ({
@@ -124,7 +145,13 @@ export class SpellSaves {
     }
 
     await this.ports.setFlag(message.id, CLAIMED_FLAG, true);
-    const outcome = await this.ports.rollSave(message.id, 0, rollers);
+    this.rolling = { castId: message.id, tokens: rollers };
+    let outcome: Awaited<ReturnType<SpellSavePorts['rollSave']>>;
+    try {
+      outcome = await this.ports.rollSave(message.id, 0, rollers);
+    } finally {
+      this.rolling = null;
+    }
     if (outcome.kind === 'rolled') {
       await this.ports.unsetFlag(message.id, PENDING_FLAG);
       return;
@@ -133,6 +160,21 @@ export class SpellSaves {
       await this.ports.unsetFlag(message.id, CLAIMED_FLAG);
     }
     await this.decline(message, outcome.reason);
+  }
+
+  /** 🔁 A re-click of an earlier cast (`recasts.ts`): only the first card of the run is rolled. */
+  private isRecast(message: CastMessage, cast: SpellCastFacts): boolean {
+    const systemId = this.ports.systemId();
+    const recent = this.ports.recentMessages().filter((m) => m.id !== message.id);
+    const self = { ...cast, targets: readRecordedTargets(message, this.ports.moduleId) };
+    const casts = recent.flatMap((m) => {
+      const each = readSpellCast(m, systemId);
+      return each === null
+        ? []
+        : [{ ...each, targets: readRecordedTargets(m, this.ports.moduleId) }];
+    });
+    const damages = recent.flatMap((m) => readSpellDamage(m, systemId) ?? []);
+    return recastRun(self, [...casts, self], damages)[0] !== self;
   }
 
   private async decline(message: CastMessage, reason: string): Promise<void> {

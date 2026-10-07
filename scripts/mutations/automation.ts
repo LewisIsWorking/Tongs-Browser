@@ -130,8 +130,8 @@ export const AUTOMATION_MUTATIONS: readonly RecordedMutation[] = [
   },
   {
     file: 'src/automation/validateSpellDamage.ts',
-    find: '        each.timestamp < next',
-    replace: '        each.timestamp > 0',
+    find: 'each.timestamp >= first.timestamp && each.timestamp < next',
+    replace: 'each.timestamp >= first.timestamp && each.timestamp > 0',
     defect: "a save rolled against a later cast of the same spell decides an earlier cast's damage",
     tests: ['tests/unit/validateSpellDamage.test.ts'],
   },
