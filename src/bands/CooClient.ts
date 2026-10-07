@@ -28,6 +28,11 @@ export interface BandPost {
   readonly hp: number;
   readonly maxHp: number;
   readonly announce: boolean;
+  /**
+   * The HP last told for this token, for the GM's DM only ("3 → 2/16 HP"). Absent for a token never seen
+   * before. Added 2026-10-07: whether Kreski's 2/16 should have reached the topic hung on this number.
+   */
+  readonly previousHp?: number;
   /** For the GM's DM only; COO never puts it on the public line. */
   readonly cause: string;
   /** What hit it, for the topic; present only when players can see the attacker (`attackerView.ts`). */

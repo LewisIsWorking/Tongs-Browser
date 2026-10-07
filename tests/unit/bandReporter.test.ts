@@ -63,8 +63,10 @@ describe('telling the table', () => {
       hp: 17,
       maxHp: 28,
       announce: true,
+      previousHp: 26,
       cause: 'manual change',
     });
+    expect(posts[0]?.previousHp).toBe(28);
   });
 
   it('announces a token it has never seen, and says nothing when HP did not really move', async () => {
@@ -76,6 +78,7 @@ describe('telling the table', () => {
     await reporter.onActorUpdated({}, HP_CHANGE);
 
     expect(posts.map((post) => post.announce)).toEqual([true]);
+    expect(posts[0]).not.toHaveProperty('previousHp');
   });
 
   it('seeds a token once, keeping what was already told', async () => {
