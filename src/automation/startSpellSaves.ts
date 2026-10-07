@@ -6,7 +6,7 @@ import { PENDING_FLAG } from './AutoApply.js';
 import { automationRole } from './automationRole.js';
 import { buildAutoApply } from './buildAutoApply.js';
 import type { AutoGlobals } from './buildAutoApply.js';
-import { TARGETS_FLAG } from './spellFacts.js';
+import { SAVE_FOR_CAST_FLAG, TARGETS_FLAG } from './spellFacts.js';
 import type { CastMessage } from './spellFacts.js';
 import { SpellSaves } from './SpellSaves.js';
 import { ENEMY_SPELLS_SETTING } from './startSpellDamage.js';
@@ -77,6 +77,33 @@ export function recordCastTargets(message: Creating, userId: string, globals: Sp
   message.updateSource({ flags: { [MODULE_ID]: { [TARGETS_FLAG]: targets, ...queued } } });
 }
 
+/**
+ * ⛔ A save this browser rolls names the cast it answers, written while the card is being created, as the
+ * targets are. PF2e's save card names the spell but not the cast; see `SAVE_FOR_CAST_FLAG`.
+ */
+export function tagSaveWithCast(
+  message: Creating,
+  userId: string,
+  globals: SpellGlobals,
+  castFor: (tokenUuid: string) => string | null
+): void {
+  const game = globals.game;
+  const flags = message.flags?.[game?.system?.id ?? ''] as
+    { context?: { type?: string; target?: { token?: string } | null } } | undefined;
+  const token = flags?.context?.target?.token;
+  if (
+    userId !== game?.user?.id ||
+    flags?.context?.type !== 'saving-throw' ||
+    typeof token !== 'string'
+  ) {
+    return;
+  }
+  const castId = castFor(token);
+  if (castId !== null) {
+    message.updateSource({ flags: { [MODULE_ID]: { [SAVE_FOR_CAST_FLAG]: castId } } });
+  }
+}
+
 /** The real Foundry behind `SpellSaves`: the strike automation's ports, plus reading and rolling saves. */
 export function buildSpellSavePorts(
   globals: SpellGlobals,
@@ -127,6 +154,7 @@ export function startSpellSaves(
     (message: Creating, _data: unknown, _options: unknown, userId: string) => {
       if (on()) {
         recordCastTargets(message, userId, globals);
+        tagSaveWithCast(message, userId, globals, (token) => saves.castRollingFor(token));
       }
     }
   );

@@ -110,7 +110,9 @@ export function validateSpellDamage(
     return deck('the caster had no targets');
   }
 
-  /* ⚠️ A save belongs to this cast only until the same character casts the same spell again. */
+  /* ⚠️ A save belongs to this cast only until the same character casts the same spell again.
+     ⛔ A save Tongs rolled names its cast, and belongs to that cast ALONE (2026-10-07): queued casts have
+     every save rolled after the last of them, so by time alone all of them looked like the last cast's. */
   const next = Math.min(
     ...casts.filter((each) => each.timestamp > cast.timestamp).map((each) => each.timestamp),
     Infinity
@@ -122,8 +124,9 @@ export function validateSpellDamage(
       (each) =>
         each.spellUuid === damage.spellUuid &&
         each.tokenUuid === token &&
-        each.timestamp >= cast.timestamp &&
-        each.timestamp < next
+        (each.castId === undefined
+          ? each.timestamp >= cast.timestamp && each.timestamp < next
+          : each.castId === cast.id)
     );
     const outcome = saves[0]?.outcome;
     if (saves.length > 1) {
