@@ -19,6 +19,10 @@ Each is off per world until a GM turns it on.
 | `spellFacts.ts`           | A spell's cast card read into facts, and the targets its caster recorded     |
 | `SpellSaves.ts`           | Rolling enemies' saves against players' spells, queued while no full GM      |
 | `startSpellSaves.ts`      | Its own world setting, recording the caster's targets, and its hooks         |
+| `recasts.ts`              | Telling a re-clicked cast card from a second cast of the same spell          |
+| `saveSummaryCard.ts`      | The saves card's words: degrees, damage taken and bands, never a number      |
+| `SaveSummary.ts`          | Posting that card once a cast's saves are in, and completing it with damage  |
+| `startSaveSummary.ts`     | Its Foundry side, and the pop-up in the caster's browser                     |
 | `spellDamageFacts.ts`     | A spell's damage card and its targets' save cards read into facts            |
 | `validateSpellDamage.ts`  | Whether spell damage follows a cast and fits it, grouped by each save        |
 | `SpellDamage.ts`          | Applying basic-save spell damage by degree, queued while no full GM          |

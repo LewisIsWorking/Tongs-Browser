@@ -4,6 +4,7 @@ import { startFeatures } from '../../src/StartFeatures.js';
 import type { FeatureParts } from '../../src/StartFeatures.js';
 import type { CooClient } from '../../src/bands/CooClient.js';
 import { startAutoApply } from '../../src/automation/startAutoApply.js';
+import { startSaveSummary } from '../../src/automation/startSaveSummary.js';
 import { startSpellSaves } from '../../src/automation/startSpellSaves.js';
 import { startSpellDamage } from '../../src/automation/startSpellDamage.js';
 import { startBands } from '../../src/bands/startBands.js';
@@ -20,6 +21,9 @@ import { startWorldSwaps } from '../../src/swaps/startWorldSwaps.js';
 vi.mock('../../src/automation/startAutoApply.js', () => ({ startAutoApply: vi.fn() }));
 vi.mock('../../src/automation/startSpellSaves.js', () => ({ startSpellSaves: vi.fn() }));
 vi.mock('../../src/automation/startSpellDamage.js', () => ({ startSpellDamage: vi.fn() }));
+vi.mock('../../src/automation/startSaveSummary.js', () => ({
+  startSaveSummary: vi.fn(() => ({ onDamageApplied: 'told' })),
+}));
 vi.mock('../../src/bands/startBands.js', () => ({ startBands: vi.fn() }));
 vi.mock('../../src/encounter/startEncounterSync.js', () => ({ startEncounterSync: vi.fn() }));
 vi.mock('../../src/swaps/startWorldSwaps.js', () => ({ startWorldSwaps: vi.fn() }));
@@ -62,6 +66,9 @@ describe('what ready starts', () => {
 
     expect(startAutoApply).toHaveBeenCalledTimes(1);
     expect(startSpellDamage).toHaveBeenCalledTimes(1);
+    /* The saves card hears about the damage spell automation applies. */
+    expect(startSaveSummary).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(startSpellDamage).mock.calls[0]?.[4]).toBe('told');
     /* Health bands take the client and handle a null themselves: signed out is a state they show. */
     expect(startBands).toHaveBeenCalledWith(expect.anything(), expect.anything(), globalThis, null);
     expect(startEncounterSync).not.toHaveBeenCalled();

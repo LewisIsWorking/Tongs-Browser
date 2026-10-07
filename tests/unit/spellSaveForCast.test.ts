@@ -62,6 +62,7 @@ describe('a save names its cast', () => {
     );
     expect(verdict).toEqual({
       kind: 'valid',
+      castId: 'c1',
       targets: [X1],
       groups: [{ optionId: 'half', targetTokenUuids: [X1] }],
     });
@@ -75,6 +76,7 @@ describe('a save names its cast', () => {
     const all = [...early, save('c3', 'criticalSuccess', 9e9 + 2)];
     expect(validateSpellDamage(afterSpaced, { ...history, saves: all }, RULE)).toEqual({
       kind: 'valid',
+      castId: 'c3',
       targets: [X1],
       groups: [],
     });
@@ -110,7 +112,7 @@ describe('a save names its cast', () => {
     expect(readSaveResult(card({}), 'pf2e')).not.toHaveProperty('castId');
   });
 
-  it('tags a save this GM is rolling, and leaves every other card alone', () => {
+  it('tags a save this GM is rolling as blind, and leaves every other card alone', () => {
     const globals = { game: { system: { id: 'pf2e' }, user: { id: 'gm' } } };
     const tagged: object[] = [];
     const creating = (type: string, token: string | null = X1) => ({
@@ -118,6 +120,7 @@ describe('a save names its cast', () => {
       timestamp: 1,
       flags: { pf2e: { context: { type, target: token === null ? null : { token } } } },
       updateSource: (changes: object) => tagged.push(changes),
+      applyMode: (mode: string) => tagged.push({ mode }),
     });
     const castFor = (token: string) => (token === X1 ? 'c3' : null);
 
@@ -126,7 +129,7 @@ describe('a save names its cast', () => {
     tagSaveWithCast(creating('saving-throw', 'Scene.S.Token.Other'), 'gm', globals, castFor);
     tagSaveWithCast(creating('damage-roll'), 'gm', globals, castFor);
 
-    expect(tagged).toEqual([{ flags: { 'tongs-browser': { forCast: 'c3' } } }]);
+    expect(tagged).toEqual([{ flags: { 'tongs-browser': { forCast: 'c3' } } }, { mode: 'blind' }]);
   });
 });
 

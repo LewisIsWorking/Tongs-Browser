@@ -79,6 +79,7 @@ describe('applying basic-save spell damage', () => {
 
     expect(verdict).toEqual({
       kind: 'valid',
+      castId: 'c1',
       targets,
       groups: [
         { optionId: 'half', targetTokenUuids: [X1] },

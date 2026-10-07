@@ -1,4 +1,6 @@
 import { startAutoApply } from './automation/startAutoApply.js';
+import { startSaveSummary } from './automation/startSaveSummary.js';
+import type { SummaryGlobals } from './automation/startSaveSummary.js';
 import { startSpellSaves } from './automation/startSpellSaves.js';
 import { startSpellDamage } from './automation/startSpellDamage.js';
 import type { AutoGlobals } from './automation/buildAutoApply.js';
@@ -47,7 +49,9 @@ export function startFeatures(parts: FeatureParts): void {
   /* Phase 2: off per world until a GM turns it on. See automation/startAutoApply.ts. */
   startAutoApply(deck, hooks, settings, globals as AutoGlobals);
   startSpellSaves(deck, hooks, settings, globals as AutoGlobals, parts.document);
-  startSpellDamage(deck, hooks, settings, globals as AutoGlobals);
+  /* The saves card and the caster's pop-up (2026-10-07), told by spell damage when its damage lands. */
+  const summary = startSaveSummary(hooks, settings, globals as SummaryGlobals);
+  startSpellDamage(deck, hooks, settings, globals as AutoGlobals, summary.onDamageApplied);
   /* Health bands: off until a party has a campaign. See bands/startBands.ts. */
   startBands(hooks, settings, globals, client);
   /* Restore owners: a GM button giving players back what their pre-move user owned. See src/owners. */

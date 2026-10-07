@@ -45,7 +45,13 @@ export interface DamageGroup {
 }
 
 export type SpellDamageVerdict =
-  | { readonly kind: 'valid'; readonly targets: readonly string[]; readonly groups: DamageGroup[] }
+  | {
+      readonly kind: 'valid';
+      /** The cast whose saves were rolled: the first of a run of re-clicks, see `recasts.ts`. */
+      readonly castId: string;
+      readonly targets: readonly string[];
+      readonly groups: DamageGroup[];
+    }
   /** Everything checks out except that some targets have not rolled their saves yet. */
   | { readonly kind: 'wait'; readonly targets: readonly string[]; readonly reason: string }
   | { readonly kind: 'deck'; readonly reason: string };
@@ -157,6 +163,7 @@ export function validateSpellDamage(
   }
   return {
     kind: 'valid',
+    castId: first.id,
     targets: cast.targets,
     groups: [...groups].map(([optionId, targetTokenUuids]) => ({ optionId, targetTokenUuids })),
   };

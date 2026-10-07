@@ -48,6 +48,12 @@ export type SpellDamagePorts = Pick<
     messageId: string,
     groups: readonly DamageGroup[]
   ) => Promise<ApplyOutcome>;
+  /** Told once the damage landed, for the saves card (`SaveSummary`). */
+  readonly onApplied?: (
+    castId: string,
+    targets: readonly string[],
+    groups: readonly DamageGroup[]
+  ) => Promise<void>;
 };
 
 const UNCONFIRMED =
@@ -151,6 +157,7 @@ export class SpellDamage {
     const outcome = await this.ports.applyGroups(message.id, verdict.groups);
     if (outcome.kind === 'applied') {
       await this.ports.unsetFlag(message.id, PENDING_FLAG);
+      await this.ports.onApplied?.(verdict.castId, verdict.targets, verdict.groups);
       return;
     }
     if (outcome.kind === 'refused') {
