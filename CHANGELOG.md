@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.49.1
+
+### Patch Changes
+
+- [#429](https://github.com/LewisIsWorking/Tongs-Browser/pull/429) [`92e1e4a`](https://github.com/LewisIsWorking/Tongs-Browser/commit/92e1e4a16c5ec6519c2a5b26868928613e2638c5) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Hits on player characters now count Stamina Points: with PF2e's Stamina variant a hit that only spent Stamina was never posted (Kibwe, 2026-10-07, 6 of 7 hits lost). The post carries the SP left.
+
 ## 0.49.0
 
 ### Minor Changes
