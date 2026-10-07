@@ -94,7 +94,7 @@ describe('reading a token', () => {
 
   /* ⛔ Kibwe, 2026-10-07: PF2e's Stamina variant keeps the pool at `hp.sp`, and a hit there touches no HP. */
   it('reads Stamina Points only when the actor has a Stamina pool', () => {
-    const stamina = (sp: { value?: number; max?: number } | undefined) =>
+    const stamina = (sp: { value?: number; max?: number } | null) =>
       viewOf(
         token(
           'S',
@@ -103,7 +103,7 @@ describe('reading a token', () => {
         {}
       );
     expect(stamina({ value: 7, max: 14 })).toMatchObject({ hp: 52, sp: 7, maxSp: 14 });
-    expect(stamina(undefined)).not.toHaveProperty('sp');
+    expect(stamina(null)).not.toHaveProperty('sp');
     expect(stamina({ value: 0, max: 0 })).not.toHaveProperty('maxSp');
   });
 
