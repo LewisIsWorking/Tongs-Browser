@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.51.0
+
+### Minor Changes
+
+- [#435](https://github.com/LewisIsWorking/Tongs-Browser/pull/435) [`a04e98c`](https://github.com/LewisIsWorking/Tongs-Browser/commit/a04e98c0188f3b705befc90abafbf29b6a074f7c) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Players get a Roll Pad: the dice button in the tray opens their character's strikes (each attack step, damage and crit), Perception, saves and skills as big buttons. A tap rolls through PF2e as the sheet does; a long press opens PF2e's roll dialog for a situational modifier.
+
 ## 0.50.0
 
 ### Minor Changes
