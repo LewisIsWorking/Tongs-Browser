@@ -1,3 +1,6 @@
+import { shape } from './pf2eShapes.js';
+import type { ActorShape, RollableShape, StrikeShape, SystemShape } from './pf2eShapes.js';
+
 /**
  * What the Roll Pad offers for one character, read from the PF2e actor. Added 2026-10-08.
  *
@@ -45,23 +48,20 @@ type Bag = Readonly<Record<string, unknown>>;
 
 const SAVES = ['fortitude', 'reflex', 'will'] as const;
 
-const bag = (value: unknown): Bag | null =>
-  typeof value === 'object' && value !== null ? (value as Bag) : null;
-
 const text = (value: unknown): string | null =>
   typeof value === 'string' && value.trim() !== '' ? value : null;
 
 const isRoll = (value: unknown): boolean => typeof value === 'function';
 
 function readStrike(value: unknown, index: number): PadStrike | null {
-  const strike = bag(value);
+  const strike = shape<StrikeShape>(value);
   const label = text(strike?.label);
   if (strike === null || label === null || strike.type !== 'strike' || strike.visible === false) {
     return null;
   }
   const variants = Array.isArray(strike.variants) ? (strike.variants as unknown[]) : [];
   const attacks = variants.flatMap((variant) => {
-    const each = bag(variant);
+    const each = shape<RollableShape>(variant);
     const name = text(each?.label);
     return name !== null && isRoll(each?.roll) ? [name] : [];
   });
@@ -76,7 +76,7 @@ function readStrike(value: unknown, index: number): PadStrike | null {
 }
 
 function readCheck(group: CheckGroup, key: string, value: unknown): PadCheck | null {
-  const statistic = bag(value);
+  const statistic = shape<RollableShape>(value);
   const label = text(statistic?.label);
   if (statistic === null || label === null || !isRoll(statistic.roll)) {
     return null;
@@ -91,22 +91,22 @@ const byTrainedThenName = (a: PadCheck, b: PadCheck): number =>
 
 /** The pad for this actor, or null when it is not a character PF2e can roll for. */
 export function readPad(actor: unknown): PadModel | null {
-  const self = bag(actor);
+  const self = shape<ActorShape>(actor);
   const name = text(self?.name);
   if (self === null || name === null) {
     return null;
   }
-  const actions = bag(self.system)?.actions;
+  const actions = shape<SystemShape>(self.system)?.actions;
   const strikes = (Array.isArray(actions) ? (actions as unknown[]) : []).flatMap((each, index) => {
     const strike = readStrike(each, index);
     return strike === null ? [] : [strike];
   });
-  const saves = bag(self.saves);
+  const saves = shape<Bag>(self.saves);
   const checks = [
     readCheck('perception', 'perception', self.perception),
     ...SAVES.map((key) => readCheck('save', key, saves?.[key])),
   ].flatMap((check) => (check === null ? [] : [check]));
-  const skills = Object.entries(bag(self.skills) ?? {})
+  const skills = Object.entries(shape<Bag>(self.skills) ?? {})
     .flatMap(([key, value]) => {
       const skill = readCheck('skill', key, value);
       return skill === null ? [] : [skill];

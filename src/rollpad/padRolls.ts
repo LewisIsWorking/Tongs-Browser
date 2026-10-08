@@ -1,4 +1,6 @@
 import type { CheckGroup } from './padModel.js';
+import { entry, shape } from './pf2eShapes.js';
+import type { ActorShape, SystemShape } from './pf2eShapes.js';
 
 /**
  * Making PF2e roll what a Roll Pad button names. Added 2026-10-08.
@@ -29,24 +31,18 @@ export type PadRoll =
 type Bag = Readonly<Record<string, unknown>>;
 type RollMethod = (params: { skipDialog: boolean }) => unknown;
 
-const bag = (value: unknown): Bag | null =>
-  typeof value === 'object' && value !== null ? (value as Bag) : null;
-
-const at = (list: unknown, index: number): Bag | null =>
-  Array.isArray(list) ? bag((list as unknown[])[index]) : null;
-
 /** The object the method belongs to, and the method's name on it. */
-function locate(actor: Bag, roll: PadRoll): [Bag | null, string] {
+function locate(actor: ActorShape, roll: PadRoll): [Bag | null, string] {
   if (roll.kind === 'check') {
     if (roll.group === 'perception') {
-      return [bag(actor.perception), 'roll'];
+      return [shape<Bag>(actor.perception), 'roll'];
     }
-    const statistics = bag(roll.group === 'save' ? actor.saves : actor.skills);
-    return [bag(statistics?.[roll.key]), 'roll'];
+    const statistics = shape<Bag>(roll.group === 'save' ? actor.saves : actor.skills);
+    return [shape<Bag>(statistics?.[roll.key]), 'roll'];
   }
-  const strike = at(bag(actor.system)?.actions, roll.strike);
+  const strike = entry<Bag>(shape<SystemShape>(actor.system)?.actions, roll.strike);
   return roll.kind === 'attack'
-    ? [at(strike?.variants, roll.variant), 'roll']
+    ? [entry<Bag>(strike?.['variants'], roll.variant), 'roll']
     : [strike, roll.kind];
 }
 
@@ -56,7 +52,7 @@ function locate(actor: Bag, roll: PadRoll): [Bag | null, string] {
  * ⚠️ Called ON its own object (`owner[name](...)`), never detached: PF2e's statistics read `this`.
  */
 export async function rollOnPad(actor: unknown, roll: PadRoll, ask: boolean): Promise<boolean> {
-  const self = bag(actor);
+  const self = shape<ActorShape>(actor);
   const [owner, name] = self === null ? [null, ''] : locate(self, roll);
   const method = owner?.[name];
   if (owner === null || typeof method !== 'function') {

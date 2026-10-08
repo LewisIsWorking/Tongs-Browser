@@ -9,6 +9,7 @@ able to roll from Mobile a lot easier."
 | File              | What it is                                                                  |
 | ----------------- | --------------------------------------------------------------------------- |
 | `padModel.ts`     | What the pad offers, read defensively from the PF2e actor                   |
+| `pf2eShapes.ts`   | The parts of a PF2e character it looks into, every field `unknown`          |
 | `padRolls.ts`     | Making PF2e roll what a button names, with its own methods                  |
 | `padPress.ts`     | A tap rolls, a long press rolls through PF2e's dialog                       |
 | `padViews.ts`     | The buttons on each tab: Strikes, Checks, Skills                            |
