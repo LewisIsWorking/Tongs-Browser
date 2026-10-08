@@ -35,7 +35,14 @@ export function element<K extends keyof HTMLElementTagNameMap>(
 function rollButton(doc: Document, text: string, roll: PadRoll, press: PadPress) {
   const button = element(doc, 'button', 'tb-roll-pad__roll', text);
   button.type = 'button';
-  bindPress(button, { tap: () => press(roll, false), hold: () => press(roll, true) });
+  bindPress(button, {
+    tap: () => {
+      press(roll, false);
+    },
+    hold: () => {
+      press(roll, true);
+    },
+  });
   return button;
 }
 
@@ -73,15 +80,21 @@ function checkButton(doc: Document, check: PadCheck, press: PadPress): HTMLButto
 /** The body of one tab, or a line saying why it is empty. */
 export function tabBody(doc: Document, model: PadModel, tab: PadTab, press: PadPress): HTMLElement {
   const body = element(doc, 'div', 'tb-roll-pad__body');
-  const empty = (text: string) => body.append(element(doc, 'p', 'tb-roll-pad__note', text));
+  const empty = (text: string) => {
+    body.append(element(doc, 'p', 'tb-roll-pad__note', text));
+  };
   if (tab === 'strikes') {
-    model.strikes.forEach((strike) => body.append(strikeCard(doc, strike, press)));
+    model.strikes.forEach((strike) => {
+      body.append(strikeCard(doc, strike, press));
+    });
     if (model.strikes.length === 0) empty(`${model.name} has no strikes.`);
     return body;
   }
   const checks = tab === 'checks' ? model.checks : model.skills;
   const grid = element(doc, 'div', 'tb-roll-pad__grid');
-  checks.forEach((check) => grid.append(checkButton(doc, check, press)));
+  checks.forEach((check) => {
+    grid.append(checkButton(doc, check, press));
+  });
   body.append(grid);
   if (checks.length === 0) empty(`${model.name} has nothing to roll here.`);
   return body;

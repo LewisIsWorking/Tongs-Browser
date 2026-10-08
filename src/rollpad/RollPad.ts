@@ -68,7 +68,9 @@ export class RollPad {
     header.append(element(doc, 'p', 'tb-roll-pad__name', model?.name ?? 'Roll Pad'));
     const close = element(doc, 'button', 'tb-roll-pad__close', 'Close');
     close.type = 'button';
-    close.addEventListener('click', () => this.close());
+    close.addEventListener('click', () => {
+      this.close();
+    });
     header.append(close);
     root.append(header);
     if (model === null) {
