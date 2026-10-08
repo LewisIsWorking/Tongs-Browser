@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.51.2
+
+### Patch Changes
+
+- [#439](https://github.com/LewisIsWorking/Tongs-Browser/pull/439) [`30d0aa9`](https://github.com/LewisIsWorking/Tongs-Browser/commit/30d0aa9aa6576236ae1da686b63142812d91600a) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - New players: in a world where no party has a campaign code, the welcome now makes their sheet in the world's primary party (PF2e's "The Party") instead of waiting for a GM to set one. Health bands still need a campaign code.
+
 ## 0.51.1
 
 ### Patch Changes
