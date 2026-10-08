@@ -38,10 +38,18 @@ export interface RollableShape {
   readonly roll?: unknown;
 }
 
-/** The value as a shape to look into, or null when it is not an object at all. */
-export const shape = <T extends object>(value: unknown): T | null =>
-  typeof value === 'object' && value !== null ? (value as T) : null;
+/** Any object, to look into by key. */
+export type Bag = Readonly<Record<string, unknown>>;
+
+const object = (value: unknown): object | null =>
+  typeof value === 'object' && value !== null ? value : null;
+
+export const asActor = (value: unknown) => object(value) as ActorShape | null;
+export const asSystem = (value: unknown) => object(value) as SystemShape | null;
+export const asStrike = (value: unknown) => object(value) as StrikeShape | null;
+export const asRollable = (value: unknown) => object(value) as RollableShape | null;
+export const asBag = (value: unknown) => object(value) as Bag | null;
 
 /** Entry `index` of a list that may not be a list. */
-export const entry = <T extends object>(list: unknown, index: number): T | null =>
-  Array.isArray(list) ? shape<T>((list as unknown[])[index]) : null;
+export const entry = (list: unknown, index: number): unknown =>
+  Array.isArray(list) ? (list as unknown[])[index] : undefined;
