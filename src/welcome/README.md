@@ -11,7 +11,7 @@ proves who asked. The answer travels back on the same User.
 | File                    | What it is                                                                    |
 | ----------------------- | ----------------------------------------------------------------------------- |
 | `sheetRequest.ts`       | The request and answer flags, and reading them defensively                    |
-| `campaignParty.ts`      | Which party a sheet goes in: the coded one, else the world's primary party   |
+| `campaignParty.ts`      | Which party a sheet goes in: the coded one, else the world's primary party    |
 | `SheetRequests.ts`      | The GM side: serve each waiting request, once, one pass at a time             |
 | `startSheetRequests.ts` | The settings, the hooks that wake the GM side, and the Foundry wiring         |
 | `welcomeDocuments.ts`   | Every user and actor listing the welcome makes (a `check:documents` boundary) |
