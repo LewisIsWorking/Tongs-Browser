@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.51.1
+
+### Patch Changes
+
+- [#437](https://github.com/LewisIsWorking/Tongs-Browser/pull/437) [`bdc3770`](https://github.com/LewisIsWorking/Tongs-Browser/commit/bdc37701707c27ebe5b92334d65f7bcd1f383acc) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Roll Pad: a weapon PF2e thinks is not in hand still rolls (it says "not in hand" beside the name). PF2e rolls it anyway, and the greyed-out buttons blocked real rolls.
+
 ## 0.51.0
 
 ### Minor Changes
