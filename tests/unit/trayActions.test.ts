@@ -22,6 +22,7 @@ describe('buildTrayActions', () => {
       'character',
       'create-sheet',
       'party-access',
+      'roll-pad',
       'roll-deck',
       'pause',
       'grab',

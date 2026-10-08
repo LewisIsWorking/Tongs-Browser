@@ -1,4 +1,9 @@
-import { openCharacterSheet, type SheetOwner } from './CharacterSheet.js';
+import {
+  openCharacterSheet,
+  resolveCharacterSheet,
+  type CharacterSources,
+  type SheetOwner,
+} from './CharacterSheet.js';
 import {
   applyPause,
   decidePauseAction,
@@ -132,7 +137,22 @@ export class FoundryActions {
    * renders sheets through the same Actor#sheet, so naming one would only make it break on the next.
    */
   public openCharacterSheet(): void {
-    const opened = openCharacterSheet({
+    const opened = openCharacterSheet(this.characterSources());
+
+    if (!opened) {
+      logger.warn(
+        'No character to open. Assign one in your user configuration, or select a token.'
+      );
+    }
+  }
+
+  /** The same "my character" the sheet button opens, for the Roll Pad (2026-10-08). */
+  public myCharacter(): SheetOwner | null {
+    return resolveCharacterSheet(this.characterSources());
+  }
+
+  private characterSources(): CharacterSources {
+    return {
       assigned: () =>
         (globalThis as { game?: { user?: { character?: SheetOwner | null } } }).game?.user
           ?.character,
@@ -142,13 +162,7 @@ export class FoundryActions {
       allActors: () => [
         ...((globalThis as { game?: { actors?: Iterable<SheetOwner> } }).game?.actors ?? []),
       ],
-    });
-
-    if (!opened) {
-      logger.warn(
-        'No character to open. Assign one in your user configuration, or select a token.'
-      );
-    }
+    };
   }
 
   /**
