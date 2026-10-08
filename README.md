@@ -116,7 +116,8 @@ Nobody is shown a sheet, party or folder they did not already have permission to
 ### New players are welcomed
 
 A player who joins and owns no character sheet is welcomed to the world, asked what to call their
-character, and gets a sheet in the campaign's party: the party a GM gave a campaign code. A GM's
+character, and gets a sheet in the campaign's party: the party a GM gave a campaign code, or, when no
+party has one, the world's primary party (PF2e's "The Party"). A GM's
 browser makes it, owned by the player and assigned as their character. With no GM online the request
 waits, and is made the moment one joins.
 
@@ -129,7 +130,7 @@ fills it from PF2e's compendiums (ancestry, heritage, background, class, feats a
 attribute modifiers, asking them any choices PF2e needs. Anything it cannot find, and any spells, it
 lists for them to add by hand.
 
-It does nothing until a party has a campaign code. The world setting **Welcome new players** (on by
+The world setting **Welcome new players** (on by
 default) switches it off.
 
 ## Settings

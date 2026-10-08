@@ -85,6 +85,15 @@ describe('the settings', () => {
     ]);
     expect(sharedParties(settingsWith({ [PARTIES_SETTING]: 'junk' }))).toEqual([]);
   });
+
+  it("keeps the world's primary party standing in for an uncoded world", () => {
+    const primary = { uuid: 'P', name: 'The Party', code: '', primary: true };
+    expect(sharedParties(settingsWith({ [PARTIES_SETTING]: { parties: [primary] } }))).toEqual([
+      primary,
+    ]);
+    const notPrimary = { parties: [{ uuid: 'P', name: 'The Party', code: '' }] };
+    expect(sharedParties(settingsWith({ [PARTIES_SETTING]: notPrimary }))).toEqual([]);
+  });
 });
 
 describe('serving from the GM browser', () => {

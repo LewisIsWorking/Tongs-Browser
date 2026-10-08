@@ -130,7 +130,7 @@ export class SheetRequests {
     this.told.add(user.request.id);
     this.ports.tellGm(
       noParty
-        ? `${user.userName} asked for a character, but no party here has a campaign code. Set one in Tongs' party campaigns and it will be made.`
+        ? `${user.userName} asked for a character, but this world has no party. Create one (PF2e makes it the primary party), or set a campaign in Tongs' party campaigns, and it will be made.`
         : `${user.userName} asked for a character, but this world has several campaign parties. Ask them to choose one in the welcome window.`
     );
   }

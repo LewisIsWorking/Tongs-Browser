@@ -127,7 +127,15 @@ describe('listing party campaigns', () => {
     ];
     expect(
       readPartyCampaigns({ getGame: () => ({ actors: actors as never, user: { isGM: true } }) })
-    ).toEqual([{ uuid: 'Actor.Kibwe', name: 'Kibwe', campaign: 'C06', members: ['Actor.Lai'] }]);
+    ).toEqual([
+      {
+        uuid: 'Actor.Kibwe',
+        name: 'Kibwe',
+        campaign: 'C06',
+        members: ['Actor.Lai'],
+        primary: false,
+      },
+    ]);
     expect(
       readPartyCampaigns({ getGame: () => ({ actors: actors as never, user: { isGM: false } }) })
     ).toEqual([]);
