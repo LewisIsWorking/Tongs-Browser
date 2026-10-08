@@ -676,10 +676,6 @@
   background: rgb(120 170 255 / 36%);
 }
 
-.tb-roll-pad__roll:disabled {
-  opacity: 0.45;
-}
-
 /* Untrained skills are still rollable, just quieter, so the trained ones read first. */
 .tb-roll-pad__roll--untrained {
   background: rgb(255 255 255 / 6%);

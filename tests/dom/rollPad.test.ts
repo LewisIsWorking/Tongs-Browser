@@ -12,8 +12,13 @@ afterEach(() => {
 });
 
 describe('the pad', () => {
-  it('opens on the strikes, as our own interface, with the weapon not in hand switched off', () => {
-    padWith();
+  /*
+   * ⚠️ A weapon NOT IN HAND still rolls. Measured live 2026-10-08 on PF2e 8.5: a Clan Dagger with
+   * `ready: false` rolled its attack and posted a card. Players seldom keep hand tracking up to date,
+   * so switching those buttons off (as 0.51.0 did) blocked real rolls. It says so, and rolls.
+   */
+  it('opens on the strikes, as our own interface, naming the weapon not in hand but rolling it', () => {
+    const { roll, actor } = padWith();
 
     expect(root()?.getAttribute('data-tongs-browser')).toBe('ignore');
     expect(root()?.querySelector('.tb-roll-pad__name')?.textContent).toBe('Thorin');
@@ -23,14 +28,17 @@ describe('the pad', () => {
       ['MAP -10', false],
       ['Damage', false],
       ['Crit', false],
-      ['Strike +7', true],
-      ['Damage', true],
+      ['Strike +7', false],
+      ['Damage', false],
     ]);
     const titles = [...document.querySelectorAll('.tb-roll-pad__title')];
     expect(titles.map((title) => title.textContent)).toEqual([
       'Longsword',
       'Shortbow (not in hand)',
     ]);
+
+    named('Strike +7').click();
+    expect(roll).toHaveBeenCalledWith(actor, { kind: 'attack', strike: 2, variant: 0 }, false);
   });
 
   it('switches tabs, and opens again on the tab it was left on', () => {

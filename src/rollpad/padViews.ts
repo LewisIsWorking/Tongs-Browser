@@ -60,9 +60,6 @@ function strikeCard(doc: Document, strike: PadStrike, press: PadPress): HTMLElem
   if (strike.canCritical) {
     row.append(rollButton(doc, 'Crit', { kind: 'critical', strike: strike.index }, press));
   }
-  for (const button of row.querySelectorAll('button')) {
-    button.disabled = !strike.ready;
-  }
   card.append(row);
   return card;
 }

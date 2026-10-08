@@ -20,7 +20,10 @@ export interface PadStrike {
   readonly attacks: readonly string[];
   readonly canDamage: boolean;
   readonly canCritical: boolean;
-  /** False when the weapon is not in hand: shown, but its buttons are off. */
+  /**
+   * False when PF2e thinks the weapon is not in hand. The pad SAYS so and still rolls: PF2e 8.5 rolls
+   * it anyway (measured 2026-10-08), and players seldom keep hand tracking up to date.
+   */
   readonly ready: boolean;
 }
 
