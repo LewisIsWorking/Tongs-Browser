@@ -64,7 +64,14 @@ export function sharedParties(settings: WelcomeSettings): CampaignParty[] {
     list.flatMap((entry) => {
       const party = entry as Partial<CampaignParty> | null;
       return typeof party?.uuid === 'string' && typeof party.name === 'string'
-        ? [{ uuid: party.uuid, name: party.name, campaign: party.code }]
+        ? [
+            {
+              uuid: party.uuid,
+              name: party.name,
+              campaign: party.code,
+              primary: party.primary === true,
+            },
+          ]
         : [];
     })
   );

@@ -27,7 +27,7 @@ import type { SizeGlobals } from './world/startWorldSize.js';
  *
  * ⚠️ EVERY ONE OF THESE IS OFF UNTIL A GM TURNS IT ON, per world, except world swaps: that one only
  * makes ComeOnOverUno ask before it closes the world, so off is the dangerous setting (`src/swaps`).
- * The new-player welcome is on, but does nothing until a GM gives a party a campaign code (`src/welcome`).
+ * The new-player welcome is on, but puts sheets in the coded party, else the world's primary party (`src/welcome`).
  *
  * ⚠️ The COO ones start only when `init` managed to build the client, because their settings were
  * registered in the same breath and neither exists without it.
@@ -55,7 +55,7 @@ export function startFeatures(parts: FeatureParts): void {
   startBands(hooks, settings, globals, client);
   /* Restore owners: a GM button giving players back what their pre-move user owned. See src/owners. */
   startRestoreOwners(settings, globals as OwnerGlobals);
-  /* New players: welcomed, sheet made by a GM, then a checklist. Inert until a party has a campaign code. */
+  /* New players: welcomed, sheet made by a GM, then a checklist. Coded party, else the primary party. */
   registerWelcomeSettings(settings);
   startSheetRequests(hooks, settings, globals as WelcomeGlobals);
   startWelcome(hooks, settings, globals, parts.document);

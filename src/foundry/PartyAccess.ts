@@ -45,7 +45,8 @@ export interface UserLike {
 
 /** Foundry's `game`, described only as far as this reads it. */
 export interface FoundryGame {
-  readonly actors?: Iterable<ActorLike>;
+  /** PF2e adds `party`: the world's active party, "The Party" unless a GM chose another. */
+  readonly actors?: Iterable<ActorLike> & { readonly party?: ActorLike | null };
   readonly users?: Iterable<UserLike>;
   readonly user?: UserLike;
 }
@@ -71,6 +72,8 @@ export interface PartyCampaignEntry {
   readonly campaign: unknown;
   /** Actor uuids from the party's own `system.details.members`. */
   readonly members: readonly string[];
+  /** The world's primary party (PF2e's active party). Added 2026-10-08: new players' sheets default to it. */
+  readonly primary?: boolean;
 }
 
 /**
@@ -145,6 +148,7 @@ export function readPartyCampaigns(options: PartyAccessOptions): PartyCampaignEn
     return [];
   }
   const entries: PartyCampaignEntry[] = [];
+  const primary = game.actors.party?.uuid;
   for (const actor of game.actors) {
     if (actor.type === PARTY_TYPE && actor.uuid !== undefined && actor.name !== undefined) {
       entries.push({
@@ -154,6 +158,7 @@ export function readPartyCampaigns(options: PartyAccessOptions): PartyCampaignEn
         members: (actor.system?.details?.members ?? []).flatMap((member) =>
           typeof member.uuid === 'string' ? [member.uuid] : []
         ),
+        primary: primary !== undefined && actor.uuid === primary,
       });
     }
   }

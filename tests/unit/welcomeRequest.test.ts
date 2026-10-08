@@ -7,6 +7,7 @@ import {
   readSheetResult,
 } from '../../src/welcome/sheetRequest.js';
 import { campaignParties, pickParty } from '../../src/welcome/campaignParty.js';
+import { readPartyCampaigns } from '../../src/foundry/PartyAccess.js';
 
 /** A new player's request and the GM's answer, both read from flags a browser wrote. 2026-10-05. */
 describe('the name a sheet is given', () => {
@@ -82,6 +83,18 @@ describe('the campaign party', () => {
     ).toEqual([{ uuid: 'A', name: 'Party A', code: 'C06' }]);
   });
 
+  /** Lewis, 2026-10-08: a canonical primary party per world, so a world nobody set up still makes sheets. */
+  it("falls back to the world's primary party when no party has a code", () => {
+    const primary = { ...party('P', undefined), primary: true };
+    const parties = campaignParties([party('B', 'Kibwe'), primary]);
+    expect(parties).toEqual([{ uuid: 'P', name: 'Party P', code: '', primary: true }]);
+    expect(pickParty(null, parties)).toEqual({ kind: 'party', party: parties[0] });
+    expect(campaignParties([party('A', 'C06'), primary])).toEqual([
+      { uuid: 'A', name: 'Party A', code: 'C06' },
+    ]);
+    expect(campaignParties([party('B', 'Kibwe')])).toEqual([]);
+  });
+
   const one = campaignParties([party('A', 'C06')]);
   const two = campaignParties([party('A', 'C06'), party('B', 'C07')]);
 
@@ -102,5 +115,25 @@ describe('the campaign party', () => {
   it('falls back when the chosen party is no longer a campaign party', () => {
     expect(pickParty('GONE', one)).toEqual({ kind: 'party', party: one[0] });
     expect(pickParty('GONE', two).kind).toBe('ambiguous');
+  });
+});
+
+describe("the world's primary party", () => {
+  it("is marked from PF2e's active party", () => {
+    const party = (name: string) => ({
+      type: 'party',
+      name,
+      uuid: `Actor.${name}`,
+      getFlag: () => undefined,
+    });
+    const parties = [party('The Party'), party('Kibwe')];
+    const actors = Object.assign(parties, { party: parties[0] });
+    const read = readPartyCampaigns({
+      getGame: () => ({ actors: actors as never, user: { isGM: true } }),
+    });
+    expect(read.map((p) => [p.name, p.primary])).toEqual([
+      ['The Party', true],
+      ['Kibwe', false],
+    ]);
   });
 });

@@ -104,7 +104,7 @@ describe('a request that has to wait', () => {
     await requests.serve();
     expect(answers).toEqual([]);
     expect(told).toHaveLength(1);
-    expect(told[0]).toContain('no party here has a campaign code');
+    expect(told[0]).toContain('this world has no party');
   });
 
   it('keeps it when several campaign parties exist and none was chosen', async () => {

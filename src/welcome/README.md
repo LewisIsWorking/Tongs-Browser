@@ -11,7 +11,7 @@ proves who asked. The answer travels back on the same User.
 | File                    | What it is                                                                    |
 | ----------------------- | ----------------------------------------------------------------------------- |
 | `sheetRequest.ts`       | The request and answer flags, and reading them defensively                    |
-| `campaignParty.ts`      | Which party a sheet goes in: the one with a campaign code                     |
+| `campaignParty.ts`      | Which party a sheet goes in: the coded one, else the world's primary party   |
 | `SheetRequests.ts`      | The GM side: serve each waiting request, once, one pass at a time             |
 | `startSheetRequests.ts` | The settings, the hooks that wake the GM side, and the Foundry wiring         |
 | `welcomeDocuments.ts`   | Every user and actor listing the welcome makes (a `check:documents` boundary) |
@@ -29,7 +29,8 @@ proves who asked. The answer travels back on the same User.
 - **No GM online: the request waits** and is served the moment a GM joins. With a GM online it is immediate.
 - **Welcome, then a guided build**: a window on first visit, then a checklist beside the new sheet.
 - **The campaign's party**: the party with a campaign code (`bands/partyCampaign.ts`). With several, the
-  player picks; with none, the request waits and the GM is told once.
+  player picks. With none, the world's primary party (PF2e's active party, "The Party"); with no party at
+  all, the request waits and the GM is told once.
 
 ## Learnings
 
@@ -56,5 +57,6 @@ proves who asked. The answer travels back on the same User.
   export does not describe, so the player is told how many to add.
 - ⚠️ **A reload resumes it.** Items already on the sheet are skipped (and still counted as imported), and
   `importDone` is set only at the end. Measured live: a run cut short mid-prompt finished on the next visit.
-- ⚠️ **Inert until a GM gives a party a campaign code.** The GM side shares the campaign parties in a
+- ⚠️ **It was inert until a GM gave a party a campaign code**, so C07 made no sheet for a new player
+  (2026-10-08). Now an uncoded world uses its primary party. The GM side shares the parties in a
   hidden world setting, because a player cannot see a party they are not in.
