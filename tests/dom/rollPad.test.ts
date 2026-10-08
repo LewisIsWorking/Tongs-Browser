@@ -1,39 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { HOLD_MS } from '../../src/rollpad/padPress.js';
-import { RollPad } from '../../src/rollpad/RollPad.js';
-import { buildRollPad } from '../../src/rollpad/buildRollPad.js';
-import { padActor } from '../unit/support/rollPadActor.js';
+import { buttons, named, padWith, root, settle } from './support/rollPadWorld.js';
 
 /**
- * The Roll Pad on screen: tabs, a tap, a long press, and what it says when it cannot roll. Written
- * 2026-10-08. What each roll calls in PF2e is asserted in `tests/unit/rollPadModel.test.ts`.
+ * The Roll Pad on screen: what it shows, and its tabs. Written 2026-10-08. Presses are in
+ * `rollPadPress.test.ts`; what each roll calls in PF2e is in `tests/unit/rollPadModel.test.ts`.
  */
 afterEach(() => {
   vi.useRealTimers();
   document.body.replaceChildren();
 });
-
-const root = () => document.querySelector<HTMLElement>('.tb-roll-pad');
-const buttons = (selector = '.tb-roll-pad__roll') => [
-  ...document.querySelectorAll<HTMLButtonElement>(selector),
-];
-const named = (text: string) => {
-  const found = buttons('button').find((button) => button.textContent === text);
-  if (found === undefined) throw new Error(`No button '${text}'.`);
-  return found;
-};
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-const press = (button: HTMLButtonElement, ...types: string[]) => {
-  for (const type of types) button.dispatchEvent(new PointerEvent(type));
-};
-
-const padWith = (actor: unknown = padActor()) => {
-  const roll = vi.fn(() => Promise.resolve(true));
-  const pad = new RollPad({ document, character: () => actor, roll });
-  pad.open();
-  return { pad, roll, actor };
-};
 
 describe('the pad', () => {
   it('opens on the strikes, as our own interface, with the weapon not in hand switched off', () => {
@@ -97,87 +73,35 @@ describe('the pad', () => {
     named('Close').click();
     expect(root()).toBeNull();
   });
-});
 
-describe('a press', () => {
-  it('rolls without the dialog on a tap, and closes so the card can be seen', async () => {
-    const { pad, roll, actor } = padWith();
+  it('shows a strike with no damage roll, and a check with no modifier, as far as they go', () => {
+    const roll = () => undefined;
+    padWith({
+      name: 'Amiri',
+      system: {
+        actions: [{ type: 'strike', label: 'Fist', variants: [{ label: 'Strike +3', roll }] }],
+      },
+      perception: { label: 'Perception', roll },
+    });
 
-    press(named('MAP -5'), 'pointerdown', 'pointerup');
-    await settle();
-
-    expect(roll).toHaveBeenCalledWith(actor, { kind: 'attack', strike: 0, variant: 1 }, false);
-    expect(pad.isOpen()).toBe(false);
+    expect(buttons().map((button) => button.textContent)).toEqual(['Strike +3']);
+    named('Checks').click();
+    expect(buttons().map((button) => button.textContent)).toEqual(['Perception']);
   });
 
-  it('rolls through the dialog on a long press, once, and nothing on the lift', () => {
-    vi.useFakeTimers();
-    const { roll, actor } = padWith();
-    const crit = named('Crit');
-
-    press(crit, 'pointerdown');
-    vi.advanceTimersByTime(HOLD_MS);
-    press(crit, 'pointerup');
-
-    expect(roll).toHaveBeenCalledTimes(1);
-    expect(roll).toHaveBeenCalledWith(actor, { kind: 'critical', strike: 0 }, true);
-  });
-
-  it('rolls nothing for a finger that slid away or scrolled', () => {
-    vi.useFakeTimers();
-    const { roll } = padWith();
-    const damage = named('Damage');
-
-    press(damage, 'pointerdown', 'pointerleave', 'pointerup');
-    press(damage, 'pointerdown', 'pointercancel');
-    vi.advanceTimersByTime(HOLD_MS * 2);
-    press(damage, 'pointerup');
-
-    expect(roll).not.toHaveBeenCalled();
-    const menu = new MouseEvent('contextmenu', { cancelable: true });
-    damage.dispatchEvent(menu);
-    expect(menu.defaultPrevented).toBe(true);
-  });
-
-  it('taps from the keyboard, but not from a mouse click after the pointer already did', () => {
-    const { roll } = padWith();
-
-    named('Damage').dispatchEvent(new MouseEvent('click', { detail: 1 }));
-    expect(roll).not.toHaveBeenCalled();
-    named('Damage').click();
-    expect(roll).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('when it cannot roll', () => {
-  it('says the roll has gone, or why it failed, and stays open', async () => {
+  it('closes quietly when already closed, and stays closed when a roll answers late', async () => {
+    let answer: (rolled: boolean) => void = () => undefined;
     const { pad, roll } = padWith();
-    roll.mockResolvedValueOnce(false);
-    named('Damage').click();
-    await settle();
-    expect(root()?.querySelector('[role="status"]')?.textContent).toBe(
-      'That roll is not on the sheet any more.'
+    roll.mockReturnValueOnce(
+      new Promise((resolve) => {
+        answer = resolve;
+      })
     );
 
-    roll.mockRejectedValueOnce(new Error('no target')).mockRejectedValueOnce('plain');
     named('Damage').click();
-    await settle();
-    expect(root()?.textContent).toContain('The roll failed: no target');
-    named('Damage').click();
-    await settle();
-    expect(root()?.textContent).toContain('The roll failed: plain');
-    expect(pad.isOpen()).toBe(true);
-  });
-});
-
-describe('in Foundry', () => {
-  it('rolls for the character the sheet button means, through PF2e', async () => {
-    const actor = padActor();
-    const open = buildRollPad(document, { myCharacter: () => actor as never });
-
-    open();
-    named('Checks').click();
-    named('Will -1').click();
+    pad.close();
+    pad.close();
+    answer(false);
     await settle();
 
     expect(root()).toBeNull();

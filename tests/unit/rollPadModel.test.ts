@@ -82,9 +82,14 @@ describe('what the pad offers', () => {
     expect(
       readPad({
         name: 'Weird',
-        system: { actions: [{ type: 'strike', label: 'X', variants: [1] }] },
-      })?.strikes[0]?.attacks
-    ).toEqual([]);
+        system: {
+          actions: [
+            { type: 'strike', label: 'X', variants: [1, { label: 'Strike +1', roll: 'no' }] },
+            { type: 'strike', label: 'Y', variants: 'none' },
+          ],
+        },
+      })?.strikes.map((strike) => strike.attacks)
+    ).toEqual([[], []]);
     for (const nothing of [null, undefined, 'Thorin', { name: '' }, {}]) {
       expect(readPad(nothing)).toBeNull();
     }
@@ -128,9 +133,10 @@ describe('rolling through PF2e', () => {
       rollOnPad(actor, { kind: 'check', group: 'skill', key: 'arcana' }, false),
       rollOnPad(null, { kind: 'damage', strike: 0 }, false),
       rollOnPad({ system: { actions: 'none' } }, { kind: 'damage', strike: 0 }, false),
+      rollOnPad({ name: 'No saves' }, { kind: 'check', group: 'save', key: 'will' }, false),
     ];
 
-    expect(await Promise.all(gone)).toEqual([false, false, false, false, false]);
+    expect(await Promise.all(gone)).toEqual([false, false, false, false, false, false]);
     expect(calls).toEqual([]);
   });
 });
