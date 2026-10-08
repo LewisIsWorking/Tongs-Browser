@@ -43,6 +43,8 @@ export interface TrayWiring {
   readonly mapBuilding: MapBuildingCommands;
   /** Opens the GM roll deck. */
   readonly openRollDeck: () => void;
+  /** Opens the player's Roll Pad. */
+  readonly openRollPad: () => void;
 }
 
 /**
@@ -138,6 +140,8 @@ export function wireTrayActions(
     canBuildMaps: () => readViewer(GAME_ACCESS).isGm,
     openRollDeck: parts.openRollDeck,
     canUseRollDeck: () => readViewer(GAME_ACCESS).isGm,
+    openRollPad: parts.openRollPad,
+    canUseRollPad: () => !readViewer(GAME_ACCESS).isGm,
   });
 }
 

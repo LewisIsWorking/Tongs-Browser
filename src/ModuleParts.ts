@@ -20,6 +20,7 @@ import { buildPauseRelay } from './relay/BuildPauseRelay.js';
 import { logger } from './core/Logger.js';
 import { vibrate } from './core/Vibrate.js';
 import { buildRollDeck, type RollDeckParts } from './deck/panel/buildDeckPanel.js';
+import { buildRollPad } from './rollpad/buildRollPad.js';
 import type { CursorOverlay } from './pointer/CursorOverlay.js';
 import type { VirtualPointer } from './pointer/VirtualPointer.js';
 import type { TongsBrowserOptions } from './TongsBrowserOptions.js';
@@ -145,6 +146,7 @@ export function buildModuleParts(options: TongsBrowserOptions, self: ModuleSelf)
     openRollDeck: () => {
       rollDeck.panel.open();
     },
+    openRollPad: buildRollPad(doc, actions),
   });
 
   const scaler = new UiScaler({

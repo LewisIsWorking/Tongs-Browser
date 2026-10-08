@@ -158,4 +158,16 @@ describe('opening a character sheet', () => {
       actions.openCharacterSheet();
     }).not.toThrow();
   });
+
+  /** The Roll Pad rolls for the same character the sheet button opens (2026-10-08). */
+  it('gives the Roll Pad the same character, without opening anything', () => {
+    const owned = { isOwner: true, sheet: { render: vi.fn() } };
+    globals['game'] = { user: {}, actors: [owned, { isOwner: false, sheet: { render: vi.fn() } }] };
+    const { actions } = build();
+
+    expect(actions.myCharacter()).toBe(owned);
+    expect(owned.sheet.render).not.toHaveBeenCalled();
+    globals['game'] = { user: {}, actors: [] };
+    expect(actions.myCharacter()).toBeNull();
+  });
 });

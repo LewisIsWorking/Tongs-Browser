@@ -35,6 +35,8 @@ export interface ModifierBarDeps {
   readonly pointer: () => VirtualPointer;
   /** Opens the GM roll deck, built alongside the bar in ModuleParts. */
   readonly openRollDeck: () => void;
+  /** Opens the player's Roll Pad, built beside the deck. */
+  readonly openRollPad: () => void;
 }
 
 export function buildModifierBar(deps: ModifierBarDeps): ModifierBar {
@@ -92,6 +94,7 @@ export function buildModifierBar(deps: ModifierBarDeps): ModifierBar {
        * gets commands rather than a keyboard. See modifiers/MapBuilding.ts. */
       mapBuilding: buildMapBuildingCommands(deps.synthesizer),
       openRollDeck: deps.openRollDeck,
+      openRollPad: deps.openRollPad,
     }),
   });
 }

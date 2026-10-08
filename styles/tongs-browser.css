@@ -579,3 +579,114 @@
   display: block;
   margin-bottom: 0.5rem;
 }
+
+/*
+ * The player's Roll Pad (src/rollpad), added 2026-10-08. Full screen and opaque like the GM roll deck,
+ * with buttons at least 56px tall: it is for phones, where the sheet's own controls are too small.
+ */
+.tb-roll-pad {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--tb-cursor-z-index) + 10);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 12px;
+  overflow-y: auto;
+  background: rgb(22 22 26);
+  color: rgb(255 255 255 / 92%);
+  font-family: sans-serif;
+  font-size: 17px;
+}
+
+.tb-roll-pad__header,
+.tb-roll-pad__tabs,
+.tb-roll-pad__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tb-roll-pad__name {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 19px;
+  font-weight: bold;
+}
+
+.tb-roll-pad__body,
+.tb-roll-pad__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tb-roll-pad__title {
+  margin: 4px 0 0;
+  border: 0;
+  color: inherit;
+  font-size: 17px;
+  font-weight: bold;
+}
+
+.tb-roll-pad__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.tb-roll-pad__note,
+.tb-roll-pad__status {
+  margin: 0;
+  color: rgb(255 220 150 / 95%);
+}
+
+.tb-roll-pad__status:empty {
+  display: none;
+}
+
+.tb-roll-pad__roll,
+.tb-roll-pad__tab,
+.tb-roll-pad__close {
+  width: auto;
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 6px;
+  background: rgb(120 170 255 / 18%);
+  color: inherit;
+  font-size: 17px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.tb-roll-pad__row .tb-roll-pad__roll,
+.tb-roll-pad__tab {
+  flex: 1 1 0;
+}
+
+.tb-roll-pad__roll:active {
+  background: rgb(120 170 255 / 36%);
+}
+
+.tb-roll-pad__roll:disabled {
+  opacity: 0.45;
+}
+
+/* Untrained skills are still rollable, just quieter, so the trained ones read first. */
+.tb-roll-pad__roll--untrained {
+  background: rgb(255 255 255 / 6%);
+  color: rgb(255 255 255 / 70%);
+}
+
+.tb-roll-pad__tab[aria-selected='true'] {
+  border: 2px solid rgb(255 208 92 / 95%);
+  background: rgb(255 208 92 / 26%);
+}

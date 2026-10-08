@@ -42,6 +42,9 @@ export const handlers = (overrides: Partial<TrayActionHandlers> = {}): TrayActio
   /* ⚠️ TRUE by default, for the reason written at `canBuildMaps`. */
   openRollDeck: vi.fn(),
   canUseRollDeck: () => true,
+  /* ⚠️ TRUE by default too, though no one user sees both: this set is every button, not one user's. */
+  openRollPad: vi.fn(),
+  canUseRollPad: () => true,
   ...overrides,
 });
 

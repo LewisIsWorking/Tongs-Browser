@@ -33,6 +33,7 @@ The module itself. Everything shipped in `dist/tongs-browser.js` comes from here
 | `encounter/`    | Encounters kept in step with Telegram       |
 | `swaps/`        | Answering ComeOnOverUno's world swaps       |
 | `welcome/`      | New players: a sheet, then a checklist      |
+| `rollpad/`      | A player's rolls as big buttons, for phones |
 
 ## The composition root is separate from the parts
 

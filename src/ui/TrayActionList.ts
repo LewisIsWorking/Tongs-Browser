@@ -41,6 +41,16 @@ export function everyTrayAction(handlers: TrayActionHandlers): readonly TrayActi
       title: 'Choose which parties players may add characters to',
       activate: handlers.managePartyAccess,
     },
+    /**
+     * The player's Roll Pad (2026-10-08), in the slot the GM's roll deck takes: one user sees one of
+     * the two, so a player's tray and a GM's put "roll" in the same place.
+     */
+    {
+      id: 'roll-pad',
+      label: '🎲',
+      title: 'Open the Roll Pad: strikes, saves and skills as big buttons',
+      activate: handlers.openRollPad,
+    },
     /** ⚠️ Before pause, with the other GM errands, rather than among the map controls. */
     {
       id: 'roll-deck',

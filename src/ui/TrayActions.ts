@@ -70,6 +70,10 @@ export interface TrayActionHandlers {
   readonly openRollDeck: () => void;
   /** ⛔ GM only, permanently: the deck applies damage and rolls saves for creatures a player does not own. */
   readonly canUseRollDeck: () => boolean;
+  /** Opens the player's Roll Pad. See `rollpad/RollPad.ts`. Added 2026-10-08. */
+  readonly openRollPad: () => void;
+  /** Players only: a GM has the roll deck in the same slot, and rolls NPCs from their sheets. */
+  readonly canUseRollPad: () => boolean;
 }
 
 /** Buttons that are only offered when their own gate says so. */
@@ -84,6 +88,7 @@ const GATED: readonly { readonly id: string; readonly allowed: keyof TrayActionH
   { id: 'send-to-back', allowed: 'canBuildMaps' },
   { id: 'bring-to-front', allowed: 'canBuildMaps' },
   { id: 'roll-deck', allowed: 'canUseRollDeck' },
+  { id: 'roll-pad', allowed: 'canUseRollPad' },
 ];
 
 /** How far one press of a pan arrow moves the view, in screen pixels. */
