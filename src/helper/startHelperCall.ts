@@ -20,7 +20,7 @@ import type { WaitingGame } from './waitingWork.js';
  * ⚠️ Only THIS browser's own writes count (Foundry passes the writing user's id to every hook), so ten
  *    players watching one queued card make one call, not ten.
  */
-export const WAITING_PATH = '/api/pathwars/foundry/tongs-waiting';
+export const WAITING_PATH = '/api/foundry/tongs/waiting';
 /** One call a minute at most: a burst of queued hits needs one visit, not one each. */
 export const CALL_GAP_MS = 60_000;
 

@@ -27,13 +27,15 @@ export function waitingWork(game: WaitingGame | undefined): string[] {
   const sheets = pendingRequests(game).map(
     (user) => `${user.userName}'s character sheet "${user.request.name}"`
   );
-  const cards = recentStrikeMessages({ game }).flatMap((message: WaitingMessage) => {
-    const flags = message.flags?.[MODULE_ID] as Record<string, unknown> | undefined;
-    if (flags?.[PENDING_FLAG] !== true) {
-      return [];
+  const cards = recentStrikeMessages(game === undefined ? {} : { game }).flatMap(
+    (message: WaitingMessage) => {
+      const flags = message.flags?.[MODULE_ID] as Record<string, unknown> | undefined;
+      if (flags?.[PENDING_FLAG] !== true) {
+        return [];
+      }
+      const who = message.author?.name ?? 'A player';
+      return [`${who}'s ${flags[TARGETS_FLAG] === undefined ? 'damage' : 'spell saves'}`];
     }
-    const who = message.author?.name ?? 'A player';
-    return [`${who}'s ${flags[TARGETS_FLAG] === undefined ? 'damage' : 'spell saves'}`];
-  });
+  );
   return [...sheets, ...cards];
 }

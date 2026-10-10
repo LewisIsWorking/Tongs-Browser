@@ -77,7 +77,7 @@ describe('calling the helper', () => {
 
 describe('the Foundry wiring', () => {
   it("calls from Foundry's update and create hooks, and gives the helper its reading", async () => {
-    const handlers = new Map<string, (...args: unknown[]) => unknown>();
+    const handlers = new Map<string, (...args: never[]) => unknown>();
     const hooks = {
       on: (name: string, fn: (...args: never[]) => unknown) => handlers.set(name, fn),
     };
@@ -92,7 +92,11 @@ describe('the Foundry wiring', () => {
     } as unknown as HelperGlobals;
 
     startHelperCall(hooks, globals, tell, entry);
-    handlers.get('createChatMessage')?.(pendingCard, {}, 'me');
+    (handlers.get('createChatMessage') as ((...args: unknown[]) => unknown) | undefined)?.(
+      pendingCard,
+      {},
+      'me'
+    );
     await Promise.resolve();
 
     expect(tell).toHaveBeenCalledWith(WAITING_PATH, { world: 'c02' });
