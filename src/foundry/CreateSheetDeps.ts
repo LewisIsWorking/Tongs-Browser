@@ -64,7 +64,7 @@ export async function createSheetWithFoundry(request: {
 }
 
 /** Puts a sheet in a party. Throws, with the reason, when it cannot. */
-export async function addToPartyWithFoundry(partyUuid: string, sheet: CreatedSheet): Promise<void> {
+async function addToPartyWithFoundry(partyUuid: string, sheet: CreatedSheet): Promise<void> {
   const resolve = (globalThis as CreationGlobals).fromUuid;
   if (resolve === undefined) {
     throw new Error('Foundry has no fromUuid on this client.');
