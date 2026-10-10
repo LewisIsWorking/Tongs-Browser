@@ -65,9 +65,9 @@ export function startFeatures(parts: FeatureParts): void {
   registerWelcomeSettings(settings);
   startSheetRequests(hooks, settings, globals as WelcomeGlobals);
   /* The helper call starts below, once COO is signed in; a microtask later it has. */
-  let helperCall: HelperCall | undefined;
+  const helper: { call?: HelperCall } = {};
   startWelcome(hooks, settings, globals, parts.document, () => {
-    queueMicrotask(() => void helperCall?.summon().catch(() => undefined));
+    queueMicrotask(() => void helper.call?.summon().catch(() => undefined));
   });
   startImport(hooks, globals as ImportGlobals);
   /* Idle GM sign-out: frees the world whether or not COO is signed in, so it starts before that check. */
@@ -83,7 +83,7 @@ export function startFeatures(parts: FeatureParts): void {
   const storeCampaigns = async (value: unknown): Promise<void> =>
     storePlayerCampaigns(settings, value);
   /* No GM online: ask COO's helper GM to come and do what this browser queued. See src/helper. */
-  helperCall = startHelperCall(
+  helper.call = startHelperCall(
     hooks,
     globals as HelperGlobals,
     async (path, body) => client.tell(path, body),

@@ -24,7 +24,7 @@ const riddleport = {
 };
 
 function gmGame(isGM = true): FoundryGame {
-  return { user: { id: 'helper', isGM }, actors: [riddleport] } as unknown as FoundryGame;
+  return { user: { id: 'helper', isGM }, actors: [riddleport] };
 }
 
 function settingsWith(values: Record<string, unknown>) {
