@@ -101,6 +101,7 @@ describe('the GM side', () => {
       "Tongs could not add MrNegetZ's Livy to The Party: That party cannot take members.",
     ]);
     const { homes: odd, told: oddTold } = homes({
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- a non-Error rejection is the case
       join: vi.fn(async () => Promise.reject('no')),
     });
     await odd.serve();
