@@ -8,23 +8,24 @@ A player cannot create an actor in most worlds, so the sheet is made by a GM's b
 as a flag on the player's own User document, which only they (and a GM) can write, so the server already
 proves who asked. The answer travels back on the same User.
 
-| File                    | What it is                                                                    |
-| ----------------------- | ----------------------------------------------------------------------------- |
-| `sheetRequest.ts`       | The request and answer flags, and reading them defensively                    |
-| `campaignParty.ts`      | Which party a sheet goes in: the coded one, else the world's primary party    |
-| `SheetRequests.ts`      | The GM side: serve each waiting request, once, one pass at a time             |
-| `PartyHomes.ts`         | The GM side: a player's only sheet in no party joins their campaign's party   |
-| `playerCampaigns.ts`    | Which campaigns each player posts in, as ComeOnOverUno said (world setting)   |
-| `startSheetRequests.ts` | The settings, the hooks that wake the GM side, and the Foundry wiring         |
-| `welcomeDocuments.ts`   | Every user and actor listing the welcome makes (a `check:documents` boundary) |
-| `startWelcome.ts`       | The player side: which face to show, and the checklist for a new sheet        |
-| `WelcomeWindow.ts`      | The welcome window: ask, waiting, and turned down                             |
-| `buildGuide.ts`         | The checklist, read from the sheet                                            |
-| `GuidePanel.ts`         | The checklist panel                                                           |
-| `importBuild.ts`        | Reading a ComeOnOverUno "Foundry VTT" export, as untrusted input              |
-| `ImportPicker.ts`       | The welcome's optional file picker for that export                            |
-| `applyImport.ts`        | Filling the sheet from PF2e's compendiums, by the names the export gives      |
-| `startImport.ts`        | Running it once, in the owning player's browser                               |
+| File                    | What it is                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| `sheetRequest.ts`       | The request and answer flags, and reading them defensively                      |
+| `campaignParty.ts`      | Which party a sheet goes in: the coded one, else the world's primary party      |
+| `SheetRequests.ts`      | The GM side: serve each waiting request, once, one pass at a time               |
+| `PartyHomes.ts`         | The GM side: a player's only sheet in no party joins their campaign's party     |
+| `playerCampaigns.ts`    | Which campaigns each player posts in, as ComeOnOverUno said (world setting)     |
+| `partyListWork.ts`      | The shared party list as work a GM owes, so the helper GM is called to share it |
+| `startSheetRequests.ts` | The settings, the hooks that wake the GM side, and the Foundry wiring           |
+| `welcomeDocuments.ts`   | Every user and actor listing the welcome makes (a `check:documents` boundary)   |
+| `startWelcome.ts`       | The player side: which face to show, and the checklist for a new sheet          |
+| `WelcomeWindow.ts`      | The welcome window: ask, waiting, and turned down                               |
+| `buildGuide.ts`         | The checklist, read from the sheet                                              |
+| `GuidePanel.ts`         | The checklist panel                                                             |
+| `importBuild.ts`        | Reading a ComeOnOverUno "Foundry VTT" export, as untrusted input                |
+| `ImportPicker.ts`       | The welcome's optional file picker for that export                              |
+| `applyImport.ts`        | Filling the sheet from PF2e's compendiums, by the names the export gives        |
+| `startImport.ts`        | Running it once, in the owning player's browser                                 |
 
 ## Decided with Lewis, 2026-10-05
 
@@ -71,3 +72,7 @@ proves who asked. The answer travels back on the same User.
   each player's campaign codes with the GM heartbeat (and to its helper GM), kept in the hidden world
   setting `playerCampaigns`. `pickParty` takes the one coded party among them; a player in both, or in
   neither, is still asked. Players can read that setting, which is fine: who posts where is public in the group.
+- ⛔ **A world no GM had opened offered no sheet** (C00/C01, 2026-10-10, "Day 3 of asking for char sheets").
+  Players read the party list a GM's browser shares, so it stayed empty after the parties got codes, the
+  welcome closed, nothing was queued, and the helper GM was never called. Now the welcome calls the helper
+  once per page load, and `partyListWork.ts` keeps its visit open until its Tongs has shared the list.

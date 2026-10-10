@@ -54,11 +54,19 @@ export class HelperCall {
 
   /** A hook saw a write: call COO if it was ours, it queued work, and nobody is here to do it. */
   public async onWrite(changes: FlagHolder | undefined, userId: unknown): Promise<void> {
-    if (userId !== this.ports.myId() || !queuedSomething(changes) || !this.ports.queues()) {
+    if (userId !== this.ports.myId() || !queuedSomething(changes)) {
       return;
     }
+    await this.summon();
+  }
+
+  /**
+   * The welcome found no party list to offer (src/welcome/partyListWork.ts): ask for the helper GM, whose
+   * Tongs shares it. Same rules as a queued write: nobody here to do it, and once a minute at most.
+   */
+  public async summon(): Promise<void> {
     const world = this.ports.worldId();
-    if (world === undefined || this.ports.now() - this.last < CALL_GAP_MS) {
+    if (!this.ports.queues() || world === undefined || this.ports.now() - this.last < CALL_GAP_MS) {
       return;
     }
     this.last = this.ports.now();
@@ -83,7 +91,8 @@ export function startHelperCall(
   globals: HelperGlobals,
   tell: HelperCallPorts['tell'],
   entry: ModuleEntry | undefined,
-  campaigns: (value: unknown) => Promise<void> = async () => Promise.resolve()
+  campaigns: (value: unknown) => Promise<void> = async () => Promise.resolve(),
+  moreWork: () => string[] = () => []
 ): HelperCall {
   const call = new HelperCall({
     myId: () => globals.game?.user?.id,
@@ -107,7 +116,7 @@ export function startHelperCall(
   });
   /* What COO's helper uses: `helper.waiting()`, and `helper.campaigns(map)` since it is not signed in to COO. */
   if (entry !== undefined) {
-    entry.helper = { waiting: () => waitingWork(globals.game), campaigns };
+    entry.helper = { waiting: () => [...moreWork(), ...waitingWork(globals.game)], campaigns };
   }
   return call;
 }
