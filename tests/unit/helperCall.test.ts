@@ -146,7 +146,7 @@ describe("the helper's playerCampaigns", () => {
     const store = vi.fn(async () => Promise.resolve());
     const entry: { helper?: { campaigns(map: object): Promise<void> } } = {};
     const hooks = { on: () => undefined };
-    startHelperCall(hooks, {} as HelperGlobals, vi.fn(), entry, store);
+    startHelperCall(hooks, {}, vi.fn(), entry, store);
     await entry.helper?.campaigns({ AnnAnnAnnAnnAnn1: ['C07'] });
     expect(store).toHaveBeenCalledWith({ AnnAnnAnnAnnAnn1: ['C07'] });
   });
