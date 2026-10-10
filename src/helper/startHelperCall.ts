@@ -42,7 +42,9 @@ const ours = (changes: FlagHolder | undefined): Record<string, unknown> | undefi
 /** Whether a write by this browser put work in a GM's queue: a sheet request, or a pending card. */
 export function queuedSomething(changes: FlagHolder | undefined): boolean {
   const flags = ours(changes);
-  return flags !== undefined && (flags[REQUEST_FLAG] != null || flags[PENDING_FLAG] === true);
+  return (
+    flags !== undefined && ((flags[REQUEST_FLAG] ?? null) !== null || flags[PENDING_FLAG] === true)
+  );
 }
 
 export class HelperCall {

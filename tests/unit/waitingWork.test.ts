@@ -17,28 +17,27 @@ const message = (id: string, author: string, flags: Record<string, unknown>, vis
   flags: { 'tongs-browser': flags },
 });
 
-const game = (isGM: boolean): WaitingGame =>
-  ({
-    user: { id: 'gm', isGM },
-    users: {
-      contents: [
-        {
-          id: 'u1',
-          name: 'Terra',
-          getFlag: flagged({ sheetRequest: { id: 'r', name: 'Lai', at: 1 } }),
-        },
-        { id: 'u2', name: 'Kai', getFlag: flagged({}) },
-      ],
-    },
-    messages: {
-      contents: [
-        message('m1', 'Kai', { pending: true }),
-        message('m2', 'Oscar', { pending: true, targets: ['Token.x'] }),
-        message('m3', 'Kai', { pending: false }),
-        message('m4', 'Hidden', { pending: true }, false),
-      ],
-    },
-  }) as unknown as WaitingGame;
+const game = (isGM: boolean): WaitingGame => ({
+  user: { id: 'gm', isGM },
+  users: {
+    contents: [
+      {
+        id: 'u1',
+        name: 'Terra',
+        getFlag: flagged({ sheetRequest: { id: 'r', name: 'Lai', at: 1 } }),
+      },
+      { id: 'u2', name: 'Kai', getFlag: flagged({}) },
+    ],
+  },
+  messages: {
+    contents: [
+      message('m1', 'Kai', { pending: true }),
+      message('m2', 'Oscar', { pending: true, targets: ['Token.x'] }),
+      message('m3', 'Kai', { pending: false }),
+      message('m4', 'Hidden', { pending: true }, false),
+    ],
+  },
+});
 
 describe('the waiting work', () => {
   it('names each sheet request and queued card for a GM', () => {

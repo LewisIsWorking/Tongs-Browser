@@ -15,7 +15,7 @@ const pendingCard = { flags: { 'tongs-browser': { pending: true } } };
 
 function setup(overrides: Partial<HelperCallPorts> = {}) {
   let now = 1_000_000;
-  const tell = vi.fn(async () => 200);
+  const tell = vi.fn(() => Promise.resolve(200));
   const call = new HelperCall({
     myId: () => 'me',
     queues: () => true,
@@ -81,7 +81,7 @@ describe('the Foundry wiring', () => {
     const hooks = {
       on: (name: string, fn: (...args: never[]) => unknown) => handlers.set(name, fn),
     };
-    const tell = vi.fn(async () => 200);
+    const tell = vi.fn(() => Promise.resolve(200));
     const entry: { helper?: { waiting(): string[] } } = {};
     const globals = {
       game: {
