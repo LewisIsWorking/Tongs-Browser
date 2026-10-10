@@ -74,7 +74,7 @@ export function swapPrompt(request: SwapRequestView): string {
 }
 
 /** The heartbeat's optional abilities (2026-09-26): the GM's idle clock, and adding players live. */
-export type GmExtras = Pick<WorldSwapPorts, 'idleSeconds' | 'createUser'>;
+export type GmExtras = Pick<WorldSwapPorts, 'idleSeconds' | 'createUser' | 'campaigns'>;
 
 function buildGm(
   settings: SwapSettings,

@@ -126,6 +126,8 @@ describe('serving from the GM browser', () => {
     expect(addMembers).toHaveBeenCalledOnce();
     expect(info).toHaveBeenCalledWith('Tongs made Theo for Melody, in The Party.');
     expect(names).toContain('updateUser');
+    /* playerCampaigns arriving (2026-10-10) can place a waiting request or a loose sheet. */
+    expect(names).toContain('updateSetting');
   });
 
   it("carries the player's chosen export onto the sheet, for their browser to apply", async () => {

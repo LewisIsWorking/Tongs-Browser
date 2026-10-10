@@ -14,6 +14,7 @@ import type { CampaignParty } from './campaignParty.js';
 import { IMPORT_FLAG, storedImport } from './importBuild.js';
 import { JOINED_FLAG, MADE_FOR_FLAG } from './sheetRequest.js';
 import { PartyHomes } from './PartyHomes.js';
+import { campaignsOf, registerPlayerCampaigns } from './playerCampaigns.js';
 import { SheetRequests } from './SheetRequests.js';
 import { actorMadeFor, answerRequest, homeListing, pendingRequests } from './welcomeDocuments.js';
 import type { WelcomeGame } from './welcomeDocuments.js';
@@ -58,6 +59,7 @@ export function registerWelcomeSettings(settings: WelcomeSettings): void {
     type: Object,
     default: { parties: [] },
   });
+  registerPlayerCampaigns(settings);
 }
 
 /** The campaign parties as the GM last saw them; read on any client. */
@@ -95,6 +97,7 @@ export function startSheetRequests(
     isDesignatedGm,
     pending: () => pendingRequests(game()),
     campaignParties: parties,
+    campaignsOf: (userId) => campaignsOf(settings, userId),
     madeFor: (requestId) => actorMadeFor(game(), requestId),
     create: async (sheet) =>
       createSheetWithFoundry({
@@ -116,6 +119,7 @@ export function startSheetRequests(
   const homes = new PartyHomes({
     isDesignatedGm,
     campaignParties: parties,
+    campaignsOf: (userId) => campaignsOf(settings, userId),
     listing: () => homeListing(game()),
     members: () => new Set(allParties().flatMap((party) => party.members)),
     join: joinPartyWithFoundry,
@@ -138,7 +142,15 @@ export function startSheetRequests(
         );
       });
   };
-  for (const name of ['updateUser', 'userConnected', 'createActor', 'updateActor', 'deleteActor']) {
+  /* `updateSetting`: COO's word on who plays which campaign can settle a request that was waiting on it. */
+  for (const name of [
+    'updateUser',
+    'userConnected',
+    'createActor',
+    'updateActor',
+    'deleteActor',
+    'updateSetting',
+  ]) {
     hooks.on(name, run);
   }
   run();

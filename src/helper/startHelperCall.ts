@@ -82,7 +82,8 @@ export function startHelperCall(
   hooks: HooksLike,
   globals: HelperGlobals,
   tell: HelperCallPorts['tell'],
-  entry: ModuleEntry | undefined
+  entry: ModuleEntry | undefined,
+  campaigns: (value: unknown) => Promise<void> = async () => Promise.resolve()
 ): HelperCall {
   const call = new HelperCall({
     myId: () => globals.game?.user?.id,
@@ -104,9 +105,9 @@ export function startHelperCall(
   hooks.on('createChatMessage', (message: never, _options: never, userId: never) => {
     write(message, userId);
   });
-  /* What COO's helper reads: `game.modules.get('tongs-browser').helper.waiting()`. */
+  /* What COO's helper uses: `helper.waiting()`, and `helper.campaigns(map)` since it is not signed in to COO. */
   if (entry !== undefined) {
-    entry.helper = { waiting: () => waitingWork(globals.game) };
+    entry.helper = { waiting: () => waitingWork(globals.game), campaigns };
   }
   return call;
 }

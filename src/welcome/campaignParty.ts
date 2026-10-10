@@ -51,8 +51,16 @@ export function campaignParties(parties: readonly FlaggedParty[]): CampaignParty
 /**
  * ⚠️ A party the player named must STILL be a campaign party when the GM's browser acts, which may be days
  *    later. If it no longer is, the pick falls back to the world's only campaign party, or waits.
+ *
+ * Lewis, 2026-10-10: "if you've messaged C01 CHAT then you should get sheet in the C01 party". With several
+ * campaign parties, the one whose code is among the campaigns the player posts in (`playerCampaigns.ts`) is
+ * picked, when exactly one is.
  */
-export function pickParty(requested: string | null, parties: readonly CampaignParty[]): PartyPick {
+export function pickParty(
+  requested: string | null,
+  parties: readonly CampaignParty[],
+  campaigns: readonly string[] = []
+): PartyPick {
   const named = parties.find((party) => party.uuid === requested);
   if (named !== undefined) {
     return { kind: 'party', party: named };
@@ -60,6 +68,19 @@ export function pickParty(requested: string | null, parties: readonly CampaignPa
   if (parties.length === 0) {
     return { kind: 'none' };
   }
-  const only = parties.length === 1 ? parties[0] : undefined;
+  const theirs = parties.filter((party) => party.code !== '' && campaigns.includes(party.code));
+  const only = parties.length === 1 ? parties[0] : theirs.length === 1 ? theirs[0] : undefined;
   return only === undefined ? { kind: 'ambiguous', parties } : { kind: 'party', party: only };
+}
+
+/**
+ * The parties a player is offered in the welcome: only their own campaign's when exactly one coded party is
+ * among the campaigns they post in, so a C01 player in the C00/C01 world is not asked to choose.
+ */
+export function offeredParties(
+  parties: readonly CampaignParty[],
+  campaigns: readonly string[]
+): CampaignParty[] {
+  const theirs = parties.filter((party) => party.code !== '' && campaigns.includes(party.code));
+  return theirs.length === 1 ? theirs : [...parties];
 }

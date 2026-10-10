@@ -49,6 +49,8 @@ export interface WorldSwapPorts {
   readonly idleSeconds?: () => number;
   /** Creates a player in this running world (LiveUsers.ts). Present means COO may hand us players to add. */
   readonly createUser?: (user: LiveUser) => Promise<boolean>;
+  /** Stores which campaigns each player posts in (src/welcome/playerCampaigns.ts), when COO says. */
+  readonly campaigns?: (value: unknown) => Promise<void>;
 }
 
 export type BeatOutcome = 'not-gm' | 'no-world' | 'signed-out' | 'failed' | 'beat';
@@ -97,6 +99,10 @@ export class WorldSwapGm {
     const body = await response.json();
     for (const request of pendingOf(body)) {
       await this.consider(request);
+    }
+    const said = (body as { playerCampaigns?: unknown } | null)?.playerCampaigns;
+    if (this.ports.campaigns !== undefined && said !== undefined) {
+      await this.ports.campaigns(said);
     }
     if (this.ports.createUser !== undefined) {
       await addLiveUsers(worldId, liveUsersOf(body), this.ports.createUser, this.ports.call);

@@ -33,6 +33,8 @@ export interface SheetRequestPorts {
   /** Players (never GMs) with a request on their user. */
   readonly pending: () => readonly PendingUser[];
   readonly campaignParties: () => readonly CampaignParty[];
+  /** The campaigns a player posts in, from COO (`playerCampaigns.ts`). Picks between several parties. */
+  readonly campaignsOf?: (userId: string) => readonly string[];
   /** The actor already made for this request, if a pass made it and then failed to answer. */
   readonly madeFor: (requestId: string) => string | null;
   readonly create: (sheet: NewSheet) => Promise<SheetCreationOutcome>;
@@ -87,7 +89,11 @@ export class SheetRequests {
       return;
     }
 
-    const pick = pickParty(request.partyUuid, this.ports.campaignParties());
+    const pick = pickParty(
+      request.partyUuid,
+      this.ports.campaignParties(),
+      this.ports.campaignsOf?.(user.userId)
+    );
     if (pick.kind !== 'party') {
       this.waitWithNotice(user, pick.kind === 'none');
       return;

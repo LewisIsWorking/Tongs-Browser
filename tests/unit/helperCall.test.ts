@@ -101,6 +101,10 @@ describe('the Foundry wiring', () => {
 
     expect(tell).toHaveBeenCalledWith(WAITING_PATH, { world: 'c02' });
     expect(entry.helper?.waiting()).toEqual([]);
+    /* The helper is not signed in to COO, so it is handed playerCampaigns; with no store wired, a no-op. */
+    await expect(
+      (entry.helper as unknown as { campaigns(map: object): Promise<void> }).campaigns({})
+    ).resolves.toBeUndefined();
     expect([...handlers.keys()].sort()).toEqual([
       'createChatMessage',
       'updateChatMessage',
@@ -134,5 +138,16 @@ describe('every hook, and a COO that is down', () => {
 
     expect(tell).toHaveBeenCalledTimes(2);
     vi.restoreAllMocks();
+  });
+});
+
+describe("the helper's playerCampaigns", () => {
+  it('stores the map COO hands the helper (2026-10-10)', async () => {
+    const store = vi.fn(async () => Promise.resolve());
+    const entry: { helper?: { campaigns(map: object): Promise<void> } } = {};
+    const hooks = { on: () => undefined };
+    startHelperCall(hooks, {} as HelperGlobals, vi.fn(), entry, store);
+    await entry.helper?.campaigns({ AnnAnnAnnAnnAnn1: ['C07'] });
+    expect(store).toHaveBeenCalledWith({ AnnAnnAnnAnnAnn1: ['C07'] });
   });
 });
