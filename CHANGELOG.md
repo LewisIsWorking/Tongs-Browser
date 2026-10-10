@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.52.0
+
+### Minor Changes
+
+- [#441](https://github.com/LewisIsWorking/Tongs-Browser/pull/441) [`fcc2250`](https://github.com/LewisIsWorking/Tongs-Browser/commit/fcc22502e617f00b64623d8ca111729e3d89c029) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - No GM online: when a player asks for a character sheet, or a hit or spell is queued, Tongs now asks ComeOnOverUno to send its helper GM, which opens the world and does the work so nobody has to wait for a GM to log in. The helper reads the queued work through `game.modules.get('tongs-browser').helper.waiting()`.
+
 ## 0.51.2
 
 ### Patch Changes
