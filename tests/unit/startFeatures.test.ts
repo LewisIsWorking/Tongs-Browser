@@ -91,6 +91,11 @@ describe('the welcome and the helper GM', () => {
     call?.();
     await Promise.resolve();
     expect(summon).toHaveBeenCalledOnce();
+    /* COO down: the call fails quietly, the welcome carries on. */
+    summon.mockRejectedValueOnce(new Error('COO is down'));
+    call?.();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(summon).toHaveBeenCalledTimes(2);
     const moreWork = vi.mocked(startHelperCall).mock.calls[0]?.[5];
     expect(moreWork?.()).toEqual([]);
   });
