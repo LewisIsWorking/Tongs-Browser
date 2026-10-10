@@ -39,7 +39,8 @@ export function startWelcome(
   hooks: WelcomeHooks,
   settings: WelcomeSettings,
   globals: WelcomeGlobals & { readonly crypto?: { randomUUID?(): string } },
-  doc: Document
+  doc: Document,
+  summon: () => void = () => undefined
 ): void {
   const game = (): WelcomeGlobals['game'] => globals.game;
   if (game()?.user?.isGM === true) {
@@ -49,6 +50,7 @@ export function startWelcome(
   const closed = new Set<string>();
   let showing: string | null = null;
   let opened: string | null = null;
+  let summoned = false;
 
   const guided = (): WelcomeActor | undefined =>
     ownCharacters(game()).find(
@@ -133,7 +135,16 @@ export function startWelcome(
       return;
     }
     const parties = offeredParties(sharedParties(settings), campaignsOf(settings, me()?.id ?? ''));
-    if (ownCharacters(game()).length > 0 || parties.length === 0) {
+    if (ownCharacters(game()).length > 0) {
+      dismiss();
+      return;
+    }
+    if (parties.length === 0) {
+      /* No list shared yet: ask once for COO's helper GM, whose Tongs shares it (partyListWork.ts). */
+      if (!summoned) {
+        summoned = true;
+        summon();
+      }
       dismiss();
       return;
     }

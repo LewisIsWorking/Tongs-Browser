@@ -23,7 +23,9 @@ import type { SizeGlobals } from './world/startWorldSize.js';
 import { MODULE_ID } from './constants.js';
 import { startHelperCall } from './helper/startHelperCall.js';
 import { storePlayerCampaigns } from './welcome/playerCampaigns.js';
-import type { HelperGlobals } from './helper/startHelperCall.js';
+import type { HelperCall, HelperGlobals } from './helper/startHelperCall.js';
+import { PARTY_LIST_WORK, partyListBehind } from './welcome/partyListWork.js';
+import type { FoundryGame } from './foundry/PartyAccess.js';
 
 /**
  * Starting everything that waits for `ready`. Extracted from main.ts 2026-09-20, when adding world
@@ -62,7 +64,11 @@ export function startFeatures(parts: FeatureParts): void {
   /* New players: welcomed, sheet made by a GM, then a checklist. Coded party, else the primary party. */
   registerWelcomeSettings(settings);
   startSheetRequests(hooks, settings, globals as WelcomeGlobals);
-  startWelcome(hooks, settings, globals, parts.document);
+  /* The helper call starts below, once COO is signed in; a microtask later it has. */
+  const helper: { call?: HelperCall } = {};
+  startWelcome(hooks, settings, globals, parts.document, () => {
+    queueMicrotask(() => void helper.call?.summon().catch(() => undefined));
+  });
   startImport(hooks, globals as ImportGlobals);
   /* Idle GM sign-out: frees the world whether or not COO is signed in, so it starts before that check. */
   const idleSeconds = startAfkGuard(settings, globals, {
@@ -77,14 +83,16 @@ export function startFeatures(parts: FeatureParts): void {
   const storeCampaigns = async (value: unknown): Promise<void> =>
     storePlayerCampaigns(settings, value);
   /* No GM online: ask COO's helper GM to come and do what this browser queued. See src/helper. */
-  startHelperCall(
+  helper.call = startHelperCall(
     hooks,
     globals as HelperGlobals,
     async (path, body) => client.tell(path, body),
     (
       globals as { game?: { modules?: { get(id: string): object | undefined } } }
     ).game?.modules?.get(MODULE_ID),
-    storeCampaigns
+    storeCampaigns,
+    () =>
+      partyListBehind(settings, (globals as { game?: FoundryGame }).game) ? [PARTY_LIST_WORK] : []
   );
   /* Encounter sync: off per world; its settings exist only if init built the client. */
   startEncounterSync(hooks, settings, globals, client);

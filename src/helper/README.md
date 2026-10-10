@@ -18,3 +18,7 @@ any GM's would, and COO posts what was done in the Foundry topic.
 - **One call a minute, and only for this browser's own writes**, so a busy table makes one call.
 - **The helper reads `game.modules.get('tongs-browser').helper.waiting()`.** It lists nothing new: it
   reuses the GM-only listings the queues already use, so a player's browser gets an empty list.
+- ⛔ **Queued work was the only call (until 2026-10-10).** A world no GM had opened since its parties got codes
+  shared no party list, so the welcome closed and nothing was queued. `HelperCall.summon()` now also answers
+  the welcome finding no list, and `helper.waiting()` lists "the party list new players choose from" first
+  while the shared list is behind, so the visit lasts until it is shared.
