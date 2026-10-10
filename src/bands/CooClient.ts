@@ -109,6 +109,11 @@ export class CooClient {
     return 'signed-out';
   }
 
+  /** One call with no session, from any player's browser: only for endpoints that trust nothing sent. */
+  public async tell(path: string, body: object): Promise<number> {
+    return (await this.send(path, body)).status;
+  }
+
   private async accessToken(forceRefresh: boolean): Promise<string | null> {
     if (
       !forceRefresh &&

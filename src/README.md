@@ -34,6 +34,7 @@ The module itself. Everything shipped in `dist/tongs-browser.js` comes from here
 | `swaps/`        | Answering ComeOnOverUno's world swaps       |
 | `welcome/`      | New players: a sheet, then a checklist      |
 | `rollpad/`      | A player's rolls as big buttons, for phones |
+| `helper/`       | Queued work done with no GM on the world    |
 
 ## The composition root is separate from the parts
 
