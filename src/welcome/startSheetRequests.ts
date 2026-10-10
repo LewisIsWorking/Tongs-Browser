@@ -1,5 +1,9 @@
 import { MODULE_ID } from '../constants.js';
-import { createSheetWithFoundry } from '../foundry/CreateSheetDeps.js';
+import {
+  createSheetWithFoundry,
+  joinPartyWithFoundry,
+  setFlagWithFoundry,
+} from '../foundry/CreateSheetDeps.js';
 import { readGmPresence } from '../foundry/DesignatedGm.js';
 import type { GmGame } from '../foundry/DesignatedGm.js';
 import { readPartyCampaigns } from '../foundry/PartyAccess.js';
@@ -8,9 +12,10 @@ import { logger } from '../core/Logger.js';
 import { campaignParties } from './campaignParty.js';
 import type { CampaignParty } from './campaignParty.js';
 import { IMPORT_FLAG, storedImport } from './importBuild.js';
-import { MADE_FOR_FLAG } from './sheetRequest.js';
+import { JOINED_FLAG, MADE_FOR_FLAG } from './sheetRequest.js';
+import { PartyHomes } from './PartyHomes.js';
 import { SheetRequests } from './SheetRequests.js';
-import { actorMadeFor, answerRequest, pendingRequests } from './welcomeDocuments.js';
+import { actorMadeFor, answerRequest, homeListing, pendingRequests } from './welcomeDocuments.js';
 import type { WelcomeGame } from './welcomeDocuments.js';
 
 /**
@@ -83,10 +88,11 @@ export function startSheetRequests(
   globals: WelcomeGlobals
 ): SheetRequests {
   const game = (): (WelcomeGame & GmGame) | undefined => globals.game;
-  const parties = (): CampaignParty[] =>
-    campaignParties(readPartyCampaigns({ getGame: () => game() as FoundryGame | undefined }));
+  const allParties = () => readPartyCampaigns({ getGame: () => game() as FoundryGame | undefined });
+  const parties = (): CampaignParty[] => campaignParties(allParties());
+  const isDesignatedGm = (): boolean => readGmPresence({ getGame: game }).isMe;
   const requests = new SheetRequests({
-    isDesignatedGm: () => readGmPresence({ getGame: game }).isMe,
+    isDesignatedGm,
     pending: () => pendingRequests(game()),
     campaignParties: parties,
     madeFor: (requestId) => actorMadeFor(game(), requestId),
@@ -107,6 +113,16 @@ export function startSheetRequests(
     answer: async (userId, result) => answerRequest(game(), userId, result),
     tellGm: (text) => globals.ui?.notifications?.info?.(text),
   });
+  const homes = new PartyHomes({
+    isDesignatedGm,
+    campaignParties: parties,
+    listing: () => homeListing(game()),
+    members: () => new Set(allParties().flatMap((party) => party.members)),
+    join: joinPartyWithFoundry,
+    markJoined: async (sheetUuid, partyUuid) =>
+      setFlagWithFoundry(sheetUuid, MODULE_ID, JOINED_FLAG, partyUuid),
+    tellGm: (text) => globals.ui?.notifications?.info?.(text),
+  });
 
   const on = (): boolean => settings.get(MODULE_ID, WELCOME_SETTING) === true;
   const run = (): void => {
@@ -115,6 +131,7 @@ export function startSheetRequests(
     }
     void shareParties(settings, parties())
       .then(async () => requests.serve())
+      .then(async () => homes.serve())
       .catch((error: unknown) => {
         logger.warn(
           `New player sheets failed: ${error instanceof Error ? error.message : String(error)}`

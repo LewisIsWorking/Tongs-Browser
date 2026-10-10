@@ -59,23 +59,48 @@ export async function createSheetWithFoundry(request: {
       const withFlags = request.flags === undefined ? data : { ...data, flags: request.flags };
       return actor.create(withFlags);
     },
-    addToParty: async (partyUuid, sheet) => {
-      const resolve = globals.fromUuid;
-      if (resolve === undefined) {
-        throw new Error('Foundry has no fromUuid on this client.');
-      }
-
-      const party = await resolve(partyUuid);
-      /*
-       * ⚠️ A party that resolves to nothing, or to something without `addMembers`, is reported rather
-       * than ignored. The second is the likelier of the two: this module knows about parties from
-       * PF2e and its derivatives, and a world on some other system may have an actor at that uuid
-       * with no such method. Saying so is how somebody finds out their system is not supported.
-       */
-      if (party?.addMembers === undefined) {
-        throw new Error('That party cannot take members on this system.');
-      }
-      await party.addMembers(sheet);
-    },
+    addToParty: addToPartyWithFoundry,
   });
+}
+
+/** Puts a sheet in a party. Throws, with the reason, when it cannot. */
+export async function addToPartyWithFoundry(partyUuid: string, sheet: CreatedSheet): Promise<void> {
+  const resolve = (globalThis as CreationGlobals).fromUuid;
+  if (resolve === undefined) {
+    throw new Error('Foundry has no fromUuid on this client.');
+  }
+
+  const party = await resolve(partyUuid);
+  /*
+   * ⚠️ A party that resolves to nothing, or to something without `addMembers`, is reported rather
+   * than ignored. The second is the likelier of the two: this module knows about parties from
+   * PF2e and its derivatives, and a world on some other system may have an actor at that uuid
+   * with no such method. Saying so is how somebody finds out their system is not supported.
+   */
+  if (party?.addMembers === undefined) {
+    throw new Error('That party cannot take members on this system.');
+  }
+  await party.addMembers(sheet);
+}
+
+/** Puts an existing sheet, by uuid, in a party (src/welcome's PartyHomes). Added 2026-10-10. */
+export async function joinPartyWithFoundry(partyUuid: string, memberUuid: string): Promise<void> {
+  const member = await (globalThis as CreationGlobals).fromUuid?.(memberUuid);
+  if (member === null || member === undefined) {
+    throw new Error('That sheet no longer exists.');
+  }
+  await addToPartyWithFoundry(partyUuid, member as CreatedSheet);
+}
+
+/** Sets one module flag on a document, by uuid. Added 2026-10-10 for PartyHomes' "added once" mark. */
+export async function setFlagWithFoundry(
+  uuid: string,
+  scope: string,
+  key: string,
+  value: unknown
+): Promise<void> {
+  const document = (await (globalThis as CreationGlobals).fromUuid?.(uuid)) as {
+    setFlag?: (scope: string, key: string, value: unknown) => Promise<unknown>;
+  } | null;
+  await document?.setFlag?.(scope, key, value);
 }

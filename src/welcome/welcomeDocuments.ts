@@ -1,8 +1,15 @@
 import { MODULE_ID } from '../constants.js';
-import { MADE_FOR_FLAG, REQUEST_FLAG, RESULT_FLAG, readSheetRequest } from './sheetRequest.js';
+import {
+  JOINED_FLAG,
+  MADE_FOR_FLAG,
+  REQUEST_FLAG,
+  RESULT_FLAG,
+  readSheetRequest,
+} from './sheetRequest.js';
 import type { SheetResult } from './sheetRequest.js';
 import type { PendingUser } from './SheetRequests.js';
 import type { GuideActor } from './buildGuide.js';
+import { OWNER_LEVEL } from '../foundry/SheetCreationTypes.js';
 
 /**
  * Every document listing the new-player welcome makes. Added 2026-10-05, and in `check:documents`'
@@ -15,6 +22,8 @@ export interface WelcomeUser {
   readonly id: string | null;
   readonly name?: string | null;
   readonly isGM?: boolean;
+  /** 0 is a disabled account (Foundry's NONE), 1 to 4 player up to GM. */
+  readonly role?: number;
   readonly character?: { readonly id?: string | null } | null;
   getFlag?(scope: string, key: string): unknown;
   update?(data: object): Promise<unknown>;
@@ -28,6 +37,7 @@ export interface WelcomeActor extends Omit<GuideActor, 'gearCount'> {
   readonly name: string | null;
   readonly type: string;
   readonly isOwner?: boolean;
+  readonly ownership?: Readonly<Record<string, number>>;
   readonly inventory?: { readonly contents?: readonly unknown[] };
   readonly sheet?: { render?(force: boolean): unknown };
   getFlag?(scope: string, key: string): unknown;
@@ -97,4 +107,45 @@ export async function answerRequest(
     [`flags.${MODULE_ID}.${RESULT_FLAG}`]: result,
     ...(actorId !== '' && !user.character ? { character: actorId } : {}),
   });
+}
+
+/** A player and the character sheets they own, for `PartyHomes`. */
+export interface HomeListing {
+  readonly players: readonly { readonly id: string; readonly name: string }[];
+  readonly characters: readonly {
+    readonly uuid: string;
+    readonly name: string;
+    readonly ownerIds: readonly string[];
+    readonly joined: boolean;
+  }[];
+}
+
+/**
+ * GM only: the active players, and every character sheet with the players who own it. Added 2026-10-10.
+ * `joined` marks a sheet PartyHomes already put in a party once, so it never does it twice.
+ */
+export function homeListing(game: WelcomeGame | undefined): HomeListing {
+  if (game?.user?.isGM !== true) {
+    return { players: [], characters: [] };
+  }
+  const players = (game.users?.contents ?? []).flatMap((user) =>
+    user.isGM === true || user.id === null || (user.role ?? 0) < 1
+      ? []
+      : [{ id: user.id, name: user.name ?? 'A player' }]
+  );
+  const characters = (game.actors?.contents ?? []).flatMap((actor) =>
+    actor.type === 'character'
+      ? [
+          {
+            uuid: actor.uuid,
+            name: actor.name ?? 'A sheet',
+            ownerIds: Object.entries(actor.ownership ?? {}).flatMap(([id, level]) =>
+              level === OWNER_LEVEL ? [id] : []
+            ),
+            joined: actor.getFlag?.(MODULE_ID, JOINED_FLAG) !== undefined,
+          },
+        ]
+      : []
+  );
+  return { players, characters };
 }

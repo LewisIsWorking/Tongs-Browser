@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createSheetWithFoundry } from '../../src/foundry/CreateSheetDeps.js';
+import {
+  createSheetWithFoundry,
+  joinPartyWithFoundry,
+  setFlagWithFoundry,
+} from '../../src/foundry/CreateSheetDeps.js';
 
 /**
  * The real Foundry calls behind creating a sheet. Written 2026-09-02.
@@ -140,5 +144,34 @@ describe('creating through Foundry', () => {
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Ana', type: 'character', ownership: { p1: 3 } })
     );
+  });
+});
+
+describe('an existing sheet, by uuid (PartyHomes, 2026-10-10)', () => {
+  it('joins the party, and says so when the sheet is gone or Foundry has no fromUuid', async () => {
+    const livy = { uuid: 'Actor.L' };
+    const addMembers = vi.fn(async () => Promise.resolve());
+    globals['fromUuid'] = vi.fn(async (uuid: string) =>
+      Promise.resolve(uuid === 'Actor.P' ? { addMembers } : uuid === 'Actor.L' ? livy : null)
+    );
+    await joinPartyWithFoundry('Actor.P', 'Actor.L');
+    expect(addMembers).toHaveBeenCalledWith(livy);
+    await expect(joinPartyWithFoundry('Actor.P', 'Actor.X')).rejects.toThrow('no longer exists');
+
+    Reflect.deleteProperty(globals, 'fromUuid');
+    await expect(joinPartyWithFoundry('Actor.P', 'Actor.L')).rejects.toThrow('no longer exists');
+  });
+
+  it('sets a flag through the document, and quietly skips one that is gone', async () => {
+    const setFlag = vi.fn(async () => Promise.resolve());
+    globals['fromUuid'] = vi.fn(async (uuid: string) =>
+      Promise.resolve(uuid === 'Actor.L' ? { setFlag } : null)
+    );
+    await setFlagWithFoundry('Actor.L', 'tongs-browser', 'joinedParty', 'Actor.P');
+    expect(setFlag).toHaveBeenCalledWith('tongs-browser', 'joinedParty', 'Actor.P');
+    await setFlagWithFoundry('Actor.X', 'tongs-browser', 'joinedParty', 'Actor.P');
+    Reflect.deleteProperty(globals, 'fromUuid');
+    await setFlagWithFoundry('Actor.L', 'tongs-browser', 'joinedParty', 'Actor.P');
+    expect(setFlag).toHaveBeenCalledTimes(1);
   });
 });

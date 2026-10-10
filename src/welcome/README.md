@@ -13,6 +13,7 @@ proves who asked. The answer travels back on the same User.
 | `sheetRequest.ts`       | The request and answer flags, and reading them defensively                    |
 | `campaignParty.ts`      | Which party a sheet goes in: the coded one, else the world's primary party    |
 | `SheetRequests.ts`      | The GM side: serve each waiting request, once, one pass at a time             |
+| `PartyHomes.ts`         | The GM side: a player's only sheet in no party joins the one campaign party   |
 | `startSheetRequests.ts` | The settings, the hooks that wake the GM side, and the Foundry wiring         |
 | `welcomeDocuments.ts`   | Every user and actor listing the welcome makes (a `check:documents` boundary) |
 | `startWelcome.ts`       | The player side: which face to show, and the checklist for a new sheet        |
@@ -60,3 +61,7 @@ proves who asked. The answer travels back on the same User.
 - ⚠️ **It was inert until a GM gave a party a campaign code**, so C07 made no sheet for a new player
   (2026-10-08). Now an uncoded world uses its primary party. The GM side shares the parties in a
   hidden world setting, because a player cannot see a party they are not in.
+- ⚠️ **A copied-in sheet joined no party** (C07, 2026-10-10: Livy, so "The Party" read "No Members").
+  `PartyHomes` now adds a player's sheet, but narrowly: one campaign party in the world (C00/C01 and C06/C11
+  share worlds), the player in no party yet, exactly one loose sheet, and never the same sheet twice, so old
+  worlds' retired sheets stay where they are and a GM can take one out.

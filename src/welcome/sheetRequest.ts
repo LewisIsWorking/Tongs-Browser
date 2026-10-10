@@ -16,6 +16,8 @@ export const REQUEST_FLAG = 'sheetRequest';
 export const RESULT_FLAG = 'sheetResult';
 /** On the created actor, so a request finished twice (a crash between create and answer) makes one sheet. */
 export const MADE_FOR_FLAG = 'madeForRequest';
+/** On a sheet PartyHomes put in a party, so a GM who later takes it out is not overruled. 2026-10-10. */
+export const JOINED_FLAG = 'joinedParty';
 
 /** Used when the name box is left blank, so a blank field is not an error the player must fix. */
 export const DEFAULT_NAME = 'New Character';
