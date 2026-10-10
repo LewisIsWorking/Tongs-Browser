@@ -108,3 +108,31 @@ describe('the Foundry wiring', () => {
     ]);
   });
 });
+
+describe('every hook, and a COO that is down', () => {
+  it('calls from a user or message update too, and swallows a failed call', async () => {
+    const handlers = new Map<string, (...args: unknown[]) => unknown>();
+    const hooks = {
+      on: (name: string, fn: (...args: never[]) => unknown) =>
+        handlers.set(name, fn as (...args: unknown[]) => unknown),
+    };
+    let now = 0;
+    vi.spyOn(Date, 'now').mockImplementation(() => (now += CALL_GAP_MS));
+    const tell = vi.fn(() => Promise.reject(new Error('COO is down')));
+    const globals = {
+      game: {
+        user: { id: 'me', role: 1, isGM: false },
+        users: { activeGM: null },
+        world: { id: 'c07' },
+      },
+    } as unknown as HelperGlobals;
+
+    startHelperCall(hooks, globals, tell, undefined);
+    handlers.get('updateUser')?.({}, request, {}, 'me');
+    handlers.get('updateChatMessage')?.({}, pendingCard, {}, 'me');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(tell).toHaveBeenCalledTimes(2);
+    vi.restoreAllMocks();
+  });
+});
