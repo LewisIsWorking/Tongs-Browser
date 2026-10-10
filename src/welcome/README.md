@@ -13,7 +13,8 @@ proves who asked. The answer travels back on the same User.
 | `sheetRequest.ts`       | The request and answer flags, and reading them defensively                    |
 | `campaignParty.ts`      | Which party a sheet goes in: the coded one, else the world's primary party    |
 | `SheetRequests.ts`      | The GM side: serve each waiting request, once, one pass at a time             |
-| `PartyHomes.ts`         | The GM side: a player's only sheet in no party joins the one campaign party   |
+| `PartyHomes.ts`         | The GM side: a player's only sheet in no party joins their campaign's party   |
+| `playerCampaigns.ts`    | Which campaigns each player posts in, as ComeOnOverUno said (world setting)   |
 | `startSheetRequests.ts` | The settings, the hooks that wake the GM side, and the Foundry wiring         |
 | `welcomeDocuments.ts`   | Every user and actor listing the welcome makes (a `check:documents` boundary) |
 | `startWelcome.ts`       | The player side: which face to show, and the checklist for a new sheet        |
@@ -65,3 +66,8 @@ proves who asked. The answer travels back on the same User.
   `PartyHomes` now adds a player's sheet, but narrowly: one campaign party in the world (C00/C01 and C06/C11
   share worlds), the player in no party yet, exactly one loose sheet, and never the same sheet twice, so old
   worlds' retired sheets stay where they are and a GM can take one out.
+- ⚠️ **Two campaigns in one world picked no party** (2026-10-10). Lewis: "if you've messaged C01 CHAT then
+  you should get sheet in the C01 party, likewise with C00". ComeOnOverUno reads the bot's roster and sends
+  each player's campaign codes with the GM heartbeat (and to its helper GM), kept in the hidden world
+  setting `playerCampaigns`. `pickParty` takes the one coded party among them; a player in both, or in
+  neither, is still asked. Players can read that setting, which is fine: who posts where is public in the group.

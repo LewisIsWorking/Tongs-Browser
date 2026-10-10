@@ -10,8 +10,8 @@ import type { HomeListing } from './welcomeDocuments.js';
  *
  * ⚠️ Narrow on purpose, because old worlds hold dozens of retired sheets that belong in no party. A sheet
  *    is added only when ALL of these hold:
- *    - the world has ONE campaign party (`pickParty`). Lewis, 2026-10-10: C00 and C01 share a world, and
- *      so do C06 and C11, and Tongs cannot know which campaign a sheet is for;
+ *    - a party can be picked for its player (`pickParty`): the world's one campaign party, or, where C00 and
+ *      C01 (or C06 and C11) share a world, the one of the campaign the player posts in (Lewis, 2026-10-10);
  *    - its player has no sheet in ANY party, so a player already at the table gains nothing;
  *    - that player owns exactly ONE sheet outside a party, so Tongs never picks between characters;
  *    - Tongs has never added it before (`JOINED_FLAG`), so a GM who takes it out is not overruled.
@@ -21,6 +21,7 @@ import type { HomeListing } from './welcomeDocuments.js';
 export interface PartyHomePorts {
   readonly isDesignatedGm: () => boolean;
   readonly campaignParties: () => readonly CampaignParty[];
+  readonly campaignsOf?: (userId: string) => readonly string[];
   readonly listing: () => HomeListing;
   /** Every actor uuid that is a member of any party. */
   readonly members: () => ReadonlySet<string>;
@@ -30,6 +31,7 @@ export interface PartyHomePorts {
 }
 
 export interface Homeless {
+  readonly playerId: string;
   readonly sheetUuid: string;
   readonly sheetName: string;
   readonly playerName: string;
@@ -43,7 +45,12 @@ export function homeless(listing: HomeListing, members: ReadonlySet<string>): Ho
     const loose = theirs.filter((sheet) => !members.has(sheet.uuid));
     const only = loose.length === theirs.length && loose.length === 1 ? loose[0] : undefined;
     if (only !== undefined && !only.joined) {
-      found.set(only.uuid, { sheetUuid: only.uuid, sheetName: only.name, playerName: player.name });
+      found.set(only.uuid, {
+        playerId: player.id,
+        sheetUuid: only.uuid,
+        sheetName: only.name,
+        playerName: player.name,
+      });
     }
   }
   return [...found.values()];
@@ -80,12 +87,13 @@ export class PartyHomes {
   }
 
   private async pass(): Promise<void> {
-    const pick = pickParty(null, this.ports.campaignParties());
-    if (pick.kind !== 'party') {
-      return;
-    }
-    const { party } = pick;
+    const parties = this.ports.campaignParties();
     for (const sheet of homeless(this.ports.listing(), this.ports.members())) {
+      const pick = pickParty(null, parties, this.ports.campaignsOf?.(sheet.playerId));
+      if (pick.kind !== 'party') {
+        continue;
+      }
+      const { party } = pick;
       try {
         await this.ports.join(party.uuid, sheet.sheetUuid);
         await this.ports.markJoined(sheet.sheetUuid, party.uuid);

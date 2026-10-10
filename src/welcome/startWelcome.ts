@@ -1,8 +1,10 @@
 import { MODULE_ID } from '../constants.js';
 import { readGmPresence } from '../foundry/DesignatedGm.js';
+import { offeredParties } from './campaignParty.js';
 import { guideSteps } from './buildGuide.js';
 import { GuidePanel } from './GuidePanel.js';
 import { storedImport } from './importBuild.js';
+import { campaignsOf } from './playerCampaigns.js';
 import {
   MADE_FOR_FLAG,
   REQUEST_FLAG,
@@ -130,7 +132,7 @@ export function startWelcome(
       face(`refused:${result.requestId}`, { kind: 'refused', reason: result.reason });
       return;
     }
-    const parties = sharedParties(settings);
+    const parties = offeredParties(sharedParties(settings), campaignsOf(settings, me()?.id ?? ''));
     if (ownCharacters(game()).length > 0 || parties.length === 0) {
       dismiss();
       return;

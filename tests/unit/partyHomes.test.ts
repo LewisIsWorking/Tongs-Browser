@@ -28,7 +28,7 @@ const party = { uuid: 'Actor.P', name: 'The Party', code: '', primary: true };
 describe('which sheets have no home', () => {
   it("is a player's one sheet outside a party", () => {
     expect(homeless(listing([sheet('Actor.Livy', ['antoine'])]), new Set())).toEqual([
-      { sheetUuid: 'Actor.Livy', sheetName: 'Livy', playerName: 'MrNegetZ' },
+      { playerId: 'antoine', sheetUuid: 'Actor.Livy', sheetName: 'Livy', playerName: 'MrNegetZ' },
     ]);
   });
 

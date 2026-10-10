@@ -22,6 +22,7 @@ import type { ImportGlobals } from './welcome/startImport.js';
 import type { SizeGlobals } from './world/startWorldSize.js';
 import { MODULE_ID } from './constants.js';
 import { startHelperCall } from './helper/startHelperCall.js';
+import { storePlayerCampaigns } from './welcome/playerCampaigns.js';
 import type { HelperGlobals } from './helper/startHelperCall.js';
 
 /**
@@ -72,6 +73,9 @@ export function startFeatures(parts: FeatureParts): void {
   if (client === null) {
     return;
   }
+  /* Who plays which campaign, from COO: picks the party where campaigns share a world. */
+  const storeCampaigns = async (value: unknown): Promise<void> =>
+    storePlayerCampaigns(settings, value);
   /* No GM online: ask COO's helper GM to come and do what this browser queued. See src/helper. */
   startHelperCall(
     hooks,
@@ -79,7 +83,8 @@ export function startFeatures(parts: FeatureParts): void {
     async (path, body) => client.tell(path, body),
     (
       globals as { game?: { modules?: { get(id: string): object | undefined } } }
-    ).game?.modules?.get(MODULE_ID)
+    ).game?.modules?.get(MODULE_ID),
+    storeCampaigns
   );
   /* Encounter sync: off per world; its settings exist only if init built the client. */
   startEncounterSync(hooks, settings, globals, client);
@@ -87,6 +92,7 @@ export function startFeatures(parts: FeatureParts): void {
   startWorldSwaps(settings, globals as SwapGlobals, client, undefined, {
     ...(idleSeconds === undefined ? {} : { idleSeconds }),
     createUser: foundryCreateUser(globals as UserGlobals),
+    campaigns: storeCampaigns,
   });
   /* One question at launch: is this world bigger than the GM asked to hear about? See src/world. */
   startWorldSize(hooks, settings, client, globals as SizeGlobals);
