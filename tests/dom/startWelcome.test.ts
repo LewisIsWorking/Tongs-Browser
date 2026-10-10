@@ -133,3 +133,20 @@ describe('finishing the checklist', () => {
     expect(guideText()).toBeNull();
   });
 });
+
+describe('a world whose party list no GM has shared yet', () => {
+  /* C00/C01, 2026-10-10: the list stayed empty for days, so the welcome closed and nobody was ever asked. */
+  it('asks for the helper GM once, and not for a player who has a sheet', () => {
+    const empty = player({ parties: [] });
+    const summon = vi.fn();
+    startWelcome(empty.hooks, empty.settings, empty.globals, document, summon);
+    empty.change();
+    expect(summon).toHaveBeenCalledOnce();
+
+    const owner = player({ parties: [] });
+    owner.actors.push({ uuid: 'Actor.X', type: 'character', isOwner: true });
+    const ownerSummon = vi.fn();
+    startWelcome(owner.hooks, owner.settings, owner.globals, document, ownerSummon);
+    expect(ownerSummon).not.toHaveBeenCalled();
+  });
+});

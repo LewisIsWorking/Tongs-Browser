@@ -10,6 +10,8 @@ import { startSpellDamage } from '../../src/automation/startSpellDamage.js';
 import { startBands } from '../../src/bands/startBands.js';
 import { startEncounterSync } from '../../src/encounter/startEncounterSync.js';
 import { startWorldSwaps } from '../../src/swaps/startWorldSwaps.js';
+import { startWelcome } from '../../src/welcome/startWelcome.js';
+import { startHelperCall } from '../../src/helper/startHelperCall.js';
 
 /**
  * What `ready` starts, and what it must not start without a ComeOnOverUno client. Written 2026-09-20.
@@ -27,6 +29,11 @@ vi.mock('../../src/automation/startSaveSummary.js', () => ({
 vi.mock('../../src/bands/startBands.js', () => ({ startBands: vi.fn() }));
 vi.mock('../../src/encounter/startEncounterSync.js', () => ({ startEncounterSync: vi.fn() }));
 vi.mock('../../src/swaps/startWorldSwaps.js', () => ({ startWorldSwaps: vi.fn() }));
+vi.mock('../../src/welcome/startWelcome.js', () => ({ startWelcome: vi.fn() }));
+const { summon } = vi.hoisted(() => ({ summon: vi.fn(async () => Promise.resolve()) }));
+vi.mock('../../src/helper/startHelperCall.js', () => ({
+  startHelperCall: vi.fn(() => ({ summon })),
+}));
 
 const client = { call: vi.fn() } as unknown as CooClient;
 
@@ -73,5 +80,18 @@ describe('what ready starts', () => {
     expect(startBands).toHaveBeenCalledWith(expect.anything(), expect.anything(), globalThis, null);
     expect(startEncounterSync).not.toHaveBeenCalled();
     expect(startWorldSwaps).not.toHaveBeenCalled();
+  });
+});
+
+describe('the welcome and the helper GM', () => {
+  /* C00/C01, 2026-10-10: a world with no shared party list now calls the helper GM, which shares it. */
+  it('hands the welcome a way to call the helper, and the helper the party list as work', async () => {
+    startFeatures(parts());
+    const call = vi.mocked(startWelcome).mock.calls[0]?.[4];
+    call?.();
+    await Promise.resolve();
+    expect(summon).toHaveBeenCalledOnce();
+    const moreWork = vi.mocked(startHelperCall).mock.calls[0]?.[5];
+    expect(moreWork?.()).toEqual([]);
   });
 });
