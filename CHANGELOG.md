@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.54.1
+
+### Patch Changes
+
+- [#447](https://github.com/LewisIsWorking/Tongs-Browser/pull/447) [`c345a1b`](https://github.com/LewisIsWorking/Tongs-Browser/commit/c345a1b2d406d59103d142d0ea1ceb0c8d555a53) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A player with no sheet in a world whose party list no GM has shared yet now calls ComeOnOverUno's helper GM, whose Tongs shares the list, so the welcome offers a sheet without a GM ever opening the world. Found in C00/C01, where the welcome stayed closed for days after the parties got their campaign codes.
+
 ## 0.54.0
 
 ### Minor Changes
