@@ -91,7 +91,11 @@ describe('the GM side', () => {
   });
 
   it('marks a sheet it could not add, so the GM is told once, not on every update', async () => {
-    const { homes: h, ports, told } = homes({
+    const {
+      homes: h,
+      ports,
+      told,
+    } = homes({
       join: vi.fn(async () => Promise.reject(new Error('That party cannot take members.'))),
       markJoined: vi.fn(async () => Promise.reject(new Error('offline'))),
     });
