@@ -169,3 +169,13 @@ describe('posting a band', () => {
     expect(noExpiry.calls.filter((call) => call.includes('refresh'))).toHaveLength(2);
   });
 });
+
+describe('telling COO something', () => {
+  it('posts with no sign-in at all, and returns the status', async () => {
+    const fake = server({ bandStatus: [202] });
+    expect(
+      await new CooClient(fake.ports).tell('/api/foundry/tongs/waiting', { world: 'c07' })
+    ).toBe(202);
+    expect(fake.calls).toEqual(['/api/foundry/tongs/waiting']);
+  });
+});

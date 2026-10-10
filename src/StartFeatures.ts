@@ -20,6 +20,9 @@ import { startWelcome } from './welcome/startWelcome.js';
 import { startImport } from './welcome/startImport.js';
 import type { ImportGlobals } from './welcome/startImport.js';
 import type { SizeGlobals } from './world/startWorldSize.js';
+import { MODULE_ID } from './constants.js';
+import { startHelperCall } from './helper/startHelperCall.js';
+import type { HelperGlobals } from './helper/startHelperCall.js';
 
 /**
  * Starting everything that waits for `ready`. Extracted from main.ts 2026-09-20, when adding world
@@ -69,6 +72,15 @@ export function startFeatures(parts: FeatureParts): void {
   if (client === null) {
     return;
   }
+  /* No GM online: ask COO's helper GM to come and do what this browser queued. See src/helper. */
+  startHelperCall(
+    hooks,
+    globals as HelperGlobals,
+    async (path, body) => client.tell(path, body),
+    (
+      globals as { game?: { modules?: { get(id: string): object | undefined } } }
+    ).game?.modules?.get(MODULE_ID)
+  );
   /* Encounter sync: off per world; its settings exist only if init built the client. */
   startEncounterSync(hooks, settings, globals, client);
   /* World swaps: tells COO a GM is here, and asks before another campaign takes the server. */
