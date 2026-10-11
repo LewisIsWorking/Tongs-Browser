@@ -14,6 +14,7 @@ import type { UserGlobals } from './swaps/LiveUsers.js';
 import { startRestoreOwners } from './owners/startRestoreOwners.js';
 import type { OwnerGlobals } from './owners/startRestoreOwners.js';
 import { startWorldSize } from './world/startWorldSize.js';
+import { startMaintenance } from './maintenance/startMaintenance.js';
 import { registerWelcomeSettings, startSheetRequests } from './welcome/startSheetRequests.js';
 import type { WelcomeGlobals } from './welcome/startSheetRequests.js';
 import { startWelcome } from './welcome/startWelcome.js';
@@ -76,6 +77,8 @@ export function startFeatures(parts: FeatureParts): void {
     now: () => Date.now(),
     every: (run, ms) => setInterval(run, ms),
   });
+  /* COO's nightly update: a countdown, then its progress page. Needs no COO sign-in. See src/maintenance. */
+  startMaintenance(globals, parts.document);
   if (client === null) {
     return;
   }
