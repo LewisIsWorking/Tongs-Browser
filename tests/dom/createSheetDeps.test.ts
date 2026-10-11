@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createSheetWithFoundry,
   joinPartyWithFoundry,
+  leavePartiesWithFoundry,
   setFlagWithFoundry,
 } from '../../src/foundry/CreateSheetDeps.js';
 
@@ -173,5 +174,20 @@ describe('an existing sheet, by uuid (PartyHomes, 2026-10-10)', () => {
     Reflect.deleteProperty(globals, 'fromUuid');
     await setFlagWithFoundry('Actor.L', 'tongs-browser', 'joinedParty', 'Actor.P');
     expect(setFlag).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes a sheet out of each party, and says so when a party cannot lose members', async () => {
+    const removeMembers = vi.fn(async () => Promise.resolve());
+    globals['fromUuid'] = vi.fn(async (uuid: string) =>
+      Promise.resolve(uuid === 'Actor.P' ? { removeMembers } : uuid === 'Actor.Q' ? {} : null)
+    );
+    await leavePartiesWithFoundry(['Actor.P'], 'Actor.Blank');
+    expect(removeMembers).toHaveBeenCalledWith('Actor.Blank');
+    await expect(leavePartiesWithFoundry(['Actor.Q'], 'Actor.Blank')).rejects.toThrow(
+      'cannot lose members'
+    );
+    await expect(leavePartiesWithFoundry(['Actor.Gone'], 'Actor.Blank')).rejects.toThrow(
+      'cannot lose members'
+    );
   });
 });

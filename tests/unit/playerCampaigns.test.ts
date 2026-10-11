@@ -136,8 +136,8 @@ describe('the GM side', () => {
           { id: BOB, name: 'Bob' },
         ],
         characters: [
-          { uuid: 'Actor.A', name: 'A', ownerIds: [ANN], joined: false },
-          { uuid: 'Actor.B', name: 'B', ownerIds: [BOB], joined: false },
+          { uuid: 'Actor.A', name: 'A', ownerIds: [ANN], joined: false, placeholder: false },
+          { uuid: 'Actor.B', name: 'B', ownerIds: [BOB], joined: false, placeholder: false },
         ],
       }),
       members: () => new Set(),
@@ -145,6 +145,7 @@ describe('the GM side', () => {
         joined.push(`${sheet}:${party}`);
         return Promise.resolve();
       },
+      leave: async () => Promise.resolve(),
       markJoined: async () => Promise.resolve(),
       tellGm: () => undefined,
     };

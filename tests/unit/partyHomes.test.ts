@@ -15,6 +15,7 @@ const sheet = (uuid: string, ownerIds: string[], joined = false) => ({
   name: uuid.slice(6),
   ownerIds,
   joined,
+  placeholder: false,
 });
 const listing = (characters: HomeListing['characters']): HomeListing => ({
   players: [
@@ -28,7 +29,13 @@ const party = { uuid: 'Actor.P', name: 'The Party', code: '', primary: true };
 describe('which sheets have no home', () => {
   it("is a player's one sheet outside a party", () => {
     expect(homeless(listing([sheet('Actor.Livy', ['antoine'])]), new Set())).toEqual([
-      { playerId: 'antoine', sheetUuid: 'Actor.Livy', sheetName: 'Livy', playerName: 'MrNegetZ' },
+      {
+        playerId: 'antoine',
+        sheetUuid: 'Actor.Livy',
+        sheetName: 'Livy',
+        playerName: 'MrNegetZ',
+        replaces: [],
+      },
     ]);
   });
 
@@ -58,6 +65,7 @@ function homes(overrides: Partial<PartyHomePorts> = {}) {
     listing: () => listing([sheet('Actor.Livy', ['antoine'])]),
     members: () => new Set(),
     join: vi.fn(async () => Promise.resolve()),
+    leave: vi.fn(async () => Promise.resolve()),
     markJoined: vi.fn(async () => Promise.resolve()),
     tellGm: (text) => told.push(text),
     ...overrides,
@@ -171,8 +179,8 @@ describe('the listing', () => {
         { id: 'anon', name: 'A player' },
       ],
       characters: [
-        { uuid: 'Actor.L', name: 'Livy', ownerIds: ['antoine'], joined: false },
-        { uuid: 'Actor.J', name: 'A sheet', ownerIds: [], joined: true },
+        { uuid: 'Actor.L', name: 'Livy', ownerIds: ['antoine'], joined: false, placeholder: false },
+        { uuid: 'Actor.J', name: 'A sheet', ownerIds: [], joined: true, placeholder: false },
       ],
     });
     expect(homeListing({ ...game, user: { id: 'antoine', isGM: false } })).toEqual({

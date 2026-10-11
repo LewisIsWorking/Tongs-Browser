@@ -10,6 +10,7 @@ import type { SheetResult } from './sheetRequest.js';
 import type { PendingUser } from './SheetRequests.js';
 import type { GuideActor } from './buildGuide.js';
 import { OWNER_LEVEL } from '../foundry/SheetCreationTypes.js';
+import { IMPORT_FLAG } from './importBuild.js';
 
 /**
  * Every document listing the new-player welcome makes. Added 2026-10-05, and in `check:documents`'
@@ -117,6 +118,8 @@ export interface HomeListing {
     readonly name: string;
     readonly ownerIds: readonly string[];
     readonly joined: boolean;
+    /** The welcome's sheet, still blank: no ancestry, no class, no import on its way. */
+    readonly placeholder: boolean;
   }[];
 }
 
@@ -143,9 +146,24 @@ export function homeListing(game: WelcomeGame | undefined): HomeListing {
               level === OWNER_LEVEL ? [id] : []
             ),
             joined: actor.getFlag?.(MODULE_ID, JOINED_FLAG) !== undefined,
+            placeholder: isPlaceholder(actor),
           },
         ]
       : []
   );
   return { players, characters };
+}
+
+/**
+ * A sheet the welcome made that nobody has filled in yet. Added 2026-10-11: Lai and Ryo each had one in "The Party",
+ * which stopped Tongs adding the character they actually brought in.
+ * ⚠️ A sheet with an import still on it is not blank: the player's browser is about to fill it.
+ */
+function isPlaceholder(actor: WelcomeActor): boolean {
+  return (
+    actor.getFlag?.(MODULE_ID, MADE_FOR_FLAG) !== undefined &&
+    actor.getFlag(MODULE_ID, IMPORT_FLAG) === undefined &&
+    !actor.ancestry &&
+    !actor.class
+  );
 }
