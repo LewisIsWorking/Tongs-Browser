@@ -20,6 +20,7 @@ import type { MapBuildingCommands } from './modifiers/MapBuilding.js';
 import { readChatTargets } from './debug/ChatTargets.js';
 import type { ChatGlobals } from './debug/ChatTargets.js';
 import { logger } from './core/Logger.js';
+import { DUAL_CLASS_EVENT } from './dualclass/startDualClassPlayer.js';
 
 /**
  * Wiring the tray buttons to the things they drive. Extracted from TongsBrowser 2026-08-12.
@@ -142,6 +143,9 @@ export function wireTrayActions(
     canUseRollDeck: () => readViewer(GAME_ACCESS).isGm,
     openRollPad: parts.openRollPad,
     canUseRollPad: () => !readViewer(GAME_ACCESS).isGm,
+    /* An event, because the window is the player side started at `ready`, long after the tray. */
+    openDualClass: () => parts.document.dispatchEvent(new Event(DUAL_CLASS_EVENT)),
+    canDualClass: () => !readViewer(GAME_ACCESS).isGm,
   });
 }
 

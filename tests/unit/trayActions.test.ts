@@ -22,6 +22,8 @@ describe('buildTrayActions', () => {
       'character',
       'create-sheet',
       'party-access',
+      /* Dual class (2026-10-12), with the other sheet errands; players only, in trayGatedButtons. */
+      'dual-class',
       'roll-pad',
       'roll-deck',
       'pause',
