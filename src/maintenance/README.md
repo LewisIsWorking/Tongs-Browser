@@ -26,3 +26,8 @@ ComeOnOverUno's nightly Foundry update, seen from inside the world it is about t
   leave the player on Foundry's own error for up to five seconds, so it moves at once.
 - ⚠️ **Another world is left alone.** COO names the world it is updating, and a stale tab on a different
   one must not be sent away.
+- ⭐ **A lost connection asks COO when Tongs had not heard of an update yet** (2026-10-12). The admin test run's
+  countdown became 10 seconds, shorter than the one-minute check, so most players never saw it start and got Foundry's
+  "connection lost". COO marks the run as running before it closes the world, so one question on disconnect is enough.
+  It costs nothing extra: one request per dropped connection, and the checks stay once a minute (every 5 s only during
+  a countdown).
