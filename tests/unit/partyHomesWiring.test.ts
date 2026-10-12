@@ -55,4 +55,55 @@ describe('a sheet in no party (PartyHomes, 2026-10-10)', () => {
     expect(addMembers).toHaveBeenCalledWith(livy);
     expect(livy.setFlag).toHaveBeenCalledWith('tongs-browser', 'joinedParty', 'Actor.P');
   });
+
+  it('swaps a blank welcome sheet out of the party for the real one (2026-10-11)', async () => {
+    const real = { uuid: 'Actor.K', setFlag: vi.fn(async () => Promise.resolve()) };
+    const addMembers = vi.fn(async () => Promise.resolve());
+    const removeMembers = vi.fn(async () => Promise.resolve());
+    vi.stubGlobal('fromUuid', async (uuid: string) =>
+      Promise.resolve(uuid === 'Actor.K' ? real : { addMembers, removeMembers })
+    );
+    const gm = { id: 'gm', name: 'GM', isGM: true, role: 4 };
+    const lai = { id: 'lai', name: 'Lai', role: 1, getFlag: flags({}) };
+    const party = {
+      uuid: 'Actor.P',
+      name: 'The Party',
+      type: 'party',
+      getFlag: flags({}),
+      system: { details: { members: [{ uuid: 'Actor.B' }] } },
+    };
+    const owned = { lai: 3 };
+    const blank = {
+      uuid: 'Actor.B',
+      name: 'Lai',
+      type: 'character',
+      ownership: owned,
+      getFlag: flags({ madeForRequest: 'r1' }),
+    };
+    const kibwe = {
+      uuid: 'Actor.K',
+      name: 'Kibwe',
+      type: 'character',
+      ownership: owned,
+      getFlag: flags({}),
+      class: { name: 'Fighter' },
+    };
+    const actors = Object.assign([party, blank, kibwe], {
+      contents: [party, blank, kibwe],
+      party: { uuid: 'Actor.P' },
+    });
+    const info = vi.fn();
+    startSheetRequests({ on: vi.fn() }, settingsWith({ [WELCOME_SETTING]: true }), {
+      game: { user: gm, users: { activeGM: gm, contents: [gm, lai] }, actors },
+      ui: { notifications: { info } },
+    } as unknown as WelcomeGlobals);
+
+    await vi.waitFor(() => {
+      expect(removeMembers).toHaveBeenCalledWith('Actor.B');
+    });
+    expect(addMembers).toHaveBeenCalledWith(real);
+    expect(info).toHaveBeenCalledWith(
+      "Tongs added Lai's Kibwe to The Party in place of their blank welcome sheet."
+    );
+  });
 });
