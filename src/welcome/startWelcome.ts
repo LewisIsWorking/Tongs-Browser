@@ -5,6 +5,7 @@ import { guideSteps } from './buildGuide.js';
 import { GuidePanel } from './GuidePanel.js';
 import { storedImport } from './importBuild.js';
 import { campaignsOf } from './playerCampaigns.js';
+import { allowedSheets } from './extraSheets.js';
 import {
   MADE_FOR_FLAG,
   REQUEST_FLAG,
@@ -17,7 +18,7 @@ import { sharedParties, WELCOME_SETTING } from './startSheetRequests.js';
 import type { WelcomeGlobals, WelcomeHooks, WelcomeSettings } from './startSheetRequests.js';
 import { WelcomeWindow } from './WelcomeWindow.js';
 import type { WelcomeFace } from './WelcomeWindow.js';
-import { gearCount, ownCharacters } from './welcomeDocuments.js';
+import { countedCharacters, gearCount, ownCharacters } from './welcomeDocuments.js';
 import type { WelcomeActor } from './welcomeDocuments.js';
 
 /**
@@ -25,7 +26,8 @@ import type { WelcomeActor } from './welcomeDocuments.js';
  *
  * In order, a player sees: the checklist, if a sheet was made for them and is not finished; "your request
  * is in", while one waits for a GM; why it was turned down, if it was; otherwise, with no character of
- * their own here and a campaign party to join, the welcome itself.
+ * their own here and a campaign party to join, the welcome itself. With an extra sheet from ComeOnOverUno
+ * (2026-10-12), the welcome comes back once more, saying it is their second; companion sheets never count.
  *
  * ⚠️ Everything is worked out again from the documents on every change (`refresh`), never stepped through
  *    as a sequence, so a reload, a second tab or a GM finishing it all lands on the same screen.
@@ -134,8 +136,10 @@ export function startWelcome(
       face(`refused:${result.requestId}`, { kind: 'refused', reason: result.reason });
       return;
     }
-    const parties = offeredParties(sharedParties(settings), campaignsOf(settings, me()?.id ?? ''));
-    if (ownCharacters(game()).length > 0) {
+    const myId = me()?.id ?? '';
+    const parties = offeredParties(sharedParties(settings), campaignsOf(settings, myId));
+    const owned = countedCharacters(game()).length;
+    if (owned >= allowedSheets(settings, myId)) {
       dismiss();
       return;
     }
@@ -148,7 +152,8 @@ export function startWelcome(
       dismiss();
       return;
     }
-    face('ask', { kind: 'ask', world: game()?.world?.title ?? 'the game', parties });
+    const world = game()?.world?.title ?? 'the game';
+    face(`ask:${String(owned)}`, { kind: 'ask', world, parties, second: owned > 0 });
   }
 
   /** The sheet opens by itself once, the first time this browser sees it made. */

@@ -15,8 +15,15 @@ import { IMPORT_FLAG, storedImport } from './importBuild.js';
 import { JOINED_FLAG, MADE_FOR_FLAG } from './sheetRequest.js';
 import { PartyHomes } from './PartyHomes.js';
 import { campaignsOf, registerPlayerCampaigns } from './playerCampaigns.js';
+import { allowedSheets, registerExtraSheets } from './extraSheets.js';
 import { SheetRequests } from './SheetRequests.js';
-import { actorMadeFor, answerRequest, homeListing, pendingRequests } from './welcomeDocuments.js';
+import {
+  actorMadeFor,
+  answerRequest,
+  countedSheetsOf,
+  homeListing,
+  pendingRequests,
+} from './welcomeDocuments.js';
 import type { WelcomeGame } from './welcomeDocuments.js';
 
 /**
@@ -60,6 +67,7 @@ export function registerWelcomeSettings(settings: WelcomeSettings): void {
     default: { parties: [] },
   });
   registerPlayerCampaigns(settings);
+  registerExtraSheets(settings);
 }
 
 /** The campaign parties as the GM last saw them; read on any client. */
@@ -99,6 +107,10 @@ export function startSheetRequests(
     campaignParties: parties,
     campaignsOf: (userId) => campaignsOf(settings, userId),
     madeFor: (requestId) => actorMadeFor(game(), requestId),
+    sheetCount: (userId) => ({
+      owned: countedSheetsOf(game(), userId),
+      allowed: allowedSheets(settings, userId),
+    }),
     create: async (sheet) =>
       createSheetWithFoundry({
         name: sheet.name,

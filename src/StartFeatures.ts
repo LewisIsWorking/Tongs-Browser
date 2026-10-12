@@ -24,6 +24,10 @@ import type { SizeGlobals } from './world/startWorldSize.js';
 import { MODULE_ID } from './constants.js';
 import { startHelperCall } from './helper/startHelperCall.js';
 import { storePlayerCampaigns } from './welcome/playerCampaigns.js';
+import { storeExtraSheets } from './welcome/extraSheets.js';
+import { startCompanions } from './welcome/startCompanions.js';
+import { storePartyOwners } from './owners/partyOwners.js';
+import { startPartyOwners } from './owners/startPartyOwners.js';
 import type { HelperCall, HelperGlobals } from './helper/startHelperCall.js';
 import { PARTY_LIST_WORK, partyListBehind } from './welcome/partyListWork.js';
 import type { FoundryGame } from './foundry/PartyAccess.js';
@@ -62,9 +66,13 @@ export function startFeatures(parts: FeatureParts): void {
   startBands(hooks, settings, globals, client);
   /* Restore owners: a GM button giving players back what their pre-move user owned. See src/owners. */
   startRestoreOwners(settings, globals as OwnerGlobals);
+  /* Party owners (2026-10-12): COO's listed users own the primary party sheet, and no other. */
+  startPartyOwners(hooks, settings, globals as Parameters<typeof startPartyOwners>[2]);
   /* New players: welcomed, sheet made by a GM, then a checklist. Coded party, else the primary party. */
   registerWelcomeSettings(settings);
   startSheetRequests(hooks, settings, globals as WelcomeGlobals);
+  /* Companion sheets (2026-10-12): a familiar, animal companion or eidolon gets its own sheet. */
+  startCompanions(hooks, settings, globals as Parameters<typeof startCompanions>[2]);
   /* The helper call starts below, once COO is signed in; a microtask later it has. */
   const helper: { call?: HelperCall } = {};
   startWelcome(hooks, settings, globals, parts.document, () => {
@@ -85,6 +93,9 @@ export function startFeatures(parts: FeatureParts): void {
   /* Who plays which campaign, from COO: picks the party where campaigns share a world. */
   const storeCampaigns = async (value: unknown): Promise<void> =>
     storePlayerCampaigns(settings, value);
+  /* Who may make a second sheet, from COO (src/welcome/extraSheets.ts). */
+  const storeExtra = async (value: unknown): Promise<void> => storeExtraSheets(settings, value);
+  const storeOwners = async (value: unknown): Promise<void> => storePartyOwners(settings, value);
   /* No GM online: ask COO's helper GM to come and do what this browser queued. See src/helper. */
   helper.call = startHelperCall(
     hooks,
@@ -95,7 +106,9 @@ export function startFeatures(parts: FeatureParts): void {
     ).game?.modules?.get(MODULE_ID),
     storeCampaigns,
     () =>
-      partyListBehind(settings, (globals as { game?: FoundryGame }).game) ? [PARTY_LIST_WORK] : []
+      partyListBehind(settings, (globals as { game?: FoundryGame }).game) ? [PARTY_LIST_WORK] : [],
+    storeExtra,
+    storeOwners
   );
   /* Encounter sync: off per world; its settings exist only if init built the client. */
   startEncounterSync(hooks, settings, globals, client);
@@ -104,6 +117,8 @@ export function startFeatures(parts: FeatureParts): void {
     ...(idleSeconds === undefined ? {} : { idleSeconds }),
     createUser: foundryCreateUser(globals as UserGlobals),
     campaigns: storeCampaigns,
+    extraSheets: storeExtra,
+    partyOwners: storeOwners,
   });
   /* One question at launch: is this world bigger than the GM asked to hear about? See src/world. */
   startWorldSize(hooks, settings, client, globals as SizeGlobals);

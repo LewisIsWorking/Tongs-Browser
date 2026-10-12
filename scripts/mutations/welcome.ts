@@ -44,4 +44,33 @@ export const WELCOME_MUTATIONS: readonly RecordedMutation[] = [
     defect: 'a stale request on a GM account makes a sheet for the GM, who already sees everything',
     tests: ['tests/unit/welcomeDocuments.test.ts'],
   },
+  /* 2026-10-12: the sheet cap and companion sheets. */
+  {
+    file: 'src/welcome/SheetRequests.ts',
+    find: '    if (count !== undefined && count.owned >= count.allowed) {',
+    replace: '    if (false) {',
+    defect: 'a player at the cap writes a request flag by hand and gets a third sheet anyway',
+    tests: ['tests/unit/sheetCap.test.ts'],
+  },
+  {
+    file: 'src/welcome/welcomeDocuments.ts',
+    find: '      !isCompanionSheet(actor)\n',
+    replace: '      true\n',
+    defect: "a player's animal companion counts as their second sheet, so their grant is used up",
+    tests: ['tests/unit/sheetCap.test.ts'],
+  },
+  {
+    file: 'src/welcome/Companions.ts',
+    find: '        if (made.includes(kind.kind) || this.failed.has(key)) {',
+    replace: '        if (this.failed.has(key)) {',
+    defect: 'a companion the GM deleted is made again on the next actor update',
+    tests: ['tests/unit/companions.test.ts'],
+  },
+  {
+    file: 'src/welcome/Companions.ts',
+    find: '    if (!this.ports.isDesignatedGm()) {',
+    replace: '    if (false) {',
+    defect: 'every open GM tab makes its own familiar for the same character',
+    tests: ['tests/unit/companions.test.ts'],
+  },
 ];
