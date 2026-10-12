@@ -10,6 +10,7 @@ import type { SheetResult } from './sheetRequest.js';
 import type { PendingUser } from './SheetRequests.js';
 import type { GuideActor } from './buildGuide.js';
 import { OWNER_LEVEL } from '../foundry/SheetCreationTypes.js';
+import { isCompanionSheet } from './companionDocuments.js';
 import { IMPORT_FLAG } from './importBuild.js';
 
 /**
@@ -83,6 +84,27 @@ export function ownCharacters(game: WelcomeGame | undefined): WelcomeActor[] {
   );
 }
 
+/**
+ * The player's own sheets that count toward how many they may have (2026-10-12): companion sheets never do
+ * (Lewis: "Companion sheets never count toward the 2-sheet cap").
+ */
+export function countedCharacters(game: WelcomeGame | undefined): WelcomeActor[] {
+  return ownCharacters(game).filter((actor) => !isCompanionSheet(actor));
+}
+
+/** GM only: how many counted character sheets one player owns, for SheetRequests' cap. 2026-10-12. */
+export function countedSheetsOf(game: WelcomeGame | undefined, userId: string): number {
+  if (game?.user?.isGM !== true) {
+    return 0;
+  }
+  return (game.actors?.contents ?? []).filter(
+    (actor) =>
+      actor.type === 'character' &&
+      actor.ownership?.[userId] === OWNER_LEVEL &&
+      !isCompanionSheet(actor)
+  ).length;
+}
+
 /** How many pieces of gear a sheet carries, for the checklist. */
 export function gearCount(actor: WelcomeActor): number {
   return actor.inventory?.contents?.length ?? 0;
@@ -136,8 +158,9 @@ export function homeListing(game: WelcomeGame | undefined): HomeListing {
       ? []
       : [{ id: user.id, name: user.name ?? 'A player' }]
   );
+  /* ⚠️ Companion sheets are left out (2026-10-12): they join their character's party with it. */
   const characters = (game.actors?.contents ?? []).flatMap((actor) =>
-    actor.type === 'character'
+    actor.type === 'character' && !isCompanionSheet(actor)
       ? [
           {
             uuid: actor.uuid,

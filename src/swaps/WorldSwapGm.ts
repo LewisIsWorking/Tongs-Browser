@@ -51,6 +51,10 @@ export interface WorldSwapPorts {
   readonly createUser?: (user: LiveUser) => Promise<boolean>;
   /** Stores which campaigns each player posts in (src/welcome/playerCampaigns.ts), when COO says. */
   readonly campaigns?: (value: unknown) => Promise<void>;
+  /** Stores each player's extra sheets (src/welcome/extraSheets.ts), when COO says. 2026-10-12. */
+  readonly extraSheets?: (value: unknown) => Promise<void>;
+  /** Stores who must own the primary party (src/owners/partyOwners.ts), when COO says. 2026-10-12. */
+  readonly partyOwners?: (value: unknown) => Promise<void>;
 }
 
 export type BeatOutcome = 'not-gm' | 'no-world' | 'signed-out' | 'failed' | 'beat';
@@ -103,6 +107,14 @@ export class WorldSwapGm {
     const said = (body as { playerCampaigns?: unknown } | null)?.playerCampaigns;
     if (this.ports.campaigns !== undefined && said !== undefined) {
       await this.ports.campaigns(said);
+    }
+    const extra = (body as { extraSheets?: unknown } | null)?.extraSheets;
+    if (this.ports.extraSheets !== undefined && extra !== undefined) {
+      await this.ports.extraSheets(extra);
+    }
+    const owners = (body as { partyOwners?: unknown } | null)?.partyOwners;
+    if (this.ports.partyOwners !== undefined && owners !== undefined) {
+      await this.ports.partyOwners(owners);
     }
     if (this.ports.createUser !== undefined) {
       await addLiveUsers(worldId, liveUsersOf(body), this.ports.createUser, this.ports.call);

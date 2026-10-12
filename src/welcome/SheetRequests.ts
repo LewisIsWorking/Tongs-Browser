@@ -12,6 +12,10 @@ import type { ImportBuild } from './importBuild.js';
  * ⚠️ One pass at a time. Foundry fires `updateUser` for the answer this class itself writes, and a second
  *    pass started while the first is still creating would see the same request and make a duplicate. A call
  *    that arrives mid-pass asks for one more pass instead.
+ *
+ * ⛔ The sheet cap is ENFORCED here, not only in the player's browser (2026-10-12). A player may own 1
+ *    counted sheet, or 2 with ComeOnOverUno's `extraSheets` (Lewis: "maximum 2 in total"); companion sheets
+ *    never count. The welcome only hides itself at the cap, and a request is a flag any player can write.
  */
 export interface PendingUser {
   readonly userId: string;
@@ -37,6 +41,8 @@ export interface SheetRequestPorts {
   readonly campaignsOf?: (userId: string) => readonly string[];
   /** The actor already made for this request, if a pass made it and then failed to answer. */
   readonly madeFor: (requestId: string) => string | null;
+  /** How many counted sheets the player owns, and how many they may (`extraSheets.ts`). */
+  readonly sheetCount?: (userId: string) => { readonly owned: number; readonly allowed: number };
   readonly create: (sheet: NewSheet) => Promise<SheetCreationOutcome>;
   /** Clears the request and writes the answer, on the player's user. */
   readonly answer: (userId: string, result: SheetResult) => Promise<void>;
@@ -88,6 +94,11 @@ export class SheetRequests {
       });
       return;
     }
+    const count = this.ports.sheetCount?.(user.userId);
+    if (count !== undefined && count.owned >= count.allowed) {
+      await this.refuseAtCap(user, count.allowed);
+      return;
+    }
 
     const pick = pickParty(
       request.partyUuid,
@@ -125,6 +136,21 @@ export class SheetRequests {
       outcome.kind === 'created'
         ? `Tongs made ${request.name} for ${user.userName}, in ${pick.party.name}.`
         : `Tongs made ${request.name} for ${user.userName}, but could not add it to ${pick.party.name}: ${outcome.reason}`
+    );
+  }
+
+  /** Turned down with the reason, so the player is told rather than left waiting. */
+  private async refuseAtCap(user: PendingUser, allowed: number): Promise<void> {
+    await this.ports.answer(user.userId, {
+      kind: 'refused',
+      requestId: user.request.id,
+      reason:
+        allowed > 1
+          ? `You already have ${String(allowed)} character sheets here, which is the most anyone can have.`
+          : "You already have a character sheet here. For a second one, send /extrasheet in your campaign's Telegram topic.",
+    });
+    this.ports.tellGm(
+      `${user.userName} asked for another character, but already has ${String(allowed)}, the most they may have here.`
     );
   }
 

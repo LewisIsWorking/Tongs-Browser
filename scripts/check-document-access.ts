@@ -88,6 +88,18 @@ const BOUNDARY: readonly string[] = [
    * to anyone who could not already open it.
    */
   'src/welcome/welcomeDocuments.ts',
+  /*
+   * ⚠️ Added 2026-10-12 with companion sheets. It DOES enumerate users and actors, GM only, failing closed
+   * on `game.user.isGM !== true`: a player's browser gets an empty listing, and a GM can already open
+   * everything it lists. Nothing it lists is rendered; it only decides which companion sheets to make.
+   */
+  'src/welcome/companionDocuments.ts',
+  /*
+   * ⚠️ Added 2026-10-12 with party owners, and like `LiveUsers` it does NOT enumerate. It reads PF2e's one
+   * active party (`game.actors.party`) and looks up users one at a time by the ids COO sent, only in the
+   * designated GM's browser. It lists nothing; the only thing shown is a user's name, to the GM.
+   */
+  'src/owners/startPartyOwners.ts',
 ];
 
 const sources = listSourceFiles().filter(

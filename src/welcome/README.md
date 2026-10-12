@@ -15,6 +15,11 @@ proves who asked. The answer travels back on the same User.
 | `SheetRequests.ts`      | The GM side: serve each waiting request, once, one pass at a time               |
 | `PartyHomes.ts`         | The GM side: a player's only sheet in no party joins their campaign's party     |
 | `playerCampaigns.ts`    | Which campaigns each player posts in, as ComeOnOverUno said (world setting)     |
+| `extraSheets.ts`        | Who may have a second sheet, as ComeOnOverUno said (world setting)              |
+| `companionKinds.ts`     | Which feats grant a companion (by PF2e slug), and the actor type each gets      |
+| `companionDocuments.ts` | The GM's listing of characters and companions (a `check:documents` boundary)    |
+| `Companions.ts`         | The GM side: a sheet for each companion, made once, in the character's party    |
+| `startCompanions.ts`    | Its hooks and the Foundry calls: create, join, mark, whisper the player         |
 | `partyListWork.ts`      | The shared party list as work a GM owes, so the helper GM is called to share it |
 | `startSheetRequests.ts` | The settings, the hooks that wake the GM side, and the Foundry wiring           |
 | `welcomeDocuments.ts`   | Every user and actor listing the welcome makes (a `check:documents` boundary)   |
@@ -81,3 +86,16 @@ proves who asked. The answer travels back on the same User.
   Players read the party list a GM's browser shares, so it stayed empty after the parties got codes, the
   welcome closed, nothing was queued, and the helper GM was never called. Now the welcome calls the helper
   once per page load, and `partyListWork.ts` keeps its visit open until its Tongs has shared the list.
+- ⛔ **A second sheet, at most** (2026-10-12). Lewis: "a maximum of 1 additional sheet ... (maximum 2 in
+  total)". The bot's `/extrasheet` grants it, COO sends `extraSheets` beside `playerCampaigns` (heartbeat and
+  `helper.extraSheets(map)`), and the welcome offers a second sheet, saying so. ⛔ The cap is enforced in
+  `SheetRequests`, not only by the welcome hiding itself: any player can write a request flag.
+- ⚠️ **Companion sheets never count** toward that cap, nor as a player's "one loose sheet" in `PartyHomes`.
+  A companion is a sheet Tongs flagged `companionOf`, or one built from Companion Compendia by hand.
+- ⭐ **Companions are found by slug, not by name** (2026-10-12), read from PF2e's own packs: the build
+  writes `system.slug = sluggify(name)`. Familiars are PF2e's `familiar` actor with `system.master`; animal,
+  undead and construct companions, eidolons and drones are `character` actors, as PF2e's own Droogami is.
+  Tongs assumes PF2e Companion Compendia (`pf2e-animal-companions`) is active (Lewis, 2026-10-12) and tells
+  the player which of its packs to drag the ancestry from; a missing pack is a notice, never a crash.
+- ⛔ **A companion is made once.** `companionsMade` on the character keeps a deleted one deleted, and only
+  characters in a party get one, so an old world's retired sheets do not all sprout familiars.

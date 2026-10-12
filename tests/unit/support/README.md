@@ -10,6 +10,7 @@ Fixtures shared by the pure tests. No DOM, no assertions.
 | `buildAutoApplyWorld.ts` | The Foundry behind the strike automation's ports              |
 | `worldSwapTable.ts`      | A GM in a world, a fake ComeOnOverUno, a hand-fired beat      |
 | `cooFoundryExport.ts`    | A character as ComeOnOverUno's "Foundry VTT" export writes it |
+| `companionWorld.ts`      | A GM's world for companion sheets, every write recorded       |
 
 ## Time is an argument here
 

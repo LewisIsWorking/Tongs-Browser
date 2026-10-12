@@ -92,7 +92,9 @@ export function startHelperCall(
   tell: HelperCallPorts['tell'],
   entry: ModuleEntry | undefined,
   campaigns: (value: unknown) => Promise<void> = async () => Promise.resolve(),
-  moreWork: () => string[] = () => []
+  moreWork: () => string[] = () => [],
+  extraSheets: (value: unknown) => Promise<void> = async () => Promise.resolve(),
+  partyOwners: (value: unknown) => Promise<void> = async () => Promise.resolve()
 ): HelperCall {
   const call = new HelperCall({
     myId: () => globals.game?.user?.id,
@@ -114,9 +116,11 @@ export function startHelperCall(
   hooks.on('createChatMessage', (message: never, _options: never, userId: never) => {
     write(message, userId);
   });
-  /* What COO's helper uses: `helper.waiting()`, and `helper.campaigns(map)` since it is not signed in to COO. */
+  /* What COO's helper uses: `helper.waiting()`, and, since it is not signed in to COO, `helper.campaigns(map)`
+     `helper.extraSheets(map)` and `helper.partyOwners(ids)` (2026-10-12), stored like the heartbeat's. */
   if (entry !== undefined) {
-    entry.helper = { waiting: () => [...moreWork(), ...waitingWork(globals.game)], campaigns };
+    const waiting = () => [...moreWork(), ...waitingWork(globals.game)];
+    entry.helper = { waiting, campaigns, extraSheets, partyOwners };
   }
   return call;
 }

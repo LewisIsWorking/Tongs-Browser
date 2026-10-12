@@ -28,7 +28,13 @@ const CSS = `
 `;
 
 export type WelcomeFace =
-  | { readonly kind: 'ask'; readonly world: string; readonly parties: readonly CampaignParty[] }
+  | {
+      readonly kind: 'ask';
+      readonly world: string;
+      readonly parties: readonly CampaignParty[];
+      /** An extra sheet (2026-10-12): they have one already, and this is their second. */
+      readonly second?: boolean;
+    }
   | { readonly kind: 'waiting'; readonly gmOnline: boolean }
   | { readonly kind: 'refused'; readonly reason: string };
 
@@ -77,8 +83,19 @@ export class WelcomeWindow {
 
   private fill(card: HTMLElement, face: WelcomeFace): void {
     if (face.kind === 'ask') {
-      this.add(card, 'h2', `Welcome to ${face.world}!`);
-      this.add(card, 'p', "Let's make your character. Give them a name; you can change it later.");
+      const second = face.second === true;
+      this.add(
+        card,
+        'h2',
+        second ? `A second character in ${face.world}` : `Welcome to ${face.world}!`
+      );
+      this.add(
+        card,
+        'p',
+        second
+          ? 'You can have a second character sheet here. Your first stays exactly as it is. Give this one a name; you can change it later.'
+          : "Let's make your character. Give them a name; you can change it later."
+      );
       const name = this.field(card, 'input', 'Character name') as HTMLInputElement;
       name.maxLength = 60;
       const select = this.partyChoice(card, face.parties);
@@ -90,12 +107,7 @@ export class WelcomeWindow {
         if (event.key === 'Enter') go();
       });
       this.buttons(card, [
-        [
-          'Not now',
-          () => {
-            this.actions.later();
-          },
-        ],
+        ['Not now', this.actions.later],
         ['Create my character', go, true],
       ]);
       return;
@@ -123,19 +135,8 @@ export class WelcomeWindow {
     this.add(card, 'h2', 'That did not work');
     this.add(card, 'p', face.reason);
     this.buttons(card, [
-      [
-        'Not now',
-        () => {
-          this.actions.later();
-        },
-      ],
-      [
-        'Try again',
-        () => {
-          this.actions.retry();
-        },
-        true,
-      ],
+      ['Not now', this.actions.later],
+      ['Try again', this.actions.retry, true],
     ]);
   }
 

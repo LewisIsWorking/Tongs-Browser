@@ -100,3 +100,37 @@ describe('the welcome and the helper GM', () => {
     expect(moreWork?.()).toEqual([]);
   });
 });
+
+describe("what COO says about this world's players", () => {
+  /* 2026-10-12: extra sheets and primary party owners, from the heartbeat and from the helper GM. */
+  it('stores campaigns, extra sheets and party owners from both the heartbeat and the helper', async () => {
+    const values: Record<string, unknown> = {};
+    const set = vi.fn(async (_namespace: string, key: string, value: unknown) => {
+      values[key] = value;
+      return Promise.resolve();
+    });
+    startFeatures(
+      parts({
+        settings: {
+          register: vi.fn(),
+          get: (_namespace: string, key: string) => values[key],
+          set,
+        } as unknown as FeatureParts['settings'],
+      })
+    );
+    const extras = vi.mocked(startWorldSwaps).mock.calls[0]?.[4];
+    const ann = 'AnnAnnAnnAnnAnn1';
+    await extras?.campaigns?.({ [ann]: ['C06'] });
+    await extras?.extraSheets?.({ [ann]: 1 });
+    await extras?.partyOwners?.([ann]);
+    expect(values).toMatchObject({
+      playerCampaigns: { [ann]: ['C06'] },
+      extraSheets: { [ann]: 1 },
+      partyOwners: { ids: [ann] },
+    });
+    const helperArgs = vi.mocked(startHelperCall).mock.calls[0];
+    await helperArgs?.[6]?.({});
+    await helperArgs?.[7]?.([]);
+    expect(values).toMatchObject({ extraSheets: {}, partyOwners: { ids: [] } });
+  });
+});
