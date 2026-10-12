@@ -67,15 +67,43 @@ describe('MaintenanceWatch', () => {
       { phase: 'warning', world: 'c06', now: iso(T), closesAt: iso(T + 1_000) },
     ]);
     await watch.tick();
-    watch.disconnected();
+    await watch.disconnected();
     expect(ports.leave).toHaveBeenCalledWith('/coo-updating');
   });
 
   it('a lost connection with no update coming is left to Foundry', async () => {
     const { ports, watch } = rig([{ phase: 'idle', now: iso(T) }]);
     await watch.tick();
-    watch.disconnected();
+    await watch.disconnected();
     expect(ports.leave).not.toHaveBeenCalled();
+  });
+
+  // ⭐ 2026-10-12: a 10-second test countdown is shorter than the one-minute check, so Tongs asks when it drops.
+  it('a lost connection before Tongs heard of the update asks COO, and leaves when this world is updating', async () => {
+    const { ports, watch } = rig([
+      { phase: 'idle', now: iso(T) },
+      { phase: 'running', world: 'c06', now: iso(T) },
+    ]);
+    await watch.tick();
+    await watch.disconnected();
+    expect(ports.ask).toHaveBeenCalledTimes(2);
+    expect(ports.leave).toHaveBeenCalledWith('/coo-updating');
+  });
+
+  it('asking on a lost connection leaves a tab alone when another world is updating, or COO does not answer', async () => {
+    const other = rig([
+      { phase: 'idle', now: iso(T) },
+      { phase: 'running', world: 'c01', now: iso(T) },
+    ]);
+    await other.watch.tick();
+    await other.watch.disconnected();
+    expect(other.ports.leave).not.toHaveBeenCalled();
+
+    const silent = rig([{ phase: 'idle', now: iso(T) }]);
+    await silent.watch.tick();
+    silent.ports.ask.mockRejectedValueOnce(new Error('offline'));
+    await expect(silent.watch.disconnected()).resolves.toBeUndefined();
+    expect(silent.ports.leave).not.toHaveBeenCalled();
   });
 
   it('COO not answering keeps what was last known and never throws', async () => {

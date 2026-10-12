@@ -56,9 +56,23 @@ export class MaintenanceWatch {
     this.apply();
   }
 
-  /** Foundry lost its connection. During a countdown that is the world closing, so go now. */
-  public disconnected(): void {
-    if (this.state?.phase === 'warning' || this.state?.phase === 'running') {
+  /**
+   * Foundry lost its connection. During a countdown that is the world closing, so go now.
+   * ⭐ 2026-10-12: and when Tongs had not heard of an update yet, it asks COO there and then. Lewis cut the test
+   *    run's countdown to 10 seconds, shorter than the one-minute check, so most players never saw it start. COO
+   *    marks the run as running BEFORE it closes the world, so the answer is already there when the socket drops.
+   *    An ordinary disconnect (COO says idle, or does not answer) is left to Foundry as before.
+   */
+  public async disconnected(): Promise<void> {
+    if (this.state?.phase !== 'warning' && this.state?.phase !== 'running') {
+      try {
+        this.state = readMaintenance(await this.ports.ask(), this.ports.now());
+      } catch {
+        return;
+      }
+    }
+    const next = verdict(this.state, this.ports.worldId(), this.ports.now());
+    if (next.kind !== 'none') {
       this.go();
     }
   }
@@ -142,7 +156,7 @@ export function startMaintenance(
     ...bannerPorts(document),
   });
   globals.game?.socket?.on?.('disconnect', () => {
-    watch.disconnected();
+    void watch.disconnected(); // never rejects: it swallows COO not answering itself
   });
   every(() => void watch.tick().catch(() => undefined), 1000);
   void watch.tick().catch(() => undefined);
