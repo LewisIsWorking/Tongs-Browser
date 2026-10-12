@@ -1,5 +1,19 @@
 # tongs-browser
 
+## 0.55.0
+
+### Minor Changes
+
+- [#452](https://github.com/LewisIsWorking/Tongs-Browser/pull/452) [`13ddc40`](https://github.com/LewisIsWorking/Tongs-Browser/commit/13ddc40cd4fadba4a4e59008adadb4d679218ca6) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A player ComeOnOverUno grants an extra sheet (the bot's `/extrasheet`) is offered a second character sheet, which joins their campaign's party; nobody can have more than two, and the GM's browser now enforces that cap rather than trusting the welcome. Characters with a familiar, animal companion, eidolon, undead or construct companion (found by PF2e's feat and class feature slugs) automatically get a companion sheet, owned by their player, in their party, made once; companion sheets never count toward the cap. Tongs assumes the PF2e Companion Compendia module is active and tells the player which of its packs to drag the ancestry from.
+
+  Users ComeOnOverUno lists in `partyOwners` are made owners of the world's primary party sheet (PF2e's active party, never any other party), so they can open the party stash; nobody's ownership is ever lowered.
+
+- [#449](https://github.com/LewisIsWorking/Tongs-Browser/pull/449) [`b638ca3`](https://github.com/LewisIsWorking/Tongs-Browser/commit/b638ca398e645368316b1ff70249c6625fb044ef) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - ComeOnOverUno's nightly Foundry update now closes the open world at 06:00 UK time instead of skipping every night a world was open. Five minutes before, everyone in the world sees a countdown banner; when the world closes, Tongs takes them to COO's progress page, which shows each step of the update and sends them back when the same world is open again.
+
+### Patch Changes
+
+- [#450](https://github.com/LewisIsWorking/Tongs-Browser/pull/450) [`fd0af71`](https://github.com/LewisIsWorking/Tongs-Browser/commit/fd0af71e911002ac86e3a6e88f6616da2d3598d9) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A character a player brings into a world now joins the party even when the welcome already gave them a blank sheet there. Tongs used to treat that blank sheet as the player's seat and leave the real character out of the party sheet. Now the real character joins, the blank welcome sheet leaves the party (it stays in the Actors sidebar), and the GM is told.
+
 ## 0.54.1
 
 ### Patch Changes
