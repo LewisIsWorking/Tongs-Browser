@@ -92,6 +92,25 @@ export async function joinPartyWithFoundry(partyUuid: string, memberUuid: string
   await addToPartyWithFoundry(partyUuid, member as CreatedSheet);
 }
 
+/**
+ * Takes a sheet out of these parties (PartyHomes, 2026-10-11: a blank welcome sheet making way for the character
+ * the player brought). Throws, with the reason, when a party cannot; the sheet itself is never deleted.
+ */
+export async function leavePartiesWithFoundry(
+  partyUuids: readonly string[],
+  memberUuid: string
+): Promise<void> {
+  for (const partyUuid of partyUuids) {
+    const party = (await (globalThis as CreationGlobals).fromUuid?.(partyUuid)) as {
+      removeMembers?: (...members: string[]) => Promise<unknown>;
+    } | null;
+    if (party?.removeMembers === undefined) {
+      throw new Error('That party cannot lose members on this system.');
+    }
+    await party.removeMembers(memberUuid);
+  }
+}
+
 /** Sets one module flag on a document, by uuid. Added 2026-10-10 for PartyHomes' "added once" mark. */
 export async function setFlagWithFoundry(
   uuid: string,

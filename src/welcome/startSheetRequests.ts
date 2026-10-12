@@ -2,6 +2,7 @@ import { MODULE_ID } from '../constants.js';
 import {
   createSheetWithFoundry,
   joinPartyWithFoundry,
+  leavePartiesWithFoundry,
   setFlagWithFoundry,
 } from '../foundry/CreateSheetDeps.js';
 import { readGmPresence } from '../foundry/DesignatedGm.js';
@@ -135,6 +136,13 @@ export function startSheetRequests(
     listing: () => homeListing(game()),
     members: () => new Set(allParties().flatMap((party) => party.members)),
     join: joinPartyWithFoundry,
+    leave: async (sheetUuid) =>
+      leavePartiesWithFoundry(
+        allParties()
+          .filter((party) => party.members.includes(sheetUuid))
+          .map((party) => party.uuid),
+        sheetUuid
+      ),
     markJoined: async (sheetUuid, partyUuid) =>
       setFlagWithFoundry(sheetUuid, MODULE_ID, JOINED_FLAG, partyUuid),
     tellGm: (text) => globals.ui?.notifications?.info?.(text),

@@ -72,6 +72,11 @@ proves who asked. The answer travels back on the same User.
   `PartyHomes` now adds a player's sheet, but narrowly: one campaign party in the world (C00/C01 and C06/C11
   share worlds), the player in no party yet, exactly one loose sheet, and never the same sheet twice, so old
   worlds' retired sheets stay where they are and a GM can take one out.
+- ⚠️ **A blank welcome sheet blocked the real one** (2026-10-11, Lai and Ryo in "The Party"). Anthony: "for people
+  that already had a sheet it seems to import it successfully but not put it in the party sheet". The welcome
+  had seated them with a blank sheet, so `PartyHomes` read them as already in a party. Now a welcome sheet with
+  no ancestry, no class and no import on its way (`placeholder`) is set aside: one real loose sheet joins, and
+  the blank one is taken OUT of the party, never deleted.
 - ⚠️ **Two campaigns in one world picked no party** (2026-10-10). Lewis: "if you've messaged C01 CHAT then
   you should get sheet in the C01 party, likewise with C00". ComeOnOverUno reads the bot's roster and sends
   each player's campaign codes with the GM heartbeat (and to its helper GM), kept in the hidden world

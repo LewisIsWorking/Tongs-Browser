@@ -5,6 +5,14 @@ import type { HomeListing } from './welcomeDocuments.js';
 /**
  * The GM's browser putting a player's sheet in the campaign's party when nobody did. Added 2026-10-10.
  *
+ * ⭐ 2026-10-11: A BLANK WELCOME SHEET IS NOT A SEAT. Anthony: "for people that already had a sheet it seems to
+ *    import it successfully but not put it in the party sheet". The welcome had given Lai and Ryo a blank sheet
+ *    in "The Party", so the rule below ("no sheet in ANY party") read them as seated and left out the character
+ *    they brought. Now blank welcome sheets (`placeholder`) are set aside: a player whose only party sheets are
+ *    blank, with exactly one real sheet outside a party, gets that one added and the blank one taken OUT of the
+ *    party (never deleted: it stays in the Actors sidebar for the GM to remove). A player with only blank sheets
+ *    is treated exactly as before.
+ *
  * Found live in C07: Livy was copied into the world rather than made by the welcome, so she was in no
  * party and the party sheet read "No Members". Lewis, asked whether Tongs should add such sheets: "Yes".
  *
@@ -26,6 +34,8 @@ export interface PartyHomePorts {
   /** Every actor uuid that is a member of any party. */
   readonly members: () => ReadonlySet<string>;
   readonly join: (partyUuid: string, sheetUuid: string) => Promise<void>;
+  /** Takes a sheet out of every party it is in. */
+  readonly leave: (sheetUuid: string) => Promise<void>;
   readonly markJoined: (sheetUuid: string, partyUuid: string) => Promise<void>;
   readonly tellGm: (text: string) => void;
 }
@@ -35,6 +45,8 @@ export interface Homeless {
   readonly sheetUuid: string;
   readonly sheetName: string;
   readonly playerName: string;
+  /** Blank welcome sheets of the same player that sit in a party, to take out once this one is in. */
+  readonly replaces: readonly string[];
 }
 
 /** The sheets to add, by the rules above. */
@@ -42,14 +54,19 @@ export function homeless(listing: HomeListing, members: ReadonlySet<string>): Ho
   const found = new Map<string, Homeless>();
   for (const player of listing.players) {
     const theirs = listing.characters.filter((sheet) => sheet.ownerIds.includes(player.id));
-    const loose = theirs.filter((sheet) => !members.has(sheet.uuid));
-    const only = loose.length === theirs.length && loose.length === 1 ? loose[0] : undefined;
+    const real = theirs.filter((sheet) => !sheet.placeholder);
+    const counted = real.length > 0 ? real : theirs;
+    const loose = counted.filter((sheet) => !members.has(sheet.uuid));
+    const only = loose.length === counted.length && loose.length === 1 ? loose[0] : undefined;
     if (only !== undefined && !only.joined) {
       found.set(only.uuid, {
         playerId: player.id,
         sheetUuid: only.uuid,
         sheetName: only.name,
         playerName: player.name,
+        replaces: theirs
+          .filter((sheet) => sheet.placeholder && sheet !== only && members.has(sheet.uuid))
+          .map((sheet) => sheet.uuid),
       });
     }
   }
@@ -97,7 +114,13 @@ export class PartyHomes {
       try {
         await this.ports.join(party.uuid, sheet.sheetUuid);
         await this.ports.markJoined(sheet.sheetUuid, party.uuid);
-        this.ports.tellGm(`Tongs added ${sheet.playerName}'s ${sheet.sheetName} to ${party.name}.`);
+        for (const blank of sheet.replaces) {
+          await this.ports.leave(blank);
+        }
+        const swapped = sheet.replaces.length > 0 ? ' in place of their blank welcome sheet' : '';
+        this.ports.tellGm(
+          `Tongs added ${sheet.playerName}'s ${sheet.sheetName} to ${party.name}${swapped}.`
+        );
       } catch (error) {
         await this.ports.markJoined(sheet.sheetUuid, party.uuid).catch(() => undefined);
         this.ports.tellGm(
