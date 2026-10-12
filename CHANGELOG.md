@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.55.1
+
+### Patch Changes
+
+- [#453](https://github.com/LewisIsWorking/Tongs-Browser/pull/453) [`0a64d1b`](https://github.com/LewisIsWorking/Tongs-Browser/commit/0a64d1bae9823142e8b1664c07302c2ed10c4051) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - When Foundry's connection drops and Tongs had not yet heard of an update, it now asks ComeOnOverUno straight away and goes to the update's progress page if this world is being updated. The admin test run's countdown is now 10 seconds, shorter than Tongs' once-a-minute check, so players used to land on Foundry's "connection lost" screen instead. An ordinary disconnect is left to Foundry as before.
+
 ## 0.55.0
 
 ### Minor Changes
