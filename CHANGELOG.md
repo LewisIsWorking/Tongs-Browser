@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.55.2
+
+### Patch Changes
+
+- [#456](https://github.com/LewisIsWorking/Tongs-Browser/pull/456) [`32229e7`](https://github.com/LewisIsWorking/Tongs-Browser/commit/32229e76d6a66327e306a32bafbca0e43f84156c) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - When ComeOnOverUno stops accepting Tongs's sign-in, the GM now gets a lasting notice saying hits, health bands and the encounter tracker are not reaching Telegram, and how to sign in again. Before, the sign-in was dropped without a word, which is how a whole C06 fight's damage went unposted. A server error while ComeOnOverUno restarts no longer drops the sign-in at all.
+
 ## 0.55.1
 
 ### Patch Changes
