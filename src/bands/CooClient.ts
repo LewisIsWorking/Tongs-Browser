@@ -19,6 +19,12 @@ export interface CooPorts {
   readonly now: () => number;
   /** The installed Tongs version, stamped on every signed-in post so a message shows what sent it. */
   readonly version?: () => string;
+  /**
+   * COO refused the kept sign-in, so nothing posts until the GM signs in again. Called once per loss.
+   * ⚠️ Added 2026-10-13: on C06 a COO web logout ended this session and the wipe below was silent, so a
+   * whole fight's hits never reached Telegram and nobody knew.
+   */
+  readonly lostSession?: () => void;
 }
 
 export interface BandPost {
@@ -57,6 +63,9 @@ interface Tokens {
 
 /** A minute's margin, so a token about to expire is refreshed rather than sent and refused. */
 const EARLY_MS = 60_000;
+
+/** The refresh answers that mean COO no longer accepts the kept token. */
+const REFUSED = new Set([400, 401, 403]);
 
 export class CooClient {
   private readonly ports: CooPorts;
@@ -136,7 +145,11 @@ export class CooClient {
     const response = await this.send('/api/auth/refresh', { refreshToken });
     if (response.status !== 200) {
       this.access = null;
-      await this.ports.saveRefreshToken('');
+      /* ⚠️ Only a refusal ends the sign-in: a 502 while COO redeploys says nothing about the token. */
+      if (REFUSED.has(response.status)) {
+        await this.ports.saveRefreshToken('');
+        this.ports.lostSession?.();
+      }
       return null;
     }
     return this.keep((await response.json()) as Tokens);

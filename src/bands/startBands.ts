@@ -48,7 +48,11 @@ export type StartGlobals = BandGlobals &
     };
     readonly fetch?: CooPorts['fetch'];
     readonly fromUuidSync?: (uuid: string) => { readonly name?: string } | null | undefined;
-    readonly ui?: { readonly notifications?: { warn?(message: string): unknown } };
+    readonly ui?: {
+      readonly notifications?: {
+        warn?(message: string, options?: { permanent?: boolean }): unknown;
+      };
+    };
   };
 
 export function registerBandSettings(settings: BandSettings): void {
@@ -84,6 +88,10 @@ export function registerBandMenus(
   );
 }
 
+export const LOST_SESSION =
+  "ComeOnOverUno ended Tongs Browser's sign-in, so hits, health bands and the encounter tracker are not " +
+  "reaching Telegram. Sign in again from Tongs Browser's module settings.";
+
 export function buildCooClient(settings: BandSettings, globals: StartGlobals): CooClient {
   const text = (key: string) => {
     const value = settings.get(MODULE_ID, key);
@@ -103,6 +111,10 @@ export function buildCooClient(settings: BandSettings, globals: StartGlobals): C
     },
     now: () => Date.now(),
     version: () => globals.game?.modules?.get?.(MODULE_ID)?.version ?? 'unknown',
+    /* Lasting, so a GM mid-fight cannot miss it: until they sign in again nothing reaches Telegram. */
+    lostSession: () => {
+      globals.ui?.notifications?.warn?.(LOST_SESSION, { permanent: true });
+    },
   });
 }
 
