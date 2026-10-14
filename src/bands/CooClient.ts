@@ -3,7 +3,8 @@
  *
  * ⛔ NO SECRET LIVES IN THIS FILE. Foundry sends a module's code to every player. Decided with Lewis: the
  * GM signs in to COO once, and only the REFRESH token is kept, in a client setting that exists in that
- * one browser. The password is used once and never stored. The COO endpoint requires the Admin role.
+ * one browser. Since 2026-10-14 the sign-in is a one-time PAIRING CODE from the COO app (Settings, Pair a
+ * device), because COO accounts no longer have passwords. The COO endpoint requires the Admin role.
  *
  * ⚠️ COO ROTATES REFRESH TOKENS, so two refreshes at once would spend the same token twice and the second
  * would sign the GM out. Every refresh goes through one shared in-flight promise.
@@ -67,6 +68,9 @@ const EARLY_MS = 60_000;
 /** The refresh answers that mean COO no longer accepts the kept token. */
 const REFUSED = new Set([400, 401, 403]);
 
+/** What the COO app's list of signed-in devices calls this session, after "Paired: ". */
+export const PAIRED_DEVICE_NAME = 'Tongs Browser';
+
 export class CooClient {
   private readonly ports: CooPorts;
   private access: { token: string; expiresAt: number } | null = null;
@@ -76,9 +80,9 @@ export class CooClient {
     this.ports = ports;
   }
 
-  /** True when COO accepted the login and a refresh token was kept. */
-  public async signIn(username: string, password: string): Promise<boolean> {
-    const response = await this.send('/api/auth/login', { username, password });
+  /** True when COO accepted the pairing code and a refresh token was kept. */
+  public async pair(code: string): Promise<boolean> {
+    const response = await this.send('/api/auth/pair', { code, deviceName: PAIRED_DEVICE_NAME });
     return response.status === 200 && (await this.keep((await response.json()) as Tokens)) !== null;
   }
 

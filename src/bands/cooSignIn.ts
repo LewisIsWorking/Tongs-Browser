@@ -5,8 +5,9 @@ import type { MenuGlobals, MenuSettings } from './settingsMenu.js';
 /**
  * Signing the GM's browser in to ComeOnOverUno, from Foundry's module settings. Added 2026-09-14.
  *
- * ⛔ THE PASSWORD IS HANDED STRAIGHT TO COO AND FORGOTTEN. Only the refresh token COO returns is kept,
- * and `CooClient` keeps it. The dialog is Foundry's own `DialogV2.input`, so nothing here renders a form.
+ * ⛔ THE CODE IS HANDED STRAIGHT TO COO AND FORGOTTEN. Only the refresh token COO returns is kept,
+ * and `CooClient` keeps it. Since 2026-10-14 it is a one-time pairing code from the COO app, not a password:
+ * COO accounts no longer have passwords. The dialog is Foundry's own `DialogV2.input`, so nothing here renders a form.
  *
  * The menu itself, and why it must be an ApplicationV2, is `settingsMenu.ts`.
  */
@@ -38,27 +39,28 @@ export interface SignInGlobals {
 }
 
 const FORM = [
-  '<label>ComeOnOverUno username <input name="username" type="text" autocomplete="username"></label>',
-  '<label>Password <input name="password" type="password" autocomplete="current-password"></label>',
+  '<p>In the ComeOnOverUno app, open Settings and press <b>Get a pairing code</b> under Pair a device.</p>',
+  '<label>Pairing code <input name="code" type="text" autocomplete="one-time-code" placeholder="ABCD-EFGH"></label>',
 ].join('');
 
-/** Asks for the login, and says plainly whether it worked. */
+/** Asks for a pairing code, and says plainly whether it worked. */
 export async function signIn(client: CooClient, globals: SignInGlobals): Promise<boolean> {
   const answer = (await globals.foundry?.applications?.api?.DialogV2?.input?.({
     window: { title: 'Sign in to ComeOnOverUno' },
     content: FORM,
     ok: { label: 'Sign in' },
-  })) as { username?: unknown; password?: unknown } | null | undefined;
-  const username = typeof answer?.username === 'string' ? answer.username.trim() : '';
-  const password = typeof answer?.password === 'string' ? answer.password : '';
-  if (username === '' || password === '') {
+  })) as { code?: unknown } | null | undefined;
+  const code = typeof answer?.code === 'string' ? answer.code.trim() : '';
+  if (code === '') {
     return false;
   }
-  const ok = await client.signIn(username, password).catch(() => false);
+  const ok = await client.pair(code).catch(() => false);
   if (ok) {
     globals.ui?.notifications?.info?.(SIGNED_IN);
   } else {
-    globals.ui?.notifications?.warn?.('ComeOnOverUno did not accept that sign-in.');
+    globals.ui?.notifications?.warn?.(
+      'ComeOnOverUno did not accept that code. Codes last 5 minutes and work once; get a new one in the app.'
+    );
   }
   return ok;
 }
