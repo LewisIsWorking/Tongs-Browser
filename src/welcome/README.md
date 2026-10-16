@@ -24,6 +24,7 @@ proves who asked. The answer travels back on the same User.
 | `startSheetRequests.ts` | The settings, the hooks that wake the GM side, and the Foundry wiring           |
 | `welcomeDocuments.ts`   | Every user and actor listing the welcome makes (a `check:documents` boundary)   |
 | `startWelcome.ts`       | The player side: which face to show, and the checklist for a new sheet          |
+| `helperWake.ts`         | When the player's browser asks for COO's helper GM: once per page load each     |
 | `WelcomeWindow.ts`      | The welcome window: ask, waiting, and turned down                               |
 | `buildGuide.ts`         | The checklist, read from the sheet                                              |
 | `GuidePanel.ts`         | The checklist panel                                                             |

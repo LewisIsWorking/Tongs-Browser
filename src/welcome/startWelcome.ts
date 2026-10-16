@@ -16,6 +16,7 @@ import {
 } from './sheetRequest.js';
 import { sharedParties, WELCOME_SETTING } from './startSheetRequests.js';
 import type { WelcomeGlobals, WelcomeHooks, WelcomeSettings } from './startSheetRequests.js';
+import { HelperWake } from './helperWake.js';
 import { WelcomeWindow } from './WelcomeWindow.js';
 import type { WelcomeFace } from './WelcomeWindow.js';
 import { countedCharacters, gearCount, ownCharacters } from './welcomeDocuments.js';
@@ -52,9 +53,7 @@ export function startWelcome(
   const closed = new Set<string>();
   let showing: string | null = null;
   let opened: string | null = null;
-  let summoned = false;
-  /* 🔔 2026-10-16: the request this page load has already woken the helper GM for. */
-  let wokenFor: string | null = null;
+  const wake = new HelperWake(summon);
 
   const guided = (): WelcomeActor | undefined =>
     ownCharacters(game()).find(
@@ -127,15 +126,7 @@ export function startWelcome(
     guide.close();
     const request = readSheetRequest(me()?.getFlag?.(MODULE_ID, REQUEST_FLAG));
     if (request !== null) {
-      /* 🔔 2026-10-16 (AmazingRed, C00/C01: asked at night, no sheet by morning): the helper GM was only called
-         at the moment of asking, so one call turned away left the request waiting until a GM happened by. Now
-         a player who comes back to the world with a request still waiting calls once more. Lewis: "wake up
-         TONGs ... when a player joins a world or requests a sheet", not on a timer. HelperCall still sends
-         nothing while a GM is online, and at most once a minute. */
-      if (wokenFor !== request.id) {
-        wokenFor = request.id;
-        summon();
-      }
+      wake.forRequest(request.id);
       face(`waiting:${request.id}`, {
         kind: 'waiting',
         gmOnline: readGmPresence({ getGame: game }).online,
@@ -156,10 +147,7 @@ export function startWelcome(
     }
     if (parties.length === 0) {
       /* No list shared yet: ask once for COO's helper GM, whose Tongs shares it (partyListWork.ts). */
-      if (!summoned) {
-        summoned = true;
-        summon();
-      }
+      wake.forPartyList();
       dismiss();
       return;
     }
