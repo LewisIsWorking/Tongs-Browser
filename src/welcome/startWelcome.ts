@@ -53,6 +53,8 @@ export function startWelcome(
   let showing: string | null = null;
   let opened: string | null = null;
   let summoned = false;
+  /* 🔔 2026-10-16: the request this page load has already woken the helper GM for. */
+  let wokenFor: string | null = null;
 
   const guided = (): WelcomeActor | undefined =>
     ownCharacters(game()).find(
@@ -125,6 +127,15 @@ export function startWelcome(
     guide.close();
     const request = readSheetRequest(me()?.getFlag?.(MODULE_ID, REQUEST_FLAG));
     if (request !== null) {
+      /* 🔔 2026-10-16 (AmazingRed, C00/C01: asked at night, no sheet by morning): the helper GM was only called
+         at the moment of asking, so one call turned away left the request waiting until a GM happened by. Now
+         a player who comes back to the world with a request still waiting calls once more. Lewis: "wake up
+         TONGs ... when a player joins a world or requests a sheet", not on a timer. HelperCall still sends
+         nothing while a GM is online, and at most once a minute. */
+      if (wokenFor !== request.id) {
+        wokenFor = request.id;
+        summon();
+      }
       face(`waiting:${request.id}`, {
         kind: 'waiting',
         gmOnline: readGmPresence({ getGame: game }).online,

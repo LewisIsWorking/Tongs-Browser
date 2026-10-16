@@ -150,3 +150,29 @@ describe('a world whose party list no GM has shared yet', () => {
     expect(ownerSummon).not.toHaveBeenCalled();
   });
 });
+
+describe('a request still waiting when the player comes back', () => {
+  /* AmazingRed, 2026-10-16: one call at the moment of asking, turned away, and the request sat all night. */
+  it('wakes the helper GM once per page load, and again for a new request', () => {
+    const t = player();
+    t.userFlags['sheetRequest'] = { id: 'r1', name: 'Theo', partyUuid: null, at: 1 };
+    const summon = vi.fn();
+    startWelcome(t.hooks, t.settings, t.globals, document, summon);
+    expect(welcomeText()).toContain('the next time they are online');
+    t.change();
+    t.change();
+    expect(summon).toHaveBeenCalledOnce();
+
+    t.userFlags['sheetRequest'] = { id: 'r2', name: 'Theo', partyUuid: null, at: 2 };
+    t.change();
+    expect(summon).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not call for a player with no request waiting', () => {
+    const t = player();
+    const summon = vi.fn();
+    startWelcome(t.hooks, t.settings, t.globals, document, summon);
+    t.change();
+    expect(summon).not.toHaveBeenCalled();
+  });
+});
