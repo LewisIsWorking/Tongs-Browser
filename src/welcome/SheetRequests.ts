@@ -1,6 +1,7 @@
 import type { SheetCreationOutcome } from '../foundry/SheetCreationTypes.js';
 import { pickParty } from './campaignParty.js';
 import type { CampaignParty } from './campaignParty.js';
+import { sheetName } from './sheetRequest.js';
 import type { SheetRequest, SheetResult } from './sheetRequest.js';
 import type { ImportBuild } from './importBuild.js';
 
@@ -110,8 +111,9 @@ export class SheetRequests {
       return;
     }
 
+    const name = sheetName(request, user.userName);
     const outcome = await this.ports.create({
-      name: request.name,
+      name,
       ownerId: user.userId,
       partyUuid: pick.party.uuid,
       requestId: request.id,
@@ -134,8 +136,8 @@ export class SheetRequests {
     });
     this.ports.tellGm(
       outcome.kind === 'created'
-        ? `Tongs made ${request.name} for ${user.userName}, in ${pick.party.name}.`
-        : `Tongs made ${request.name} for ${user.userName}, but could not add it to ${pick.party.name}: ${outcome.reason}`
+        ? `Tongs made ${name} for ${user.userName}, in ${pick.party.name}.`
+        : `Tongs made ${name} for ${user.userName}, but could not add it to ${pick.party.name}: ${outcome.reason}`
     );
   }
 
