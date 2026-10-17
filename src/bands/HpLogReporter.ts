@@ -44,7 +44,7 @@ export const NOT_DEPLOYED =
   'recording HP and Stamina changes. Nothing else is affected.';
 
 /** Why a character's change could not be recorded, for the GM. */
-export function hpLogProblem(name: string, choice: CampaignChoice): string | null {
+function hpLogProblem(name: string, choice: CampaignChoice): string | null {
   if (choice.kind === 'one') {
     return null;
   }
