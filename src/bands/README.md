@@ -22,7 +22,7 @@ player character is hurt: the damage, from what, and the HP left, with the chara
 | `playerHit.ts`          | Whether an HP change is a hit on a player character, and its post            |
 | `PlayerHitReporter.ts`  | Posting those hits, in order, against the HP remembered before each          |
 | `startPlayerHits.ts`    | The player-hit setting, and building its reporter                            |
-| `CooClient.ts`          | Signing in to ComeOnOverUno and posting, keeping only a refresh token        |
+| `CooClient.ts`          | Pairing with ComeOnOverUno and posting, keeping only a refresh token         |
 | `cooSignIn.ts`          | The GM-only sign-in menu in the module settings                              |
 | `startBands.ts`         | The settings, and connecting the reporter to Foundry's hooks                 |
 
@@ -30,7 +30,8 @@ player character is hurt: the damage, from what, and the HP left, with the chara
 
 - **The words**, ten segments plus down, per creature type: living, construct/robot, undead, ooze,
   incorporeal. They are the table in `healthBands.ts`; a change there is a change Lewis approved.
-- **No secret in the module.** The GM signs in to ComeOnOverUno once; only the refresh token is kept,
+- **No secret in the module.** The GM signs in to ComeOnOverUno once, with a one-time pairing code from
+  the COO app (2026-10-14: COO accounts have no passwords); only the refresh token is kept,
   in a client setting in that browser. The COO endpoint requires the Admin role, and the bot token
   never leaves the COO server.
 - **Only tokens players can see**, under the name they can see.

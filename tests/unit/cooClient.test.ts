@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CooClient } from '../../src/bands/CooClient.js';
+import { CooClient, PAIRED_DEVICE_NAME } from '../../src/bands/CooClient.js';
 import type { BandPost, CooPorts } from '../../src/bands/CooClient.js';
 
 /**
@@ -20,6 +20,8 @@ const POST: BandPost = {
 };
 const HOUR = 3_600_000;
 
+/** Every body posted to api/auth/pair, so a test can check what the sign-in sent. */
+const pairedWith: string[] = [];
 const server = (
   options: { bandStatus?: number[]; loginOk?: boolean; tokensInReply?: boolean } = {}
 ) => {
@@ -47,7 +49,8 @@ const server = (
       calls.push(
         `${url.replace('https://coo.test', '')} ${init.headers['Authorization'] ?? ''}`.trim()
       );
-      if (url.endsWith('/api/auth/login')) {
+      if (url.endsWith('/api/auth/pair')) {
+        pairedWith.push(init.body ?? '');
         return options.loginOk === false ? reply(401) : reply(200, tokens());
       }
       if (url.endsWith('/api/auth/refresh')) {
@@ -75,14 +78,26 @@ const server = (
 describe('signing in', () => {
   it('keeps only the refresh token COO returns, and says when COO refused', async () => {
     const ok = server();
-    expect(await new CooClient(ok.ports).signIn('lewis', 'secret')).toBe(true);
+    expect(await new CooClient(ok.ports).pair('ABCD-EFGH')).toBe(true);
     expect(ok.stored()).toBe('refresh-1');
 
     const refused = server({ loginOk: false });
-    expect(await new CooClient(refused.ports).signIn('lewis', 'wrong')).toBe(false);
-    expect(await new CooClient(server({ tokensInReply: false }).ports).signIn('lewis', 'x')).toBe(
+    expect(await new CooClient(refused.ports).pair('ABCD-EFGH')).toBe(false);
+    expect(await new CooClient(server({ tokensInReply: false }).ports).pair('ABCD-EFGH')).toBe(
       false
     );
+  });
+
+  /* ⛔ 2026-10-14: COO accounts have no passwords, so the body must never carry one. */
+  it('sends the code and the device name, and no password', async () => {
+    pairedWith.length = 0;
+    await new CooClient(server().ports).pair('ABCD-EFGH');
+    expect(pairedWith).toHaveLength(1);
+    expect(JSON.parse(pairedWith[0] ?? '{}')).toEqual({
+      code: 'ABCD-EFGH',
+      deviceName: PAIRED_DEVICE_NAME,
+    });
+    expect(pairedWith[0]).not.toMatch(/password/i);
   });
 });
 

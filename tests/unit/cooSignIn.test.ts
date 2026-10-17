@@ -10,8 +10,8 @@ import type { CooClient } from '../../src/bands/CooClient.js';
 describe('signing in', () => {
   const client = (ok: boolean | Error) =>
     ({
-      signIn: vi.fn(() => (ok instanceof Error ? Promise.reject(ok) : Promise.resolve(ok))),
-    }) as unknown as CooClient & { signIn: ReturnType<typeof vi.fn> };
+      pair: vi.fn(() => (ok instanceof Error ? Promise.reject(ok) : Promise.resolve(ok))),
+    }) as unknown as CooClient & { pair: ReturnType<typeof vi.fn> };
   const globals = (answer: unknown) => ({
     foundry: {
       applications: { api: { DialogV2: { input: vi.fn(() => Promise.resolve(answer)) } } },
@@ -19,25 +19,25 @@ describe('signing in', () => {
     ui: { notifications: { info: vi.fn(), warn: vi.fn() } },
   });
 
-  it('hands the login to COO once, and says whether it worked', async () => {
+  it('hands the pairing code to COO once, and says whether it worked', async () => {
     const accepted = client(true);
-    const g = globals({ username: ' lewis ', password: 'pw' });
+    const g = globals({ code: ' ABCD-EFGH ' });
     expect(await signIn(accepted, g)).toBe(true);
-    expect(accepted.signIn).toHaveBeenCalledWith('lewis', 'pw');
+    expect(accepted.pair).toHaveBeenCalledWith('ABCD-EFGH');
     expect(g.ui.notifications.info).toHaveBeenCalled();
 
     for (const refusal of [client(false), client(new Error('offline'))]) {
-      const r = globals({ username: 'lewis', password: 'pw' });
+      const r = globals({ code: 'ABCD-EFGH' });
       expect(await signIn(refusal, r)).toBe(false);
       expect(r.ui.notifications.warn).toHaveBeenCalled();
     }
   });
 
   it('does nothing when the dialog is closed, half filled, or missing', async () => {
-    for (const answer of [null, { username: 'lewis' }, { username: 7, password: 'pw' }]) {
+    for (const answer of [null, {}, { code: '  ' }, { code: 7 }]) {
       const c = client(true);
       expect(await signIn(c, globals(answer))).toBe(false);
-      expect(c.signIn).not.toHaveBeenCalled();
+      expect(c.pair).not.toHaveBeenCalled();
     }
     expect(await signIn(client(true), {})).toBe(false);
   });
@@ -76,7 +76,7 @@ describe('signing in', () => {
   /* ⛔ Found 2026-09-22: the toast still promised only health bands after the sign-in began driving the
      world-swap heartbeat too, so a GM had no reason to think signing in protected the table. */
   it('says what the sign-in is for, world swaps included, on success and in the menu hint', async () => {
-    const g = globals({ username: 'lewis', password: 'pw' });
+    const g = globals({ code: 'ABCD-EFGH' });
     await signIn(client(true), g);
     expect(g.ui.notifications.info).toHaveBeenCalledWith(SIGNED_IN);
     expect(SIGNED_IN).toMatch(/world-swap/);
