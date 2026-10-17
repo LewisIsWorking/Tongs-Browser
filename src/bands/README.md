@@ -22,6 +22,9 @@ player character is hurt: the damage, from what, and the HP left, with the chara
 | `playerHit.ts`          | Whether an HP change is a hit on a player character, and its post            |
 | `PlayerHitReporter.ts`  | Posting those hits, in order, against the HP remembered before each          |
 | `startPlayerHits.ts`    | The player-hit setting, and building its reporter                            |
+| `hpChange.ts`           | One HP or Stamina change on a character, and its public reason               |
+| `HpLogReporter.ts`      | Recording every such change in COO, in order, against the pools remembered   |
+| `startHpLog.ts`         | A character's campaign from its parties, and posting to `hp-change`          |
 | `CooClient.ts`          | Signing in to ComeOnOverUno and posting, keeping only a refresh token        |
 | `cooSignIn.ts`          | The GM-only sign-in menu in the module settings                              |
 | `startBands.ts`         | The settings, and connecting the reporter to Foundry's hooks                 |
@@ -50,6 +53,20 @@ player character is hurt: the damage, from what, and the HP left, with the chara
   when players can see the attacker, exactly as for bands.
 - ⚠️ Foundry's `updateActor` carries only the new HP, so the old one is remembered from the fight's start.
   A character first seen mid-change is remembered, not posted: a guessed amount would be a wrong one.
+
+## Decided with Lewis, 2026-10-17: every HP and Stamina change is recorded
+
+- **"Tongs should record all HP and stamina changes, with dates and reasons."** In C06 Daichi's Stamina fell
+  from 35 to 8 by a sheet edit, Foundry's chat log was later cleared, and nobody could say why. Every change
+  to a `type: "character"` actor's HP or SP, falls and rises, in or out of combat, token or not, goes to COO's
+  `hp-change` with the values before and after, the time and the reason. PathWarsWiki shows it per campaign.
+- **No setting**: a record a checkbox can silence is not one. The player-hit post keeps its own setting.
+- **The reason is public wording**: PF2e's card when there is one ("Electrical Bolt from Chamber of
+  Scribing", "healed by Heal from Kyra", a condition on the character by its own name), a source players
+  cannot see is never named, the IWR is never sent, and no card at all is "manual change".
+- **Every browser remembers, one records**: pools are remembered on every update in every browser, so a GM who
+  takes over compares with the real before. A character first seen mid-change is recorded with no before.
+- ⚠️ A 404 from `hp-change` (or an older server's web page) means COO is not updated yet: the GM is told once.
 
 ## Measured, not assumed
 
