@@ -1,5 +1,13 @@
 # tongs-browser
 
+## 0.55.3
+
+### Patch Changes
+
+- [#462](https://github.com/LewisIsWorking/Tongs-Browser/pull/462) [`c7b9b4e`](https://github.com/LewisIsWorking/Tongs-Browser/commit/c7b9b4e79c9c3d5d114684b13c8cffbc928b4dd5) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A GM whose Tongs Browser is not signed in to ComeOnOverUno now gets a lasting warning the first time a hit, health band or encounter tracker would have posted, instead of the posts silently going nowhere.
+
+- [#459](https://github.com/LewisIsWorking/Tongs-Browser/pull/459) [`4c40c13`](https://github.com/LewisIsWorking/Tongs-Browser/commit/4c40c13228978e64efa0072c6b9075d60b61fea5) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A player whose character request is still waiting now calls ComeOnOverUno's helper GM again when they come back to the world, so the sheet is made without a GM online. Before, the helper was called only at the moment of asking, and if that one call was turned away the request waited until a GM happened to join. It is one call per visit, never on a timer, and none while a GM is online.
+
 ## 0.55.2
 
 ### Patch Changes
