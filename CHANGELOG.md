@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.56.0
+
+### Minor Changes
+
+- [#464](https://github.com/LewisIsWorking/Tongs-Browser/pull/464) [`2449fec`](https://github.com/LewisIsWorking/Tongs-Browser/commit/2449fec4afafe53459b70ab12508fbd03295b012) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Every HP and Stamina change on a player character, rises as well as falls and manual sheet edits included, is now recorded in ComeOnOverUno with the values before and after, the time and the reason, so the Path Wars wiki can show each campaign's HP and Stamina log. Hits on player characters are still posted to the combat topic exactly as before.
+
 ## 0.55.4
 
 ### Patch Changes
