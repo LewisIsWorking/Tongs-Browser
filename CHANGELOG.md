@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.55.4
+
+### Patch Changes
+
+- [#461](https://github.com/LewisIsWorking/Tongs-Browser/pull/461) [`4aca5e1`](https://github.com/LewisIsWorking/Tongs-Browser/commit/4aca5e105c0a8ae449de5d796eedc9b29a92e36c) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A character sheet asked for with the name box left blank is now named after the player's username (their ComeOnOverUno username) instead of "New Character".
+
 ## 0.55.3
 
 ### Patch Changes
