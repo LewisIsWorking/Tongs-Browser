@@ -12,6 +12,7 @@ import { startEncounterSync } from '../../src/encounter/startEncounterSync.js';
 import { startWorldSwaps } from '../../src/swaps/startWorldSwaps.js';
 import { startWelcome } from '../../src/welcome/startWelcome.js';
 import { startHelperCall } from '../../src/helper/startHelperCall.js';
+import { startDualClass } from '../../src/dualclass/startDualClass.js';
 
 /**
  * What `ready` starts, and what it must not start without a ComeOnOverUno client. Written 2026-09-20.
@@ -30,6 +31,7 @@ vi.mock('../../src/bands/startBands.js', () => ({ startBands: vi.fn() }));
 vi.mock('../../src/encounter/startEncounterSync.js', () => ({ startEncounterSync: vi.fn() }));
 vi.mock('../../src/swaps/startWorldSwaps.js', () => ({ startWorldSwaps: vi.fn() }));
 vi.mock('../../src/welcome/startWelcome.js', () => ({ startWelcome: vi.fn() }));
+vi.mock('../../src/dualclass/startDualClass.js', () => ({ startDualClass: vi.fn() }));
 const { summon } = vi.hoisted(() => ({ summon: vi.fn(async () => Promise.resolve()) }));
 vi.mock('../../src/helper/startHelperCall.js', () => ({
   startHelperCall: vi.fn(() => ({ summon })),
@@ -63,6 +65,7 @@ describe('what ready starts', () => {
       startBands,
       startEncounterSync,
       startWorldSwaps,
+      startDualClass,
     ]) {
       expect(start).toHaveBeenCalledTimes(1);
     }

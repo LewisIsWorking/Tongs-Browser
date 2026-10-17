@@ -11,6 +11,7 @@ Fixtures shared by the pure tests. No DOM, no assertions.
 | `worldSwapTable.ts`      | A GM in a world, a fake ComeOnOverUno, a hand-fired beat      |
 | `cooFoundryExport.ts`    | A character as ComeOnOverUno's "Foundry VTT" export writes it |
 | `companionWorld.ts`      | A GM's world for companion sheets, every write recorded       |
+| `dualClasses.ts`         | Class items shaped as PF2e's own, for the dual class port     |
 
 ## Time is an argument here
 
