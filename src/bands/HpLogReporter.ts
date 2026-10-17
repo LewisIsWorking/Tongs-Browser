@@ -44,10 +44,10 @@ export const NOT_DEPLOYED =
   'recording HP and Stamina changes. Nothing else is affected.';
 
 /** Why a character's change could not be recorded, for the GM. */
-function hpLogProblem(name: string, choice: CampaignChoice): string | null {
-  if (choice.kind === 'one') {
-    return null;
-  }
+function hpLogProblem(
+  name: string,
+  choice: Exclude<CampaignChoice, { readonly kind: 'one' }>
+): string {
   return choice.kind === 'mixed'
     ? `Tongs Browser did not record ${name}'s HP change: their parties are in ${choice.codes.join(' and ')}, so it cannot tell which campaign it belongs to.`
     : `Tongs Browser did not record ${name}'s HP change: no party with a Path Wars campaign lists them.`;
@@ -118,8 +118,8 @@ export class HpLogReporter {
     await this.enqueue(choice.code, change, this.ports.causeFor(actor));
   }
 
-  private warnOnce(key: string, message: string | null): void {
-    if (message !== null && !this.warned.has(key)) {
+  private warnOnce(key: string, message: string): void {
+    if (!this.warned.has(key)) {
       this.warned.add(key);
       this.ports.warn(message);
     }
