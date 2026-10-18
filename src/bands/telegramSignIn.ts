@@ -19,7 +19,7 @@ import type { MenuGlobals, MenuSettings } from './settingsMenu.js';
  */
 const TELEGRAM_MENU = 'cooTelegramSignIn';
 
-export const TELEGRAM_HINT =
+const TELEGRAM_HINT =
   'Sign this browser in with Telegram: the Path Wars bot messages a code to the Telegram linked to your ' +
   'ComeOnOverUno account. Only the GM needs to.';
 export const TELEGRAM_BUSY = 'Too many sign-in codes asked for. Wait a few minutes and try again.';
