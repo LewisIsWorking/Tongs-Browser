@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.57.0
+
+### Minor Changes
+
+- [#458](https://github.com/LewisIsWorking/Tongs-Browser/pull/458) [`6c203fb`](https://github.com/LewisIsWorking/Tongs-Browser/commit/6c203fb102788bfc2311c5c0fc13081aa7a9c7cf) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Signing in to ComeOnOverUno from the module settings now asks for a one-time pairing code from the COO app (Settings, Pair a device) instead of a username and password, because COO accounts no longer have passwords. A browser that is already signed in stays signed in.
+
 ## 0.56.1
 
 ### Patch Changes
