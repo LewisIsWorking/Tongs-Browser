@@ -91,11 +91,13 @@ export function registerBandMenus(
 
 export const LOST_SESSION =
   "ComeOnOverUno ended Tongs Browser's sign-in, so hits, health bands and the encounter tracker are not " +
-  "reaching Telegram. Sign in again from Tongs Browser's module settings.";
+  "reaching Telegram. Sign in again from Tongs Browser's module settings with a code from the " +
+  'ComeOnOverUno app (Settings, Pair a device).';
 
 export const NO_SESSION =
   'Tongs Browser is not signed in to ComeOnOverUno, so hits, health bands and the encounter tracker are ' +
-  "not reaching Telegram. Sign in from Tongs Browser's module settings.";
+  "not reaching Telegram. Sign in from Tongs Browser's module settings with a code from the " +
+  'ComeOnOverUno app (Settings, Pair a device).';
 
 export function buildCooClient(settings: BandSettings, globals: StartGlobals): CooClient {
   const text = (key: string) => {
