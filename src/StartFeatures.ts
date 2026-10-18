@@ -9,6 +9,8 @@ import { startEncounterSync } from './encounter/startEncounterSync.js';
 import { startWorldSwaps } from './swaps/startWorldSwaps.js';
 import type { SwapGlobals } from './swaps/startWorldSwaps.js';
 import { startAfkGuard } from './swaps/startAfkGuard.js';
+import { markLogOuts } from './swaps/signOutNote.js';
+import type { LogOutGame } from './swaps/signOutNote.js';
 import { foundryCreateUser } from './swaps/LiveUsers.js';
 import type { UserGlobals } from './swaps/LiveUsers.js';
 import { startRestoreOwners } from './owners/startRestoreOwners.js';
@@ -85,6 +87,8 @@ export function startFeatures(parts: FeatureParts): void {
     now: () => Date.now(),
     every: (run, ms) => setInterval(run, ms),
   });
+  /* Log Out leaves a note so the COO portal does not auto-enter again (2026-10-18, src/swaps/signOutNote.ts). */
+  markLogOuts((globals as { game?: LogOutGame }).game, globals.sessionStorage);
   /* COO's nightly update: a countdown, then its progress page. Needs no COO sign-in. See src/maintenance. */
   startMaintenance(globals, parts.document);
   if (client === null) {

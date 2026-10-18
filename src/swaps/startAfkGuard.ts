@@ -1,5 +1,7 @@
 import { MODULE_ID } from '../constants.js';
 import { AfkGuard } from './AfkGuard.js';
+import { noteSignOut } from './signOutNote.js';
+import type { NoteStore } from './signOutNote.js';
 
 /**
  * Wires AfkGuard into Foundry: the setting, the activity it watches, the timer, and the sign-out.
@@ -25,6 +27,7 @@ export interface AfkGlobals {
     };
   };
   readonly location?: { assign?(url: string): void };
+  readonly sessionStorage?: NoteStore;
 }
 
 export interface AfkEnvironment {
@@ -79,6 +82,7 @@ export function startAfkGuard(
         return answer !== false; // closing the prompt is still someone at the keyboard
       },
       signOut: () => {
+        noteSignOut(globals.sessionStorage, 'afk'); // the portal must not put an idle GM straight back in
         if (globals.game?.logOut) {
           globals.game.logOut();
         } else {
