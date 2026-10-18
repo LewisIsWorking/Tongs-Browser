@@ -136,6 +136,9 @@ describe('losing the sign-in', () => {
     expect(await client.postBand('C06', POST)).toBe('signed-out');
     expect(warn).toHaveBeenCalledWith(NO_SESSION, { permanent: true });
     expect(NO_SESSION).toMatch(/Sign in from Tongs Browser's module settings/);
+    /* 2026-10-18: passwords are retired, so the notice must say where the pairing code comes from. */
+    expect(NO_SESSION).toMatch(/Pair a device/);
+    expect(LOST_SESSION).toMatch(/Pair a device/);
     expect(fetch).not.toHaveBeenCalled();
   });
 });
