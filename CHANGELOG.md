@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.58.0
+
+### Minor Changes
+
+- [#470](https://github.com/LewisIsWorking/Tongs-Browser/pull/470) [`a422970`](https://github.com/LewisIsWorking/Tongs-Browser/commit/a422970df3d4289f9bf6c39a861b22ed404db960) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Tongs Browser's module settings gain a Sign in with Telegram button: type your ComeOnOverUno username, and the Path Wars bot messages a sign-in code to the Telegram linked to that account. Needs a ComeOnOverUno server with the Telegram pairing endpoint.
+
 ## 0.57.0
 
 ### Minor Changes
