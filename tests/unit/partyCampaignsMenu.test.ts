@@ -137,9 +137,10 @@ describe('setting party campaigns', () => {
 
     expect(registerMenu.mock.calls.map((call) => String(call[1]))).toEqual([
       'cooSignIn',
+      'cooTelegramSignIn',
       'partyCampaigns',
     ]);
-    const campaigns = registerMenu.mock.calls[1]?.[2] as { type: new () => { render(): unknown } };
+    const campaigns = registerMenu.mock.calls[2]?.[2] as { type: new () => { render(): unknown } };
     new campaigns.type().render();
     expect(w.input.mock.calls[0]?.[0].content).toContain('Kibwe');
   });
