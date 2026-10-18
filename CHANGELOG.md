@@ -1,5 +1,25 @@
 # tongs-browser
 
+## 0.56.0
+
+### Minor Changes
+
+- [#464](https://github.com/LewisIsWorking/Tongs-Browser/pull/464) [`2449fec`](https://github.com/LewisIsWorking/Tongs-Browser/commit/2449fec4afafe53459b70ab12508fbd03295b012) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Every HP and Stamina change on a player character, rises as well as falls and manual sheet edits included, is now recorded in ComeOnOverUno with the values before and after, the time and the reason, so the Path Wars wiki can show each campaign's HP and Stamina log. Hits on player characters are still posted to the combat topic exactly as before.
+
+## 0.55.4
+
+### Patch Changes
+
+- [#461](https://github.com/LewisIsWorking/Tongs-Browser/pull/461) [`4aca5e1`](https://github.com/LewisIsWorking/Tongs-Browser/commit/4aca5e105c0a8ae449de5d796eedc9b29a92e36c) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A character sheet asked for with the name box left blank is now named after the player's username (their ComeOnOverUno username) instead of "New Character".
+
+## 0.55.3
+
+### Patch Changes
+
+- [#462](https://github.com/LewisIsWorking/Tongs-Browser/pull/462) [`c7b9b4e`](https://github.com/LewisIsWorking/Tongs-Browser/commit/c7b9b4e79c9c3d5d114684b13c8cffbc928b4dd5) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A GM whose Tongs Browser is not signed in to ComeOnOverUno now gets a lasting warning the first time a hit, health band or encounter tracker would have posted, instead of the posts silently going nowhere.
+
+- [#459](https://github.com/LewisIsWorking/Tongs-Browser/pull/459) [`4c40c13`](https://github.com/LewisIsWorking/Tongs-Browser/commit/4c40c13228978e64efa0072c6b9075d60b61fea5) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A player whose character request is still waiting now calls ComeOnOverUno's helper GM again when they come back to the world, so the sheet is made without a GM online. Before, the helper was called only at the moment of asking, and if that one call was turned away the request waited until a GM happened to join. It is one call per visit, never on a timer, and none while a GM is online.
+
 ## 0.55.2
 
 ### Patch Changes

@@ -26,6 +26,11 @@ export interface CooPorts {
    * whole fight's hits never reached Telegram and nobody knew.
    */
   readonly lostSession?: () => void;
+  /**
+   * Something tried to post with no kept sign-in at all. Called once until a sign-in works.
+   * ⚠️ Added 2026-10-17: after a page reload a lost sign-in left nothing to refuse, so hits went unheard.
+   */
+  readonly noSession?: () => void;
 }
 
 export interface BandPost {
@@ -75,6 +80,8 @@ export class CooClient {
   private readonly ports: CooPorts;
   private access: { token: string; expiresAt: number } | null = null;
   private refreshing: Promise<string | null> | null = null;
+  /** The GM has been told this sign-in is gone, by `lostSession` or `noSession`; cleared by a sign-in. */
+  private told = false;
 
   public constructor(ports: CooPorts) {
     this.ports = ports;
@@ -144,6 +151,10 @@ export class CooClient {
   private async refresh(): Promise<string | null> {
     const refreshToken = this.ports.refreshToken();
     if (refreshToken === '') {
+      if (!this.told) {
+        this.told = true;
+        this.ports.noSession?.();
+      }
       return null;
     }
     const response = await this.send('/api/auth/refresh', { refreshToken });
@@ -152,6 +163,7 @@ export class CooClient {
       /* ⚠️ Only a refusal ends the sign-in: a 502 while COO redeploys says nothing about the token. */
       if (REFUSED.has(response.status)) {
         await this.ports.saveRefreshToken('');
+        this.told = true;
         this.ports.lostSession?.();
       }
       return null;
@@ -168,6 +180,7 @@ export class CooClient {
     const expiresAt =
       typeof accessTokenExpiresAt === 'string' ? Date.parse(accessTokenExpiresAt) : NaN;
     this.access = { token: accessToken, expiresAt: Number.isNaN(expiresAt) ? 0 : expiresAt };
+    this.told = false;
     await this.ports.saveRefreshToken(refreshToken);
     return accessToken;
   }

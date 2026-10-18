@@ -24,6 +24,7 @@ proves who asked. The answer travels back on the same User.
 | `startSheetRequests.ts` | The settings, the hooks that wake the GM side, and the Foundry wiring           |
 | `welcomeDocuments.ts`   | Every user and actor listing the welcome makes (a `check:documents` boundary)   |
 | `startWelcome.ts`       | The player side: which face to show, and the checklist for a new sheet          |
+| `helperWake.ts`         | When the player's browser asks for COO's helper GM: once per page load each     |
 | `WelcomeWindow.ts`      | The welcome window: ask, waiting, and turned down                               |
 | `buildGuide.ts`         | The checklist, read from the sheet                                              |
 | `GuidePanel.ts`         | The checklist panel                                                             |
@@ -99,3 +100,8 @@ proves who asked. The answer travels back on the same User.
   the player which of its packs to drag the ancestry from; a missing pack is a notice, never a crash.
 - ⛔ **A companion is made once.** `companionsMade` on the character keeps a deleted one deleted, and only
   characters in a party get one, so an old world's retired sheets do not all sprout familiars.
+- 🔔 **A waiting request calls the helper again when its player comes back** (2026-10-16). AmazingRed asked
+  in C00/C01 at night and had no sheet by morning: the helper GM was called only at the moment of asking, so
+  one call turned away (COO allows one visit at a time, ten an hour) left the request for a GM to find. Each
+  page load with a request still waiting now calls once. Lewis chose this over retrying on a timer, which
+  would cost the VPS a helper visit every few minutes for nothing.

@@ -45,6 +45,15 @@ export function cleanName(raw: unknown): string {
 }
 
 /**
+ * The name the sheet is made with. 👤 2026-10-16 (Amazing1's sheet came out as "New Character"; Lewis: "the
+ * character sheet should default to their Coo username"): a blank name box now gives the player's Foundry
+ * user name, which COO's provisioner sets to their COO username. A name they typed is kept as it is.
+ */
+export function sheetName(request: SheetRequest, userName: string): string {
+  return request.name === DEFAULT_NAME ? cleanName(userName) : request.name;
+}
+
+/**
  * ⚠️ Read defensively: the flag is written by a player's browser, so it is untrusted input. Anything that is
  *    not the expected shape reads as no request at all.
  */

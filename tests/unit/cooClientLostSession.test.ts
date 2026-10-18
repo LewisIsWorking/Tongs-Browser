@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { CooClient } from '../../src/bands/CooClient.js';
 import type { BandPost, CooPorts } from '../../src/bands/CooClient.js';
-import { LOST_SESSION, REFRESH_SETTING, buildCooClient } from '../../src/bands/startBands.js';
+import {
+  LOST_SESSION,
+  NO_SESSION,
+  REFRESH_SETTING,
+  buildCooClient,
+} from '../../src/bands/startBands.js';
 
 /**
  * Losing the sign-in to ComeOnOverUno. Written 2026-10-13.
@@ -22,9 +27,10 @@ const POST: BandPost = {
 };
 
 /** A COO whose refresh answers come from `refresh`, in order; every post is accepted. */
-const server = (refresh: number[]) => {
-  let stored = 'refresh-kept';
+const server = (refresh: number[], kept = 'refresh-kept') => {
+  let stored = kept;
   const lostSession = vi.fn();
+  const noSession = vi.fn();
   const ports: CooPorts = {
     fetch: (url) => {
       const status = url.endsWith('/api/auth/refresh') ? (refresh.shift() ?? 200) : 200;
@@ -43,8 +49,9 @@ const server = (refresh: number[]) => {
     },
     now: () => 0,
     lostSession,
+    noSession,
   };
-  return { ports, lostSession, stored: () => stored };
+  return { ports, lostSession, noSession, stored: () => stored };
 };
 
 describe('losing the sign-in', () => {
@@ -86,5 +93,49 @@ describe('losing the sign-in', () => {
     expect(warn).toHaveBeenCalledWith(LOST_SESSION, { permanent: true });
     expect(LOST_SESSION).toMatch(/Sign in again/);
     expect(values[REFRESH_SETTING]).toBe('');
+  });
+
+  /*
+   * ⚠️ 2026-10-17: with no kept sign-in at all (never signed in, or the page reloaded after a loss) a player
+   * hit said nothing and a band only flashed a passing toast, so a GM could run a whole fight unheard.
+   */
+  it('tells the GM once when there is no sign-in at all', async () => {
+    const coo = server([], '');
+    const client = new CooClient(coo.ports);
+
+    expect(await client.postBand('C06', POST)).toBe('signed-out');
+    expect(await client.postBand('C06', POST)).toBe('signed-out');
+
+    expect(coo.noSession).toHaveBeenCalledTimes(1);
+    expect(coo.lostSession).not.toHaveBeenCalled();
+  });
+
+  it('says one thing, not two, when a refusal leaves no sign-in behind', async () => {
+    const coo = server([401]);
+    const client = new CooClient(coo.ports);
+
+    await client.postBand('C06', POST);
+    await client.postBand('C06', POST);
+
+    expect(coo.lostSession).toHaveBeenCalledTimes(1);
+    expect(coo.noSession).not.toHaveBeenCalled();
+  });
+
+  it('shows the no-sign-in notice as a lasting Foundry warning', async () => {
+    const values: Record<string, unknown> = { [REFRESH_SETTING]: '' };
+    const settings = {
+      register: vi.fn(),
+      get: (_ns: string, key: string) => values[key],
+      set: (_ns: string, key: string, value: unknown) => Promise.resolve((values[key] = value)),
+    };
+    const warn = vi.fn();
+    const fetch = vi.fn();
+
+    const client = buildCooClient(settings, { fetch, ui: { notifications: { warn } } });
+
+    expect(await client.postBand('C06', POST)).toBe('signed-out');
+    expect(warn).toHaveBeenCalledWith(NO_SESSION, { permanent: true });
+    expect(NO_SESSION).toMatch(/Sign in from Tongs Browser's module settings/);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
