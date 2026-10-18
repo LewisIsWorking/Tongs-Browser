@@ -43,11 +43,15 @@ const FORM = [
   '<label>Pairing code <input name="code" type="text" autocomplete="one-time-code" placeholder="ABCD-EFGH"></label>',
 ].join('');
 
-/** Asks for a pairing code, and says plainly whether it worked. */
-export async function signIn(client: CooClient, globals: SignInGlobals): Promise<boolean> {
+/** Asks for a pairing code, and says plainly whether it worked. `form` says where the code comes from. */
+export async function signIn(
+  client: CooClient,
+  globals: SignInGlobals,
+  form: string = FORM
+): Promise<boolean> {
   const answer = (await globals.foundry?.applications?.api?.DialogV2?.input?.({
     window: { title: 'Sign in to ComeOnOverUno' },
-    content: FORM,
+    content: form,
     ok: { label: 'Sign in' },
   })) as { code?: unknown } | null | undefined;
   const code = typeof answer?.code === 'string' ? answer.code.trim() : '';
@@ -59,7 +63,7 @@ export async function signIn(client: CooClient, globals: SignInGlobals): Promise
     globals.ui?.notifications?.info?.(SIGNED_IN);
   } else {
     globals.ui?.notifications?.warn?.(
-      'ComeOnOverUno did not accept that code. Codes last 5 minutes and work once; get a new one in the app.'
+      'ComeOnOverUno did not accept that code. Codes last 5 minutes and work once; ask for a new one.'
     );
   }
   return ok;

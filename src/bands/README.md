@@ -27,6 +27,7 @@ player character is hurt: the damage, from what, and the HP left, with the chara
 | `startHpLog.ts`         | A character's campaign from its parties, and posting to `hp-change`          |
 | `CooClient.ts`          | Pairing with ComeOnOverUno and posting, keeping only a refresh token         |
 | `cooSignIn.ts`          | The GM-only sign-in menu in the module settings                              |
+| `telegramSignIn.ts`     | The GM-only Sign in with Telegram menu: COO's bot DMs the pairing code       |
 | `startBands.ts`         | The settings, and connecting the reporter to Foundry's hooks                 |
 
 ## Decided with Lewis, 2026-09-14

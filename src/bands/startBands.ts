@@ -7,6 +7,7 @@ import { sharedBandPorts } from './bandPorts.js';
 import { registerPlayerHitSetting, buildPlayerHits } from './startPlayerHits.js';
 import { buildHpLog } from './startHpLog.js';
 import { registerSignInMenu } from './cooSignIn.js';
+import { registerTelegramSignInMenu } from './telegramSignIn.js';
 import type { SignInGlobals } from './cooSignIn.js';
 import { readPartyCampaigns } from '../foundry/PartyAccess.js';
 import type { FoundryGame } from '../foundry/PartyAccess.js';
@@ -77,13 +78,14 @@ export function registerBandSettings(settings: BandSettings): void {
 
 export type MenuStartGlobals = SignInGlobals & PartyCampaignGlobals & { readonly game?: unknown };
 
-/** The GM's two buttons in the module settings: signing in, and each party's campaign. */
+/** The GM's buttons in the module settings: signing in (by code or by Telegram), and each party's campaign. */
 export function registerBandMenus(
   settings: MenuSettings,
   client: CooClient,
   globals: MenuStartGlobals
 ): void {
   registerSignInMenu(settings, client, globals);
+  registerTelegramSignInMenu(settings, client, globals);
   registerPartyCampaignsMenu(settings, globals, () =>
     readPartyCampaigns({ getGame: () => globals.game as FoundryGame | undefined })
   );
