@@ -40,6 +40,8 @@ import { CORE_BINDINGS, FOUNDRY_VERSION } from './keybindings/snapshot.ts';
 const TRAY_BUTTON_SOURCES: readonly string[] = [
   'src/ui/TrayActionList.ts',
   'src/ui/MapBuildingButtons.ts',
+  /* ⚠️ 2026-10-12: the pan arrows moved out when dual class filled `TrayActionList`. This guard said so. */
+  'src/ui/PanButtons.ts',
 ];
 
 /**

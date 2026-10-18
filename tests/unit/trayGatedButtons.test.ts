@@ -83,3 +83,19 @@ describe('the party access button', () => {
     expect(managePartyAccess).toHaveBeenCalledOnce();
   });
 });
+
+/** Dual class (2026-10-12): a player's errand, so a GM's tray does not carry it. */
+describe('the dual class button', () => {
+  it('is offered only when its own gate says so', () => {
+    expect(actionIds({ canDualClass: () => true })).toContain('dual-class');
+    expect(actionIds({ canDualClass: () => false })).not.toContain('dual-class');
+  });
+
+  it('opens the dual class window when tapped, and says what it does', () => {
+    const openDualClass = vi.fn();
+    const action = findAction({ openDualClass }, 'dual-class');
+    action.activate();
+    expect(openDualClass).toHaveBeenCalledOnce();
+    expect(action.title).toBe('Dual class…: give one of your characters two classes');
+  });
+});

@@ -33,6 +33,7 @@ The module itself. Everything shipped in `dist/tongs-browser.js` comes from here
 | `encounter/`    | Encounters kept in step with Telegram       |
 | `swaps/`        | Answering ComeOnOverUno's world swaps       |
 | `welcome/`      | New players: a sheet, then a checklist      |
+| `dualclass/`    | A player's two classes, built by a GM       |
 | `rollpad/`      | A player's rolls as big buttons, for phones |
 | `helper/`       | Queued work done with no GM on the world    |
 

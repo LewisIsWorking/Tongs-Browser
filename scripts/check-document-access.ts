@@ -100,6 +100,13 @@ const BOUNDARY: readonly string[] = [
    * designated GM's browser. It lists nothing; the only thing shown is a user's name, to the GM.
    */
   'src/owners/startPartyOwners.ts',
+  /*
+   * ⚠️ Added 2026-10-12 with dual class. It DOES enumerate users, GM only, failing closed on
+   * `game.user.isGM !== true`: a player's browser gets no requests and no sheet. Its one actor is looked up
+   * by the id a request names, to check the asker OWNS it; the only thing shown is that sheet's name, to a
+   * GM who can already see it.
+   */
+  'src/dualclass/dualClassDocuments.ts',
 ];
 
 const sources = listSourceFiles().filter(

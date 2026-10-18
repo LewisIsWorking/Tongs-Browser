@@ -4,6 +4,7 @@
 | ------------------------------- | -------------------------------------------------------------- |
 | `TrayActions.ts`                | The handler contract, and which buttons are gated behind what  |
 | `TrayActionList.ts`             | Every button the tray can show, as a flat list                 |
+| `PanButtons.ts`                 | The four pan arrows, spread into that list                     |
 | `MapBuildingButtons.ts`         | The GM map-building cluster: select, cut, copy, paste, restack |
 | `CreateSheetFlow.ts`            | Walking a user through making a character sheet                |
 | `CreateSheetRoute.ts`           | Whether a create goes direct or through the relay              |

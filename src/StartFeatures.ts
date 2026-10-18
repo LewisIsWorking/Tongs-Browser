@@ -33,6 +33,7 @@ import { startPartyOwners } from './owners/startPartyOwners.js';
 import type { HelperCall, HelperGlobals } from './helper/startHelperCall.js';
 import { PARTY_LIST_WORK, partyListBehind } from './welcome/partyListWork.js';
 import type { FoundryGame } from './foundry/PartyAccess.js';
+import { startDualClass } from './dualclass/startDualClass.js';
 
 /**
  * Starting everything that waits for `ready`. Extracted from main.ts 2026-09-20, when adding world
@@ -81,6 +82,8 @@ export function startFeatures(parts: FeatureParts): void {
     queueMicrotask(() => void helper.call?.summon().catch(() => undefined));
   });
   startImport(hooks, globals as ImportGlobals);
+  /* Dual class (2026-10-12): a player asks, the designated GM builds, the sheet gets it. See src/dualclass. */
+  startDualClass(hooks, globals, parts.document);
   /* Idle GM sign-out: frees the world whether or not COO is signed in, so it starts before that check. */
   const idleSeconds = startAfkGuard(settings, globals, {
     target: parts.document,

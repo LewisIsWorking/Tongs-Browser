@@ -74,6 +74,10 @@ export interface TrayActionHandlers {
   readonly openRollPad: () => void;
   /** Players only: a GM has the roll deck in the same slot, and rolls NPCs from their sheets. */
   readonly canUseRollPad: () => boolean;
+  /** Opens the player's "Dual class…" window. See `dualclass/startDualClassPlayer.ts`. Added 2026-10-12. */
+  readonly openDualClass: () => void;
+  /** Players only: a GM's own requests are never served, and a GM can build the item by hand. */
+  readonly canDualClass: () => boolean;
 }
 
 /** Buttons that are only offered when their own gate says so. */
@@ -89,6 +93,7 @@ const GATED: readonly { readonly id: string; readonly allowed: keyof TrayActionH
   { id: 'bring-to-front', allowed: 'canBuildMaps' },
   { id: 'roll-deck', allowed: 'canUseRollDeck' },
   { id: 'roll-pad', allowed: 'canUseRollPad' },
+  { id: 'dual-class', allowed: 'canDualClass' },
 ];
 
 /** How far one press of a pan arrow moves the view, in screen pixels. */

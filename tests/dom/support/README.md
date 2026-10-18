@@ -10,6 +10,7 @@ Fixtures shared by the DOM tests. Nothing here asserts anything.
 | `diagnosticsSnapshot.ts` | One diagnostics snapshot, in the shape the report expects |
 | `keyboardRecording.ts`   | Capturing what the keyboard synthesizer dispatched        |
 | `welcomePlayer.ts`       | A player's browser for the new-player welcome             |
+| `dualClassWorld.ts`      | A player's browser with dual class started                |
 
 ## Why `touchEvents.ts` builds plain `Event`s
 

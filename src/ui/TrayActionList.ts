@@ -1,6 +1,7 @@
 import type { TrayAction } from '../modifiers/ModifierBar.js';
 import { mapBuildingButtons } from './MapBuildingButtons.js';
-import { PAN_STEP, ZOOM_STEP, type TrayActionHandlers } from './TrayActions.js';
+import { panButtons } from './PanButtons.js';
+import { ZOOM_STEP, type TrayActionHandlers } from './TrayActions.js';
 
 /**
  * Every button the tray can show, in the order they appear. Extracted 2026-09-03 when `TrayActions`
@@ -40,6 +41,17 @@ export function everyTrayAction(handlers: TrayActionHandlers): readonly TrayActi
       label: 'C🔓',
       title: 'Choose which parties players may add characters to',
       activate: handlers.managePartyAccess,
+    },
+    /**
+     * Dual class (2026-10-12), with the other errands about a character sheet. Lewis: "The BASED dual
+     * class macro that everyone needs to be able to run across all of the worlds, we should build it
+     * into TONGS". Players only; see `src/dualclass`.
+     */
+    {
+      id: 'dual-class',
+      label: 'C×2',
+      title: 'Dual class…: give one of your characters two classes',
+      activate: handlers.openDualClass,
     },
     /**
      * The player's Roll Pad (2026-10-08), in the slot the GM's roll deck takes: one user sees one of
@@ -141,48 +153,8 @@ export function everyTrayAction(handlers: TrayActionHandlers): readonly TrayActi
         handlers.zoomBy(1 / ZOOM_STEP);
       },
     },
-    /*
-     * ⚠️ The signs match panBy's finger metaphor, and they read backwards on purpose. Pressing right
-     * moves the VIEW right, which is the same as dragging the map LEFT, so the delta is negated.
-     * Getting this wrong produces buttons that work perfectly and go the wrong way, which no build
-     * and no type can catch.
-     */
-    {
-      id: 'pan-left',
-      label: '←',
-      title: 'Pan left',
-      group: 'pan',
-      activate: () => {
-        handlers.panBy(PAN_STEP, 0);
-      },
-    },
-    {
-      id: 'pan-right',
-      label: '→',
-      title: 'Pan right',
-      group: 'pan',
-      activate: () => {
-        handlers.panBy(-PAN_STEP, 0);
-      },
-    },
-    {
-      id: 'pan-up',
-      label: '↑',
-      title: 'Pan up',
-      group: 'pan',
-      activate: () => {
-        handlers.panBy(0, PAN_STEP);
-      },
-    },
-    {
-      id: 'pan-down',
-      label: '↓',
-      title: 'Pan down',
-      group: 'pan',
-      activate: () => {
-        handlers.panBy(0, -PAN_STEP);
-      },
-    },
+    /* The four arrows, in their own file since 2026-10-12 to make room for dual class. */
+    ...panButtons(handlers),
     /*
      * ⚠️ SPREAD, not conditionally appended, so this file keeps reading as "these are the buttons".
      * Whether a GM map-building button is actually offered is decided by the gate in `TrayActions`,
