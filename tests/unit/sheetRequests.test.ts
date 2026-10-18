@@ -50,6 +50,23 @@ describe('serving a request', () => {
     expect(told).toEqual(['Tongs made Theo for Melody, in The Party.']);
   });
 
+  /* Amazing1, 2026-10-16: a blank name box made "New Character"; now it is the player's COO username. */
+  it("names a sheet left blank after the player's user name, and keeps a typed name", async () => {
+    const { requests, created, told } = world({
+      pending: () => [
+        {
+          userId: 'u1',
+          userName: 'Amazing1',
+          request: { id: 'r1', name: 'New Character', partyUuid: null, at: 1, importBuild: null },
+        },
+      ],
+      answer: async () => Promise.resolve(),
+    });
+    await requests.serve();
+    expect(created[0]).toBe('Amazing1:u1:Actor.P:r1');
+    expect(told[0]).toBe('Tongs made Amazing1 for Amazing1, in The Party.');
+  });
+
   it('does nothing unless this browser is the designated GM', async () => {
     const { requests, answers, created } = world({ isDesignatedGm: () => false });
     await requests.serve();

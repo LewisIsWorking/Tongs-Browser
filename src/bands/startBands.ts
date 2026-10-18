@@ -5,6 +5,7 @@ import { BandReporter } from './BandReporter.js';
 import { combatSubjects, subjectsForActor } from './bandTokens.js';
 import { sharedBandPorts } from './bandPorts.js';
 import { registerPlayerHitSetting, buildPlayerHits } from './startPlayerHits.js';
+import { buildHpLog } from './startHpLog.js';
 import { registerSignInMenu } from './cooSignIn.js';
 import type { SignInGlobals } from './cooSignIn.js';
 import { readPartyCampaigns } from '../foundry/PartyAccess.js';
@@ -92,6 +93,10 @@ export const LOST_SESSION =
   "ComeOnOverUno ended Tongs Browser's sign-in, so hits, health bands and the encounter tracker are not " +
   "reaching Telegram. Sign in again from Tongs Browser's module settings.";
 
+export const NO_SESSION =
+  'Tongs Browser is not signed in to ComeOnOverUno, so hits, health bands and the encounter tracker are ' +
+  "not reaching Telegram. Sign in from Tongs Browser's module settings.";
+
 export function buildCooClient(settings: BandSettings, globals: StartGlobals): CooClient {
   const text = (key: string) => {
     const value = settings.get(MODULE_ID, key);
@@ -115,6 +120,9 @@ export function buildCooClient(settings: BandSettings, globals: StartGlobals): C
     lostSession: () => {
       globals.ui?.notifications?.warn?.(LOST_SESSION, { permanent: true });
     },
+    noSession: () => {
+      globals.ui?.notifications?.warn?.(NO_SESSION, { permanent: true });
+    },
   });
 }
 
@@ -136,17 +144,21 @@ export function startBands(
 
   /* ⭐ Hits on player characters, 2026-09-28: the same events, the same sign-in, reported beside the bands. */
   const hits = buildPlayerHits(settings, globals, client, shared);
+  /* ❤️ Every HP and Stamina change on a player character, 2026-10-17: recorded in ComeOnOverUno, rises too. */
+  const hpLog = buildHpLog(globals, client, shared);
   const failed = (what: string) => (error: unknown) => {
     logger.warn(`${what} failed: ${error instanceof Error ? error.message : String(error)}`);
   };
   hooks.on('updateActor', (actor: unknown, changes: unknown) => {
     reporter.onActorUpdated(actor, changes).catch(failed('Health bands'));
     hits.onActorUpdated(actor, changes).catch(failed('Player hits'));
+    hpLog.onActorUpdated(actor, changes).catch(failed('HP log'));
   });
   for (const name of ['canvasReady', 'createCombatant', 'updateCombat']) {
     hooks.on(name, () => {
       reporter.seed();
       hits.seed();
+      hpLog.seed();
     });
   }
   reporter.seed();

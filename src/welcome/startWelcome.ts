@@ -16,6 +16,7 @@ import {
 } from './sheetRequest.js';
 import { sharedParties, WELCOME_SETTING } from './startSheetRequests.js';
 import type { WelcomeGlobals, WelcomeHooks, WelcomeSettings } from './startSheetRequests.js';
+import { HelperWake } from './helperWake.js';
 import { WelcomeWindow } from './WelcomeWindow.js';
 import type { WelcomeFace } from './WelcomeWindow.js';
 import { countedCharacters, gearCount, ownCharacters } from './welcomeDocuments.js';
@@ -52,7 +53,7 @@ export function startWelcome(
   const closed = new Set<string>();
   let showing: string | null = null;
   let opened: string | null = null;
-  let summoned = false;
+  const wake = new HelperWake(summon);
 
   const guided = (): WelcomeActor | undefined =>
     ownCharacters(game()).find(
@@ -125,6 +126,7 @@ export function startWelcome(
     guide.close();
     const request = readSheetRequest(me()?.getFlag?.(MODULE_ID, REQUEST_FLAG));
     if (request !== null) {
+      wake.forRequest(request.id);
       face(`waiting:${request.id}`, {
         kind: 'waiting',
         gmOnline: readGmPresence({ getGame: game }).online,
@@ -145,10 +147,7 @@ export function startWelcome(
     }
     if (parties.length === 0) {
       /* No list shared yet: ask once for COO's helper GM, whose Tongs shares it (partyListWork.ts). */
-      if (!summoned) {
-        summoned = true;
-        summon();
-      }
+      wake.forPartyList();
       dismiss();
       return;
     }
