@@ -5,7 +5,9 @@ import { BandReporter } from './BandReporter.js';
 import { combatSubjects, subjectsForActor } from './bandTokens.js';
 import { sharedBandPorts } from './bandPorts.js';
 import { registerPlayerHitSetting, buildPlayerHits } from './startPlayerHits.js';
+import { buildHpLog } from './startHpLog.js';
 import { registerSignInMenu } from './cooSignIn.js';
+import { registerTelegramSignInMenu } from './telegramSignIn.js';
 import type { SignInGlobals } from './cooSignIn.js';
 import { readPartyCampaigns } from '../foundry/PartyAccess.js';
 import type { FoundryGame } from '../foundry/PartyAccess.js';
@@ -48,7 +50,11 @@ export type StartGlobals = BandGlobals &
     };
     readonly fetch?: CooPorts['fetch'];
     readonly fromUuidSync?: (uuid: string) => { readonly name?: string } | null | undefined;
-    readonly ui?: { readonly notifications?: { warn?(message: string): unknown } };
+    readonly ui?: {
+      readonly notifications?: {
+        warn?(message: string, options?: { permanent?: boolean }): unknown;
+      };
+    };
   };
 
 export function registerBandSettings(settings: BandSettings): void {
@@ -72,17 +78,28 @@ export function registerBandSettings(settings: BandSettings): void {
 
 export type MenuStartGlobals = SignInGlobals & PartyCampaignGlobals & { readonly game?: unknown };
 
-/** The GM's two buttons in the module settings: signing in, and each party's campaign. */
+/** The GM's buttons in the module settings: signing in (by code or by Telegram), and each party's campaign. */
 export function registerBandMenus(
   settings: MenuSettings,
   client: CooClient,
   globals: MenuStartGlobals
 ): void {
   registerSignInMenu(settings, client, globals);
+  registerTelegramSignInMenu(settings, client, globals);
   registerPartyCampaignsMenu(settings, globals, () =>
     readPartyCampaigns({ getGame: () => globals.game as FoundryGame | undefined })
   );
 }
+
+export const LOST_SESSION =
+  "ComeOnOverUno ended Tongs Browser's sign-in, so hits, health bands and the encounter tracker are not " +
+  "reaching Telegram. Sign in again from Tongs Browser's module settings with a code from the " +
+  'ComeOnOverUno app (Settings, Pair a device).';
+
+export const NO_SESSION =
+  'Tongs Browser is not signed in to ComeOnOverUno, so hits, health bands and the encounter tracker are ' +
+  "not reaching Telegram. Sign in from Tongs Browser's module settings with a code from the " +
+  'ComeOnOverUno app (Settings, Pair a device).';
 
 export function buildCooClient(settings: BandSettings, globals: StartGlobals): CooClient {
   const text = (key: string) => {
@@ -103,6 +120,13 @@ export function buildCooClient(settings: BandSettings, globals: StartGlobals): C
     },
     now: () => Date.now(),
     version: () => globals.game?.modules?.get?.(MODULE_ID)?.version ?? 'unknown',
+    /* Lasting, so a GM mid-fight cannot miss it: until they sign in again nothing reaches Telegram. */
+    lostSession: () => {
+      globals.ui?.notifications?.warn?.(LOST_SESSION, { permanent: true });
+    },
+    noSession: () => {
+      globals.ui?.notifications?.warn?.(NO_SESSION, { permanent: true });
+    },
   });
 }
 
@@ -124,17 +148,21 @@ export function startBands(
 
   /* ⭐ Hits on player characters, 2026-09-28: the same events, the same sign-in, reported beside the bands. */
   const hits = buildPlayerHits(settings, globals, client, shared);
+  /* ❤️ Every HP and Stamina change on a player character, 2026-10-17: recorded in ComeOnOverUno, rises too. */
+  const hpLog = buildHpLog(globals, client, shared);
   const failed = (what: string) => (error: unknown) => {
     logger.warn(`${what} failed: ${error instanceof Error ? error.message : String(error)}`);
   };
   hooks.on('updateActor', (actor: unknown, changes: unknown) => {
     reporter.onActorUpdated(actor, changes).catch(failed('Health bands'));
     hits.onActorUpdated(actor, changes).catch(failed('Player hits'));
+    hpLog.onActorUpdated(actor, changes).catch(failed('HP log'));
   });
   for (const name of ['canvasReady', 'createCombatant', 'updateCombat']) {
     hooks.on(name, () => {
       reporter.seed();
       hits.seed();
+      hpLog.seed();
     });
   }
   reporter.seed();

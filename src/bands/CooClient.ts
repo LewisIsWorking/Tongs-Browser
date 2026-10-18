@@ -3,7 +3,8 @@
  *
  * ⛔ NO SECRET LIVES IN THIS FILE. Foundry sends a module's code to every player. Decided with Lewis: the
  * GM signs in to COO once, and only the REFRESH token is kept, in a client setting that exists in that
- * one browser. The password is used once and never stored. The COO endpoint requires the Admin role.
+ * one browser. Since 2026-10-14 the sign-in is a one-time PAIRING CODE from the COO app (Settings, Pair a
+ * device), because COO accounts no longer have passwords. The COO endpoint requires the Admin role.
  *
  * ⚠️ COO ROTATES REFRESH TOKENS, so two refreshes at once would spend the same token twice and the second
  * would sign the GM out. Every refresh goes through one shared in-flight promise.
@@ -19,6 +20,17 @@ export interface CooPorts {
   readonly now: () => number;
   /** The installed Tongs version, stamped on every signed-in post so a message shows what sent it. */
   readonly version?: () => string;
+  /**
+   * COO refused the kept sign-in, so nothing posts until the GM signs in again. Called once per loss.
+   * ⚠️ Added 2026-10-13: on C06 a COO web logout ended this session and the wipe below was silent, so a
+   * whole fight's hits never reached Telegram and nobody knew.
+   */
+  readonly lostSession?: () => void;
+  /**
+   * Something tried to post with no kept sign-in at all. Called once until a sign-in works.
+   * ⚠️ Added 2026-10-17: after a page reload a lost sign-in left nothing to refuse, so hits went unheard.
+   */
+  readonly noSession?: () => void;
 }
 
 export interface BandPost {
@@ -58,18 +70,26 @@ interface Tokens {
 /** A minute's margin, so a token about to expire is refreshed rather than sent and refused. */
 const EARLY_MS = 60_000;
 
+/** The refresh answers that mean COO no longer accepts the kept token. */
+const REFUSED = new Set([400, 401, 403]);
+
+/** What the COO app's list of signed-in devices calls this session, after "Paired: ". */
+export const PAIRED_DEVICE_NAME = 'Tongs Browser';
+
 export class CooClient {
   private readonly ports: CooPorts;
   private access: { token: string; expiresAt: number } | null = null;
   private refreshing: Promise<string | null> | null = null;
+  /** The GM has been told this sign-in is gone, by `lostSession` or `noSession`; cleared by a sign-in. */
+  private told = false;
 
   public constructor(ports: CooPorts) {
     this.ports = ports;
   }
 
-  /** True when COO accepted the login and a refresh token was kept. */
-  public async signIn(username: string, password: string): Promise<boolean> {
-    const response = await this.send('/api/auth/login', { username, password });
+  /** True when COO accepted the pairing code and a refresh token was kept. */
+  public async pair(code: string): Promise<boolean> {
+    const response = await this.send('/api/auth/pair', { code, deviceName: PAIRED_DEVICE_NAME });
     return response.status === 200 && (await this.keep((await response.json()) as Tokens)) !== null;
   }
 
@@ -131,12 +151,21 @@ export class CooClient {
   private async refresh(): Promise<string | null> {
     const refreshToken = this.ports.refreshToken();
     if (refreshToken === '') {
+      if (!this.told) {
+        this.told = true;
+        this.ports.noSession?.();
+      }
       return null;
     }
     const response = await this.send('/api/auth/refresh', { refreshToken });
     if (response.status !== 200) {
       this.access = null;
-      await this.ports.saveRefreshToken('');
+      /* ⚠️ Only a refusal ends the sign-in: a 502 while COO redeploys says nothing about the token. */
+      if (REFUSED.has(response.status)) {
+        await this.ports.saveRefreshToken('');
+        this.told = true;
+        this.ports.lostSession?.();
+      }
       return null;
     }
     return this.keep((await response.json()) as Tokens);
@@ -151,6 +180,7 @@ export class CooClient {
     const expiresAt =
       typeof accessTokenExpiresAt === 'string' ? Date.parse(accessTokenExpiresAt) : NaN;
     this.access = { token: accessToken, expiresAt: Number.isNaN(expiresAt) ? 0 : expiresAt };
+    this.told = false;
     await this.ports.saveRefreshToken(refreshToken);
     return accessToken;
   }
