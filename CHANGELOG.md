@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.56.1
+
+### Patch Changes
+
+- [#467](https://github.com/LewisIsWorking/Tongs-Browser/pull/467) [`a7f7ed4`](https://github.com/LewisIsWorking/Tongs-Browser/commit/a7f7ed436fe64dda7c2e8b0d82268f4da0660832) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Signing out on purpose (Foundry's Log Out, or the idle-GM sign-out) now leaves a one-time note for the COO portal, so the portal shows the campaign list instead of putting you straight back into the world.
+
 ## 0.56.0
 
 ### Minor Changes
