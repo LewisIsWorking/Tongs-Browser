@@ -52,7 +52,7 @@ export function requestText(
   try {
     path = new URL(url).pathname;
   } catch {
-    path = url.split('?')[0] ?? url;
+    path = url.replace(/\?.*$/, '');
   }
   return `${method ?? 'GET'} ${path} ${String(answer)}`;
 }
