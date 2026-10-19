@@ -100,7 +100,7 @@ describe('the heartbeat from anyone else', () => {
 describe('the Tongs activity menu as registered', () => {
   it('opens with the sign-in this browser keeps', async () => {
     const registerMenu = vi.fn();
-    const input = vi.fn((_options: { content: string }) => Promise.resolve(null));
+    const input = vi.fn<(options: { content: string }) => Promise<unknown>>(() => Promise.resolve(null));
     class ApplicationV2 {
       public render(): unknown {
         return undefined;
