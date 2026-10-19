@@ -38,6 +38,8 @@ describe('what the client records', () => {
     await client.tell('/api/auth/pair', { code: 'SECRET-CODE' });
     await expect(client.tell(STATUS_PATH, { world: 'w' })).rejects.toThrow('offline');
     await expect(client.tell('/api/auth/pair/telegram', {})).rejects.toThrow('offline');
+    const ok = () => Promise.resolve({ status: 204, json: () => Promise.resolve({}) });
+    await buildCooClient(settingsWith({}), { fetch: ok }).tell(STATUS_PATH, { world: 'w' });
 
     const logged = texts();
     expect(logged).toContain('POST /api/auth/pair 204');
