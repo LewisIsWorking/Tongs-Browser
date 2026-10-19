@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.60.0
+
+### Minor Changes
+
+- [#473](https://github.com/LewisIsWorking/Tongs-Browser/pull/473) [`700dd15`](https://github.com/LewisIsWorking/Tongs-Browser/commit/700dd153502974dda9d0b27d97d89af3dd2bd20f) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Tongs activity: a GM-only menu in the module settings shows what Tongs Browser has sent to ComeOnOverUno from this browser, every warning and every sign-in change. A GM's browser also reports this to ComeOnOverUno every five minutes, signed in or not, so a missing combat post can be traced without joining the game.
+
 ## 0.59.0
 
 ### Minor Changes
