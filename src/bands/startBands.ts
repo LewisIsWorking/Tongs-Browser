@@ -17,6 +17,8 @@ import type { MenuSettings } from './settingsMenu.js';
 import type { BandGlobals } from './bandTokens.js';
 import { CooClient } from './CooClient.js';
 import type { CooPorts } from './CooClient.js';
+import { activity, requestText } from './activityLog.js';
+import { registerActivityMenu, startStatusHeartbeat, STATUS_PATH } from './tongsStatus.js';
 
 /**
  * Health bands' settings, and connecting them to Foundry. Added 2026-09-14.
@@ -80,7 +82,7 @@ export type MenuStartGlobals = SignInGlobals & PartyCampaignGlobals & { readonly
 
 /** The GM's buttons in the module settings: signing in (by code or by Telegram), and each party's campaign. */
 export function registerBandMenus(
-  settings: MenuSettings,
+  settings: MenuSettings & { get?(namespace: string, key: string): unknown },
   client: CooClient,
   globals: MenuStartGlobals
 ): void {
@@ -89,6 +91,14 @@ export function registerBandMenus(
   registerPartyCampaignsMenu(settings, globals, () =>
     readPartyCampaigns({ getGame: () => globals.game as FoundryGame | undefined })
   );
+  /* 🩺 What Tongs has done, 2026-10-19: see tongsStatus.ts. */
+  registerActivityMenu(settings, globals, activity, () => isSignedIn(settings));
+}
+
+/** True when this browser keeps a ComeOnOverUno sign-in (not whether COO still honours it). */
+export function isSignedIn(settings: { get?(namespace: string, key: string): unknown }): boolean {
+  const value = settings.get?.(MODULE_ID, REFRESH_SETTING);
+  return typeof value === 'string' && value.trim() !== '';
 }
 
 export const LOST_SESSION =
@@ -111,7 +121,16 @@ export function buildCooClient(settings: BandSettings, globals: StartGlobals): C
       if (globals.fetch === undefined) {
         throw new Error('this browser cannot make requests');
       }
-      return globals.fetch(url, init);
+      /* 🩺 Every request's path and answer, never its body or headers; the heartbeat's own are left out. */
+      const logged = !url.includes(STATUS_PATH);
+      try {
+        const response = await globals.fetch(url, init);
+        if (logged) activity.record('request', requestText(url, init.method, response.status));
+        return response;
+      } catch (error) {
+        if (logged) activity.record('request', requestText(url, init.method, 'unreachable'));
+        throw error;
+      }
     },
     serverUrl: () => text(SERVER_SETTING) || DEFAULT_SERVER,
     refreshToken: () => text(REFRESH_SETTING),
@@ -122,9 +141,11 @@ export function buildCooClient(settings: BandSettings, globals: StartGlobals): C
     version: () => globals.game?.modules?.get?.(MODULE_ID)?.version ?? 'unknown',
     /* Lasting, so a GM mid-fight cannot miss it: until they sign in again nothing reaches Telegram. */
     lostSession: () => {
+      activity.record('session', 'ComeOnOverUno ended the sign-in');
       globals.ui?.notifications?.warn?.(LOST_SESSION, { permanent: true });
     },
     noSession: () => {
+      activity.record('session', 'Something tried to post, but this browser is not signed in');
       globals.ui?.notifications?.warn?.(NO_SESSION, { permanent: true });
     },
   });
@@ -166,5 +187,12 @@ export function startBands(
     });
   }
   reporter.seed();
+  startStatusHeartbeat(client, globals, {
+    log: activity,
+    signedIn: () => isSignedIn(settings),
+    version: () => globals.game?.modules?.get?.(MODULE_ID)?.version ?? 'unknown',
+    every: (run, ms) => setInterval(run, ms),
+    later: (run, ms) => setTimeout(run, ms),
+  });
   return reporter;
 }

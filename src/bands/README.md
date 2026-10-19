@@ -5,30 +5,32 @@ topic when it changes, and the exact HP goes to the GM by DM on every change, bo
 ComeOnOverUno server. Off until a party has a campaign. Since 2026-09-28 the same topic also hears when a
 player character is hurt: the damage, from what, and the HP left, with the character's picture.
 
-| File                    | What it is                                                                   |
-| ----------------------- | ---------------------------------------------------------------------------- |
-| `healthBands.ts`        | Segments from HP, the creature type from traits, and the approved band words |
-| `bandSubject.ts`        | Whether players may hear about a token, and under what name                  |
-| `bandTokens.ts`         | Foundry's tokens and actors read into bands, as measured                     |
-| `attackerView.ts`       | Whether players may be told who dealt a hit, and with which picture          |
-| `partyCampaign.ts`      | Which campaign a combat belongs to, from its player characters' parties      |
-| `combatCampaign.ts`     | Reading those parties' campaign flags from the encounter a creature is in    |
-| `partyCampaignsMenu.ts` | The GM-only menu that sets each party's campaign                             |
-| `settingsMenu.ts`       | A GM-only settings button that opens something, as an ApplicationV2          |
-| `bandCause.ts`          | What changed an enemy's HP, in words for the GM's DM, or "manual change"     |
-| `causeWatch.ts`         | Waiting for PF2e's damage-taken card after a change, and reading it          |
-| `BandReporter.ts`       | Deciding what to post and when: public only on a band change, one at a time  |
-| `bandPorts.ts`          | What both reporters share: who acts, the campaign, the cause, warning the GM |
-| `playerHit.ts`          | Whether an HP change is a hit on a player character, and its post            |
-| `PlayerHitReporter.ts`  | Posting those hits, in order, against the HP remembered before each          |
-| `startPlayerHits.ts`    | The player-hit setting, and building its reporter                            |
-| `hpChange.ts`           | One HP or Stamina change on a character, and its public reason               |
-| `HpLogReporter.ts`      | Recording every such change in COO, in order, against the pools remembered   |
-| `startHpLog.ts`         | A character's campaign from its parties, and posting to `hp-change`          |
-| `CooClient.ts`          | Pairing with ComeOnOverUno and posting, keeping only a refresh token         |
-| `cooSignIn.ts`          | The GM-only sign-in menu in the module settings                              |
-| `telegramSignIn.ts`     | The GM-only Sign in with Telegram menu: COO's bot DMs the pairing code       |
-| `startBands.ts`         | The settings, and connecting the reporter to Foundry's hooks                 |
+| File                    | What it is                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| `healthBands.ts`        | Segments from HP, the creature type from traits, and the approved band words  |
+| `bandSubject.ts`        | Whether players may hear about a token, and under what name                   |
+| `bandTokens.ts`         | Foundry's tokens and actors read into bands, as measured                      |
+| `attackerView.ts`       | Whether players may be told who dealt a hit, and with which picture           |
+| `partyCampaign.ts`      | Which campaign a combat belongs to, from its player characters' parties       |
+| `combatCampaign.ts`     | Reading those parties' campaign flags from the encounter a creature is in     |
+| `partyCampaignsMenu.ts` | The GM-only menu that sets each party's campaign                              |
+| `settingsMenu.ts`       | A GM-only settings button that opens something, as an ApplicationV2           |
+| `bandCause.ts`          | What changed an enemy's HP, in words for the GM's DM, or "manual change"      |
+| `causeWatch.ts`         | Waiting for PF2e's damage-taken card after a change, and reading it           |
+| `BandReporter.ts`       | Deciding what to post and when: public only on a band change, one at a time   |
+| `bandPorts.ts`          | What both reporters share: who acts, the campaign, the cause, warning the GM  |
+| `playerHit.ts`          | Whether an HP change is a hit on a player character, and its post             |
+| `PlayerHitReporter.ts`  | Posting those hits, in order, against the HP remembered before each           |
+| `startPlayerHits.ts`    | The player-hit setting, and building its reporter                             |
+| `hpChange.ts`           | One HP or Stamina change on a character, and its public reason                |
+| `HpLogReporter.ts`      | Recording every such change in COO, in order, against the pools remembered    |
+| `startHpLog.ts`         | A character's campaign from its parties, and posting to `hp-change`           |
+| `CooClient.ts`          | Pairing with ComeOnOverUno and posting, keeping only a refresh token          |
+| `cooSignIn.ts`          | The GM-only sign-in menu in the module settings                               |
+| `telegramSignIn.ts`     | The GM-only Sign in with Telegram menu: COO's bot DMs the pairing code        |
+| `activityLog.ts`        | What Tongs did with COO in this browser: request paths, warnings, sign-ins    |
+| `tongsStatus.ts`        | The GM-only Tongs activity menu, and the status heartbeat COO keeps per world |
+| `startBands.ts`         | The settings, and connecting the reporter to Foundry's hooks                  |
 
 ## Decided with Lewis, 2026-09-14
 

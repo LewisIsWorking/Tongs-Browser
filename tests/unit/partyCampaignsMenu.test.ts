@@ -139,6 +139,7 @@ describe('setting party campaigns', () => {
       'cooSignIn',
       'cooTelegramSignIn',
       'partyCampaigns',
+      'tongsActivity',
     ]);
     const campaigns = registerMenu.mock.calls[2]?.[2] as { type: new () => { render(): unknown } };
     new campaigns.type().render();
