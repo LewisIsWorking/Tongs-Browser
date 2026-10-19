@@ -48,7 +48,7 @@ export function requestText(
   method: string | undefined,
   answer: number | string
 ): string {
-  let path = url;
+  let path: string;
   try {
     path = new URL(url).pathname;
   } catch {

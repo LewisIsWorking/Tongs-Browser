@@ -22,7 +22,7 @@ describe('the activity log', () => {
     let now = Date.UTC(2026, 9, 19, 10, 0, 0);
     const log = new ActivityLog(() => now);
     for (let i = 0; i < MAX_EVENTS + 5; i++) {
-      log.record('request', `event ${i}`);
+      log.record('request', `event ${String(i)}`);
       now += 1000;
     }
     const entries = log.entries();
