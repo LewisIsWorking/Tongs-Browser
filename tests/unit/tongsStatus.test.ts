@@ -72,6 +72,7 @@ describe('the status heartbeat', () => {
     });
     expect(statusReport(globals({ id: 'u2', role: 1, name: 'Player' }), p)).toBeNull();
     expect(statusReport({ game: { user: gm } }, p)).toBeNull();
+    expect(statusReport(globals({ id: 'u1', role: 4 }), p)).toMatchObject({ user: '' });
   });
 
   it('reports soon after the world loads, then every few minutes, and shrugs off a failure', async () => {
