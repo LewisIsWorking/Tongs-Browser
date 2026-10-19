@@ -9,6 +9,7 @@ import { watchCause } from './causeWatch.js';
 import type { CauseHooks } from './causeWatch.js';
 import { combatCampaign } from './combatCampaign.js';
 import type { StartGlobals } from './startBands.js';
+import { activity } from './activityLog.js';
 
 /**
  * What the band reporter and the player-hit reporter share: whose browser acts, which campaign a token's
@@ -49,6 +50,7 @@ export function sharedBandPorts(hooks: CauseHooks, globals: StartGlobals): Share
           );
     },
     warn: (message) => {
+      activity.record('warning', message);
       globals.ui?.notifications?.warn?.(message);
     },
   };
