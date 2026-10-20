@@ -3,6 +3,8 @@ import { OWNER_LEVEL } from '../foundry/SheetCreationTypes.js';
 import { DUAL_REQUEST_FLAG, DUAL_RESULT_FLAG, readDualClassRequest } from './dualClassRequest.js';
 import type { DualClassResult } from './dualClassRequest.js';
 import type { PendingDualClass } from './DualClassRequests.js';
+import { dualClassOf } from './landDualClass.js';
+import type { ClassLike } from './landDualClass.js';
 
 /**
  * Every user and actor the GM's side of dual class reads. Added 2026-10-12, and in `check:documents`'
@@ -29,6 +31,7 @@ export interface DualClassGame {
           readonly name?: string | null;
           readonly type?: string;
           readonly ownership?: Readonly<Record<string, number>>;
+          readonly items?: { readonly contents?: readonly ClassLike[] };
         }
       | undefined;
   };
@@ -57,7 +60,7 @@ export function dualClassSheet(
   game: DualClassGame | undefined,
   actorId: string,
   userId: string
-): { readonly name: string; readonly owned: boolean } | null {
+): { readonly name: string; readonly owned: boolean; readonly dualClass?: string } | null {
   if (game?.user?.isGM !== true) {
     return null;
   }
@@ -66,7 +69,13 @@ export function dualClassSheet(
     return null;
   }
   const level = actor.ownership?.[userId] ?? actor.ownership?.['default'] ?? 0;
-  return { name: actor.name ?? 'their character', owned: level >= OWNER_LEVEL };
+  /* 2026-10-20: any dual class already there, the community macro's included, so it gets no second one. */
+  const dual = dualClassOf(actor.items?.contents);
+  return {
+    name: actor.name ?? 'their character',
+    owned: level >= OWNER_LEVEL,
+    ...(dual === undefined ? {} : { dualClass: dual.name ?? 'a dual class' }),
+  };
 }
 
 /** GM only: clears the request and writes the answer in ONE update, so the player sees one or the other. */

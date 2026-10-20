@@ -17,7 +17,11 @@ export interface GuideSheetItem {
   readonly id: string | null;
   readonly type: string;
   readonly name?: string | null;
-  readonly system?: { readonly location?: unknown };
+  readonly system?: {
+    readonly location?: unknown;
+    readonly slug?: unknown;
+    readonly rules?: unknown;
+  };
   getFlag?(scope: string, key: string): unknown;
 }
 

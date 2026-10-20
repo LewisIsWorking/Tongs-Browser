@@ -145,6 +145,14 @@ describe('sending the welcome’s dual class', () => {
     expect(t.summon).not.toHaveBeenCalled();
   });
 
+  it('counts a dual class the community macro made, by its name', async () => {
+    const t = browser();
+    t.items.push({ id: 'C', type: 'class', name: 'Rogue - Bard', getFlag: () => undefined });
+    await t.start();
+    expect(t.user.setFlag).not.toHaveBeenCalled();
+    expect(t.flags['welcomeDualClass']).toBeUndefined();
+  });
+
   it('does nothing without a wish, with a damaged one, or in a GM’s browser', async () => {
     for (const t of [
       browser({ flags: { welcomeDualClass: undefined } }),

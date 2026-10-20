@@ -55,3 +55,7 @@ GM's browser on the same User. The GM is told "Tongs gave Lai's Kibwe the Fighte
   changed for it. The checklist's "Pick your dual class" step sends `DUAL_CLASS_EVENT` with
   `detail.actorId`, and the window starts on that sheet when it is one of theirs. `dualClassOf` is how both
   tell a sheet already has one: a class item carrying `dualClassFor`.
+- ⚠️ **A dual class the community macro made counts too** (2026-10-20). Players already had them, with no
+  flag of ours, so `isDualClass` also reads the macro's `RollOption` naming another class
+  (`class:<2nd class>`) and its "Class1 - Class2" name. The checklist ticks on one, the welcome sends no
+  request for it, and the GM's side refuses a second dual class on a sheet that has one.

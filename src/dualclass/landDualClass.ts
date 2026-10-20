@@ -1,4 +1,5 @@
 import { MODULE_ID } from '../constants.js';
+import { isBag, slugOf } from './classFields.js';
 import { DUAL_FOR_FLAG } from './dualClassRequest.js';
 import type { DualClassResult } from './dualClassRequest.js';
 
@@ -79,12 +80,43 @@ async function keepOneClass(
   }
 }
 
+/** A class item as `dualClassOf` reads it: its name, slug and rules, besides the landing's fields. */
+export interface ClassLike extends LandingItem {
+  readonly name?: string | null;
+  readonly system?: { readonly slug?: unknown; readonly rules?: unknown };
+}
+
 /**
- * The dual class Tongs gave a sheet, if any: its class item carrying `dualClassFor`. Added 2026-10-20 for
- * the welcome, which ticks its checklist step on this and never asks for a second one.
+ * Whether one item is a dual class, whoever made it. Widened 2026-10-20: players already had dual classes
+ * from the community macro, which sets no flag of ours. So any of: Tongs' `dualClassFor` flag; the macro's
+ * `RollOption` rule naming a class other than the item's own (`class:<2nd class>`, see `mergeRules`); or the
+ * macro's name, "Class1 - Class2". ⚠️ No PF2e class is named with " - ", so the name alone is safe.
  */
-export function dualClassOf<T extends LandingItem>(items: readonly T[] | undefined): T | undefined {
-  return (items ?? []).find(
-    (item) => item.type === 'class' && typeof item.getFlag?.(MODULE_ID, DUAL_FOR_FLAG) === 'string'
+export function isDualClass(item: ClassLike): boolean {
+  if (item.type !== 'class') {
+    return false;
+  }
+  if (typeof item.getFlag?.(MODULE_ID, DUAL_FOR_FLAG) === 'string' || item.name?.includes(' - ')) {
+    return true;
+  }
+  const system = isBag(item.system) ? item.system : {};
+  const own = `class:${slugOf(system, item.name ?? '')}`;
+  /* ⚠️ Read, never `list()`: that stores a missing array on the bag, and this is a live item's data. */
+  const rules: unknown[] = Array.isArray(system.rules) ? system.rules : [];
+  return rules.some(
+    (rule) =>
+      isBag(rule) &&
+      rule['key'] === 'RollOption' &&
+      typeof rule['option'] === 'string' &&
+      rule['option'].startsWith('class:') &&
+      rule['option'] !== own
   );
+}
+
+/**
+ * The dual class on a sheet, if any (`isDualClass`). Added 2026-10-20: the welcome ticks its checklist step
+ * on it and never asks for a second, and the GM's side refuses a second dual class on the same sheet.
+ */
+export function dualClassOf<T extends ClassLike>(items: readonly T[] | undefined): T | undefined {
+  return (items ?? []).find(isDualClass);
 }

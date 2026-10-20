@@ -12,7 +12,8 @@ import type { DualClassRequest, DualClassResult } from './dualClassRequest.js';
  *    becomes one more pass afterwards, never a second one alongside.
  * ⛔ Every check is made HERE, not only in the player's window, because any player can write the flag:
  *    the sheet exists and the asker owns it, both classes come from a class compendium this world has,
- *    and they are two different classes.
+ *    and they are two different classes. Since 2026-10-20 the sheet must not have a dual class already,
+ *    Tongs' or the community macro's (`isDualClass`).
  */
 export interface PendingDualClass {
   readonly userId: string;
@@ -33,7 +34,7 @@ export interface DualClassPorts {
   readonly sheet: (
     actorId: string,
     userId: string
-  ) => { readonly name: string; readonly owned: boolean } | null;
+  ) => { readonly name: string; readonly owned: boolean; readonly dualClass?: string } | null;
   readonly packPresent: (key: string) => boolean;
   readonly loadClass: (uuid: string) => Promise<LoadedClass | null>;
   /** The macro's picture, under this world's system. */
@@ -114,6 +115,9 @@ export class DualClassRequests {
     }
     if (!sheet.owned) {
       return 'You can only give a dual class to a character sheet you own.';
+    }
+    if (sheet.dualClass !== undefined) {
+      return `${sheet.name} already has a dual class (${sheet.dualClass}), so Tongs did not add another.`;
     }
     if (request.first === request.second) {
       return SAME;

@@ -85,11 +85,15 @@ describe('the sheet as the checklist reads it', () => {
     items: { contents: items },
   });
 
-  it('finds the dual class Tongs gave, and only that', () => {
+  it('finds the dual class Tongs gave, or the macro made, and only that', () => {
     expect(guideView(sheet([item('class', { name: 'Fighter' })])).dualClass).toBeNull();
     const dual = sheet([item('class', { name: 'Fighter - Wizard' }, 'r1')]);
     expect(guideView(dual).dualClass).toBe('Fighter - Wizard');
     expect(guideView(sheet([item('class', {}, 'r1')])).dualClass).toBe('Dual class');
+    const macro = { slug: 'rogue', rules: [{ key: 'RollOption', option: 'class:bard' }] };
+    expect(guideView(sheet([item('class', { name: 'Rogue', system: macro })])).dualClass).toBe(
+      'Rogue'
+    );
   });
 
   it('counts the feats in the Ancestry Paragon section only', () => {

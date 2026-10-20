@@ -11,3 +11,6 @@ step (its button opens the Dual class window on that sheet, and it ticks once th
 section), and a "Free Archetype" step saying a free archetype slot comes at level 2. Each appears only while
 its rule is on; with them off, the welcome and checklist look as before. COO's helper GM now also counts
 waiting dual class requests as work.
+
+A dual class made with the community macro now counts as one too (its "Class1 - Class2" name or its
+`class:` roll option), and the GM's browser refuses a second dual class on a sheet that already has one.
