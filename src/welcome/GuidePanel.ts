@@ -14,10 +14,12 @@ const CSS = `
   font-family: system-ui, sans-serif; box-shadow: 0 6px 24px rgb(0 0 0 / .45); }
 #${ROOT_ID} h3 { margin: 0 0 .5rem; font-size: 1rem; border: 0; color: #f0d27a; }
 #${ROOT_ID} ol { list-style: none; margin: 0 0 .7rem; padding: 0; }
-#${ROOT_ID} li { display: flex; gap: .5rem; padding: .2rem 0; color: #a8a8b3; }
+#${ROOT_ID} li { display: flex; flex-wrap: wrap; gap: .2rem .5rem; padding: .2rem 0; color: #a8a8b3; }
 #${ROOT_ID} li.tg-done { color: #e6e6ea; }
 #${ROOT_ID} li .tg-mark { width: 1.1rem; flex: none; }
 #${ROOT_ID} li .tg-detail { margin-left: auto; color: #8d8d98; font-size: .85rem; }
+#${ROOT_ID} li .tg-note { flex-basis: 100%; margin: 0 0 0 1.6rem; font-size: .8rem; line-height: 1.35; }
+#${ROOT_ID} li button { margin-left: 1.6rem; }
 #${ROOT_ID} p { margin: 0 0 .7rem; font-size: .9rem; color: #cfcfd6; }
 #${ROOT_ID} .tg-buttons { display: flex; gap: .5rem; justify-content: flex-end; }
 #${ROOT_ID} button { padding: .35rem .7rem; border-radius: 6px; border: 1px solid #3a3a44; background: #26262c;
@@ -30,6 +32,8 @@ export interface GuideActions {
   readonly hide: () => void;
   /** Every step is done and the player said so: it does not come back. */
   readonly finish: () => void;
+  /** The Dual class window, set to this sheet (2026-10-20). */
+  readonly pickDualClass?: () => void;
 }
 
 export class GuidePanel {
@@ -56,9 +60,15 @@ export class GuidePanel {
     for (const step of steps) {
       const item = this.add(list, 'li', '');
       if (step.done) item.className = 'tg-done';
-      this.add(item, 'span', step.done ? '✓' : '○').className = 'tg-mark';
+      /* An optional step left undone is a dot, not a ring: nothing is missing. */
+      this.add(item, 'span', step.done ? '✓' : step.optional === true ? '•' : '○').className =
+        'tg-mark';
       this.add(item, 'span', step.label);
       if (step.detail !== null) this.add(item, 'span', step.detail).className = 'tg-detail';
+      if (step.note !== undefined) this.add(item, 'span', step.note).className = 'tg-note';
+      const pick = this.actions.pickDualClass;
+      if (step.action === 'dualClass' && pick !== undefined)
+        this.button(item, 'Pick two classes', pick);
     }
     if (finished) {
       this.add(root, 'p', 'All the basics are done. Post in your campaign topic to say hello!');

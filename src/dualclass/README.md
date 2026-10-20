@@ -50,3 +50,8 @@ GM's browser on the same User. The GM is told "Tongs gave Lai's Kibwe the Fighte
 - ⚠️ **PF2e has no Dual Class variant setting** (checked against its `variant-rules.ts`, 2026-10-12: gradual
   boosts, stamina, free archetype, ABP, mythic, proficiency). The window says so politely only if a
   `<system>.dualClassVariant` setting is registered and off, so on today's PF2e it says nothing.
+- ⭐ **The welcome asks too** (2026-10-20, `welcome/startWelcomeDualClass.ts`). A new player who picks two
+  classes in the welcome gets this same request written for them once their sheet exists, so nothing here
+  changed for it. The checklist's "Pick your dual class" step sends `DUAL_CLASS_EVENT` with
+  `detail.actorId`, and the window starts on that sheet when it is one of theirs. `dualClassOf` is how both
+  tell a sheet already has one: a class item carrying `dualClassFor`.

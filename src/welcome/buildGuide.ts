@@ -1,3 +1,6 @@
+import { variantSteps } from './variantSteps.js';
+import type { VariantRules } from './variantRules.js';
+
 /**
  * The new player's checklist: what their sheet still needs. Added 2026-10-05.
  *
@@ -38,6 +41,10 @@ export interface GuideActor {
   };
   /** Weapons, armour and other gear, counted. */
   readonly gearCount: number;
+  /** The name of the dual class Tongs gave this sheet, or null (2026-10-20, `variantSteps.ts`). */
+  readonly dualClass?: string | null;
+  /** Feats in PF2e Workbench's Ancestry Paragon section of the Feats tab. */
+  readonly paragonFeats?: number;
 }
 
 export interface GuideStep {
@@ -46,6 +53,12 @@ export interface GuideStep {
   readonly done: boolean;
   /** What it is set to, when it is: "Human", "Fighter". */
   readonly detail: string | null;
+  /** A line under the step saying what to do (2026-10-20, the variant rules' steps). */
+  readonly note?: string;
+  /** It never holds back "ready": the player may skip it, or Tongs cannot read it from the sheet. */
+  readonly optional?: boolean;
+  /** A button on the step: `dualClass` opens the Dual class window for this sheet. */
+  readonly action?: 'dualClass';
 }
 
 function picked(item: GuideItem | null | undefined): Pick<GuideStep, 'done' | 'detail'> {
@@ -84,7 +97,8 @@ function boostsDone(actor: GuideActor): boolean {
   );
 }
 
-export function guideSteps(actor: GuideActor): GuideStep[] {
+/** The basics, then a step for each variant rule this world has on (none when `rules` is left out). */
+export function guideSteps(actor: GuideActor, rules?: VariantRules): GuideStep[] {
   return [
     { key: 'ancestry', label: 'Ancestry', ...picked(actor.ancestry) },
     { key: 'heritage', label: 'Heritage', ...picked(actor.heritage) },
@@ -97,9 +111,10 @@ export function guideSteps(actor: GuideActor): GuideStep[] {
       done: actor.gearCount > 0,
       detail: actor.gearCount > 0 ? `${String(actor.gearCount)} items` : null,
     },
+    ...(rules === undefined ? [] : variantSteps(actor, rules)),
   ];
 }
 
 export function guideFinished(steps: readonly GuideStep[]): boolean {
-  return steps.every((step) => step.done);
+  return steps.every((step) => step.done || step.optional === true);
 }

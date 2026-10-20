@@ -78,3 +78,13 @@ async function keepOneClass(
     await actor.deleteEmbeddedDocuments('Item', extra);
   }
 }
+
+/**
+ * The dual class Tongs gave a sheet, if any: its class item carrying `dualClassFor`. Added 2026-10-20 for
+ * the welcome, which ticks its checklist step on this and never asks for a second one.
+ */
+export function dualClassOf<T extends LandingItem>(items: readonly T[] | undefined): T | undefined {
+  return (items ?? []).find(
+    (item) => item.type === 'class' && typeof item.getFlag?.(MODULE_ID, DUAL_FOR_FLAG) === 'string'
+  );
+}

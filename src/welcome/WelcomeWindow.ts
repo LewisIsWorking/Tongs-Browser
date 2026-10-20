@@ -1,6 +1,9 @@
 import type { CampaignParty } from './campaignParty.js';
 import type { ImportBuild } from './importBuild.js';
 import { ImportPicker } from './ImportPicker.js';
+import { classPicker } from './ClassPicker.js';
+import type { DualPick } from './ClassPicker.js';
+import type { ClassChoice } from '../dualclass/DualClassWindow.js';
 
 /**
  * The window a new player sees when they join a world with no character in it. Added 2026-10-05.
@@ -34,6 +37,8 @@ export type WelcomeFace =
       readonly parties: readonly CampaignParty[];
       /** An extra sheet (2026-10-12): they have one already, and this is their second. */
       readonly second?: boolean;
+      /** Dual Class is on (2026-10-20): the classes offered for "two classes". Absent, nothing changes. */
+      readonly classes?: readonly ClassChoice[];
     }
   | { readonly kind: 'waiting'; readonly gmOnline: boolean }
   | { readonly kind: 'refused'; readonly reason: string };
@@ -42,7 +47,8 @@ export interface WelcomeActions {
   readonly create: (
     name: string,
     partyUuid: string | null,
-    importBuild: ImportBuild | null
+    importBuild: ImportBuild | null,
+    dualClass: DualPick | null
   ) => void;
   readonly later: () => void;
   readonly retry: () => void;
@@ -99,9 +105,13 @@ export class WelcomeWindow {
       const name = this.field(card, 'input', 'Character name') as HTMLInputElement;
       name.maxLength = 60;
       const select = this.partyChoice(card, face.parties);
+      const classes = classPicker(this.doc, card, face.classes);
       const picker = new ImportPicker(this.doc, card, name);
       const go = (): void => {
-        this.actions.create(name.value, select?.value ?? null, picker.chosen);
+        const dual = classes();
+        if (dual !== undefined) {
+          this.actions.create(name.value, select?.value ?? null, picker.chosen, dual);
+        }
       };
       name.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') go();
@@ -121,15 +131,7 @@ export class WelcomeWindow {
           ? 'A GM is online, so this takes a few seconds.'
           : 'A GM will make your character sheet the next time they are online. It will be waiting here for you, so you can close Foundry in the meantime.'
       );
-      this.buttons(card, [
-        [
-          'OK',
-          () => {
-            this.close();
-          },
-          true,
-        ],
-      ]);
+      this.buttons(card, [['OK', this.close.bind(this), true]]);
       return;
     }
     this.add(card, 'h2', 'That did not work');

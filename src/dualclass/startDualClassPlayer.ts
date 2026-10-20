@@ -5,6 +5,7 @@ import type { GmGame } from '../foundry/DesignatedGm.js';
 import { countedCharacters } from '../welcome/welcomeDocuments.js';
 import type { WelcomeGame } from '../welcome/welcomeDocuments.js';
 import { classChoices, variantOff } from './classChoices.js';
+import { isBag } from './classFields.js';
 import type { ChoiceGame } from './classChoices.js';
 import {
   DUAL_REQUEST_FLAG,
@@ -24,6 +25,8 @@ import type { LandingActor } from './landDualClass.js';
  * arrived while they were away lands at their next visit.
  *
  * ⚠️ A player with no request never sees or writes anything: the window only opens from the button.
+ * The welcome's checklist (2026-10-20) sends the same event with `detail.actorId`, its new sheet, which
+ * the window starts on; an id that is not one of the player's own sheets is ignored.
  */
 export const DUAL_CLASS_EVENT = 'tongs-dual-class';
 
@@ -75,7 +78,7 @@ export function startDualClassPlayer(
     window.show({ kind: 'waiting', gmOnline: readGmPresence({ getGame: game }).online });
   });
 
-  async function open(): Promise<void> {
+  async function open(chosen: unknown): Promise<void> {
     if (readDualClassRequest(me()?.getFlag?.(MODULE_ID, DUAL_REQUEST_FLAG)) !== null) {
       window.show({ kind: 'waiting', gmOnline: readGmPresence({ getGame: game }).online });
       return;
@@ -100,7 +103,14 @@ export function startDualClassPlayer(
       });
       return;
     }
-    window.show({ kind: 'ask', sheets, classes, variantOff: variantOff(game()) });
+    const selected = sheets.find((sheet) => sheet.id === chosen)?.id;
+    window.show({
+      kind: 'ask',
+      sheets,
+      classes,
+      variantOff: variantOff(game()),
+      ...(selected === undefined ? {} : { selected }),
+    });
   }
 
   /** The GM's answer: a refusal is shown, a dual class is landed on the sheet. Either is then cleared. */
@@ -137,7 +147,10 @@ export function startDualClassPlayer(
     }
   }
 
-  doc.addEventListener(DUAL_CLASS_EVENT, () => void open());
+  doc.addEventListener(DUAL_CLASS_EVENT, (event) => {
+    const detail: unknown = (event as Partial<CustomEvent>).detail;
+    void open(isBag(detail) ? detail['actorId'] : undefined);
+  });
   hooks.on('updateUser', () => void answered());
   void answered();
 }

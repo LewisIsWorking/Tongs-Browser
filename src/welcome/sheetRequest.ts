@@ -9,8 +9,11 @@
  *    stays on the user until a GM's browser connects and makes the sheet. The answer is written back to the
  *    same user, where the player's browser sees it, now or at their next visit.
  */
-import { readImportBuild } from './importBuild.js';
+import { MODULE_ID } from '../constants.js';
+import { readImportBuild, storedImport } from './importBuild.js';
 import type { ImportBuild } from './importBuild.js';
+import type { DualPick } from './ClassPicker.js';
+import { wantDualClass } from './welcomeDualClass.js';
 
 export const REQUEST_FLAG = 'sheetRequest';
 export const RESULT_FLAG = 'sheetResult';
@@ -92,4 +95,28 @@ export function readSheetResult(raw: unknown): SheetResult | null {
     return { kind: 'refused', requestId, reason: value['reason'] };
   }
   return null;
+}
+
+interface AskingUser {
+  setFlag?(scope: string, key: string, value: unknown): Promise<unknown>;
+  unsetFlag?(scope: string, key: string): Promise<unknown>;
+}
+
+/**
+ * The player's browser asking for a sheet: an old answer cleared, the welcome's two classes kept (2026-10-20,
+ * `welcomeDualClass.ts`), then the request itself, last, so a GM never makes a sheet before its classes are
+ * known.
+ */
+export async function askForSheet(
+  me: AskingUser | undefined,
+  request: SheetRequest,
+  dualClass: DualPick | null
+): Promise<void> {
+  await me?.unsetFlag?.(MODULE_ID, RESULT_FLAG);
+  await wantDualClass(me, request.id, dualClass);
+  await me?.setFlag?.(MODULE_ID, REQUEST_FLAG, {
+    ...request,
+    name: cleanName(request.name),
+    importBuild: request.importBuild === null ? null : storedImport(request.importBuild),
+  });
 }

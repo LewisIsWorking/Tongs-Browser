@@ -35,6 +35,8 @@ export type DualClassFace =
       readonly classes: readonly ClassChoice[];
       /** The world's Dual Class variant rule is registered and switched off. */
       readonly variantOff: boolean;
+      /** The sheet to start on, as the welcome's checklist asks (2026-10-20). */
+      readonly selected?: string;
     }
   | { readonly kind: 'waiting'; readonly gmOnline: boolean }
   | { readonly kind: 'message'; readonly title: string; readonly text: string };
@@ -114,6 +116,7 @@ export class DualClassWindow {
       'sheet',
       face.sheets.map((each) => [each.id, each.name])
     );
+    if (face.selected !== undefined) sheet.value = face.selected;
     const choices = face.classes.map((each): [string, string] => [each.uuid, each.name]);
     const first = this.select(
       card,

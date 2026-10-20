@@ -3,6 +3,7 @@ import { PENDING_FLAG } from '../automation/AutoApply.js';
 import { recentStrikeMessages } from '../automation/recentStrikeMessages.js';
 import type { RecentGlobals, VisibleMessage } from '../automation/recentStrikeMessages.js';
 import { TARGETS_FLAG } from '../automation/spellFacts.js';
+import { pendingDualClasses } from '../dualclass/dualClassDocuments.js';
 import { pendingRequests } from '../welcome/welcomeDocuments.js';
 import type { WelcomeGame } from '../welcome/welcomeDocuments.js';
 
@@ -14,14 +15,18 @@ import type { WelcomeGame } from '../welcome/welcomeDocuments.js';
  * on what world?". ComeOnOverUno's helper GM opens the world, reads this, waits while Tongs does the work,
  * reads it again, and reports the difference to the Foundry topic.
  *
- * ⚠️ Lists nothing new: it reads the two GM-only listings the queues already use (`pendingRequests`,
- *    `recentStrikeMessages`), so a player's browser gets an empty list and the document boundary holds.
+ * ⚠️ Lists nothing new: it reads the GM-only listings the queues already use (`pendingRequests`,
+ *    `pendingDualClasses`, `recentStrikeMessages`), so a player's browser gets an empty list and the document boundary holds.
  */
 export interface WaitingMessage extends VisibleMessage {
   readonly author?: { readonly id?: string; readonly name?: string | null } | null;
 }
 
 export type WaitingGame = WelcomeGame & NonNullable<RecentGlobals['game']>;
+
+/** ⚠️ Dual class requests (2026-10-20): the welcome asks for one with its new sheet, often with no GM here. */
+const dualClasses = (game: WaitingGame | undefined): string[] =>
+  pendingDualClasses(game).map((user) => `${user.userName}'s dual class`);
 
 export function waitingWork(game: WaitingGame | undefined): string[] {
   const sheets = pendingRequests(game).map(
@@ -37,5 +42,5 @@ export function waitingWork(game: WaitingGame | undefined): string[] {
       return [`${who}'s ${flags[TARGETS_FLAG] === undefined ? 'damage' : 'spell saves'}`];
     }
   );
-  return [...sheets, ...cards];
+  return [...sheets, ...dualClasses(game), ...cards];
 }

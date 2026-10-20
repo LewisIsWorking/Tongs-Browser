@@ -35,7 +35,9 @@ export interface DualClassGame {
 }
 
 /** GM only: every player with a dual class request waiting on their user. */
-export function pendingDualClasses(game: DualClassGame | undefined): PendingDualClass[] {
+export function pendingDualClasses(
+  game: Pick<DualClassGame, 'user' | 'users'> | undefined
+): PendingDualClass[] {
   if (game?.user?.isGM !== true) {
     return [];
   }
