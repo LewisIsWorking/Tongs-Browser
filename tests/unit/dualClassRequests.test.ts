@@ -131,6 +131,13 @@ describe('refusing a request, with the reason, and the GM not bothered', () => {
     );
   });
 
+  it('refuses a sheet that already has a dual class, the community macro’s included', async () => {
+    const sheet = () => ({ name: 'Kibwe', owned: true, dualClass: 'Rogue - Bard' });
+    expect(await refusal({ sheet })).toBe(
+      'Kibwe already has a dual class (Rogue - Bard), so Tongs did not add another.'
+    );
+  });
+
   it('refuses the same class twice, by UUID', async () => {
     expect(await refusal({}, { second: FIGHTER })).toMatch(/same class twice/);
   });

@@ -22,3 +22,6 @@ any GM's would, and COO posts what was done in the Foundry topic.
   shared no party list, so the welcome closed and nothing was queued. `HelperCall.summon()` now also answers
   the welcome finding no list, and `helper.waiting()` lists "the party list new players choose from" first
   while the shared list is behind, so the visit lasts until it is shared.
+- ⚠️ **Dual class requests are waiting work too** (2026-10-20). The welcome writes one for a new sheet, often
+  with no GM online, and calls the helper; `helper.waiting()` lists "Lai's dual class" so the visit lasts
+  until Tongs has answered it.

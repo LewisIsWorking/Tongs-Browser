@@ -2,24 +2,24 @@ import { MODULE_ID } from '../constants.js';
 import { readGmPresence } from '../foundry/DesignatedGm.js';
 import { offeredParties } from './campaignParty.js';
 import { guideSteps } from './buildGuide.js';
+import { guideView } from './guideView.js';
+import { classChoices } from '../dualclass/classChoices.js';
+import type { ChoiceGame } from '../dualclass/classChoices.js';
+import { DUAL_CLASS_EVENT } from '../dualclass/startDualClassPlayer.js';
+import { variantRules } from './variantRules.js';
+import { ClassOffer } from './welcomeDualClass.js';
+import { startWelcomeDualClass } from './startWelcomeDualClass.js';
 import { GuidePanel } from './GuidePanel.js';
-import { storedImport } from './importBuild.js';
 import { campaignsOf } from './playerCampaigns.js';
 import { allowedSheets } from './extraSheets.js';
-import {
-  MADE_FOR_FLAG,
-  REQUEST_FLAG,
-  RESULT_FLAG,
-  cleanName,
-  readSheetRequest,
-  readSheetResult,
-} from './sheetRequest.js';
+import { MADE_FOR_FLAG, REQUEST_FLAG, RESULT_FLAG, readSheetRequest } from './sheetRequest.js';
+import { askForSheet, readSheetResult } from './sheetRequest.js';
 import { sharedParties, WELCOME_SETTING } from './startSheetRequests.js';
 import type { WelcomeGlobals, WelcomeHooks, WelcomeSettings } from './startSheetRequests.js';
 import { HelperWake } from './helperWake.js';
 import { WelcomeWindow } from './WelcomeWindow.js';
 import type { WelcomeFace } from './WelcomeWindow.js';
-import { countedCharacters, gearCount, ownCharacters } from './welcomeDocuments.js';
+import { countedCharacters, ownCharacters } from './welcomeDocuments.js';
 import type { WelcomeActor } from './welcomeDocuments.js';
 
 /**
@@ -29,6 +29,8 @@ import type { WelcomeActor } from './welcomeDocuments.js';
  * is in", while one waits for a GM; why it was turned down, if it was; otherwise, with no character of
  * their own here and a campaign party to join, the welcome itself. With an extra sheet from ComeOnOverUno
  * (2026-10-12), the welcome comes back once more, saying it is their second; companion sheets never count.
+ * With Dual Class on (2026-10-20), the welcome also asks one class or two (`welcomeDualClass.ts`), and the
+ * checklist has a step for each variant rule that is on (`variantSteps.ts`).
  *
  * ⚠️ Everything is worked out again from the documents on every change (`refresh`), never stepped through
  *    as a sequence, so a reload, a second tab or a GM finishing it all lands on the same screen.
@@ -41,7 +43,10 @@ export const GUIDE_DONE_FLAG = 'buildGuideDone';
 export function startWelcome(
   hooks: WelcomeHooks,
   settings: WelcomeSettings,
-  globals: WelcomeGlobals & { readonly crypto?: { randomUUID?(): string } },
+  globals: WelcomeGlobals & {
+    readonly crypto?: { randomUUID?(): string };
+    readonly game?: ChoiceGame;
+  },
   doc: Document,
   summon: () => void = () => undefined
 ): void {
@@ -54,6 +59,8 @@ export function startWelcome(
   let showing: string | null = null;
   let opened: string | null = null;
   const wake = new HelperWake(summon);
+  const offer = new ClassOffer(async () => classChoices(game()), refresh);
+  const rules = (): ReturnType<typeof variantRules> => variantRules(settings, game()?.system?.id);
 
   const guided = (): WelcomeActor | undefined =>
     ownCharacters(game()).find(
@@ -63,19 +70,9 @@ export function startWelcome(
     );
 
   const welcome = new WelcomeWindow(doc, {
-    create: (name, partyUuid, importBuild) => {
+    create: (name, partyUuid, importBuild, dualClass) => {
       const id = globals.crypto?.randomUUID?.() ?? `${String(Date.now())}-${String(Math.random())}`;
-      void me()
-        ?.unsetFlag?.(MODULE_ID, RESULT_FLAG)
-        .then(async () =>
-          me()?.setFlag?.(MODULE_ID, REQUEST_FLAG, {
-            id,
-            name: cleanName(name),
-            partyUuid,
-            at: Date.now(),
-            importBuild: importBuild === null ? null : storedImport(importBuild),
-          })
-        );
+      void askForSheet(me(), { id, name, partyUuid, at: Date.now(), importBuild }, dualClass);
     },
     later: () => {
       dismiss();
@@ -94,6 +91,9 @@ export function startWelcome(
       void guided()?.setFlag?.(MODULE_ID, GUIDE_DONE_FLAG, true);
       guide.close();
     },
+    /* The Dual class window, already set to this sheet (`startDualClassPlayer` reads `detail`). */
+    pickDualClass: () =>
+      doc.dispatchEvent(new CustomEvent(DUAL_CLASS_EVENT, { detail: { actorId: guided()?.id } })),
   });
 
   function dismiss(): void {
@@ -151,8 +151,14 @@ export function startWelcome(
       dismiss();
       return;
     }
+    /* Dual Class on: wait for the classes, then offer them. Off, or under two classes: as it always was. */
+    const classes = rules().dualClass ? offer.get() : [];
+    if (classes === undefined) {
+      return;
+    }
     const world = game()?.world?.title ?? 'the game';
-    face(`ask:${String(owned)}`, { kind: 'ask', world, parties, second: owned > 0 });
+    const dual = classes.length >= 2 ? { classes } : {};
+    face(`ask:${String(owned)}`, { kind: 'ask', world, parties, second: owned > 0, ...dual });
   }
 
   /** The sheet opens by itself once, the first time this browser sees it made. */
@@ -166,17 +172,7 @@ export function startWelcome(
       void me()?.unsetFlag?.(MODULE_ID, RESULT_FLAG);
     }
     if (!closed.has('guide')) {
-      /* ⛔ Named one by one, never spread: `ancestry`, `class` and the rest are getters on PF2e's actor
-         class, and a spread copies only own properties, so every step would read as not done. */
-      const view = {
-        ancestry: actor.ancestry ?? null,
-        heritage: actor.heritage ?? null,
-        background: actor.background ?? null,
-        class: actor.class ?? null,
-        ...(actor.system === undefined ? {} : { system: actor.system }),
-        gearCount: gearCount(actor),
-      };
-      guide.show(actor.name ?? 'your character', guideSteps(view));
+      guide.show(actor.name ?? 'your character', guideSteps(guideView(actor), rules()));
     }
   }
 
@@ -192,4 +188,5 @@ export function startWelcome(
     hooks.on(name, refresh);
   }
   refresh();
+  startWelcomeDualClass(hooks, globals, summon);
 }

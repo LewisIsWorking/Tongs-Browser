@@ -8,30 +8,36 @@ A player cannot create an actor in most worlds, so the sheet is made by a GM's b
 as a flag on the player's own User document, which only they (and a GM) can write, so the server already
 proves who asked. The answer travels back on the same User.
 
-| File                    | What it is                                                                      |
-| ----------------------- | ------------------------------------------------------------------------------- |
-| `sheetRequest.ts`       | The request and answer flags, and reading them defensively                      |
-| `campaignParty.ts`      | Which party a sheet goes in: the coded one, else the world's primary party      |
-| `SheetRequests.ts`      | The GM side: serve each waiting request, once, one pass at a time               |
-| `PartyHomes.ts`         | The GM side: a player's only sheet in no party joins their campaign's party     |
-| `playerCampaigns.ts`    | Which campaigns each player posts in, as ComeOnOverUno said (world setting)     |
-| `extraSheets.ts`        | Who may have a second sheet, as ComeOnOverUno said (world setting)              |
-| `companionKinds.ts`     | Which feats grant a companion (by PF2e slug), and the actor type each gets      |
-| `companionDocuments.ts` | The GM's listing of characters and companions (a `check:documents` boundary)    |
-| `Companions.ts`         | The GM side: a sheet for each companion, made once, in the character's party    |
-| `startCompanions.ts`    | Its hooks and the Foundry calls: create, join, mark, whisper the player         |
-| `partyListWork.ts`      | The shared party list as work a GM owes, so the helper GM is called to share it |
-| `startSheetRequests.ts` | The settings, the hooks that wake the GM side, and the Foundry wiring           |
-| `welcomeDocuments.ts`   | Every user and actor listing the welcome makes (a `check:documents` boundary)   |
-| `startWelcome.ts`       | The player side: which face to show, and the checklist for a new sheet          |
-| `helperWake.ts`         | When the player's browser asks for COO's helper GM: once per page load each     |
-| `WelcomeWindow.ts`      | The welcome window: ask, waiting, and turned down                               |
-| `buildGuide.ts`         | The checklist, read from the sheet                                              |
-| `GuidePanel.ts`         | The checklist panel                                                             |
-| `importBuild.ts`        | Reading a ComeOnOverUno "Foundry VTT" export, as untrusted input                |
-| `ImportPicker.ts`       | The welcome's optional file picker for that export                              |
-| `applyImport.ts`        | Filling the sheet from PF2e's compendiums, by the names the export gives        |
-| `startImport.ts`        | Running it once, in the owning player's browser                                 |
+| File                       | What it is                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| `sheetRequest.ts`          | The request and answer flags, and reading them defensively                      |
+| `campaignParty.ts`         | Which party a sheet goes in: the coded one, else the world's primary party      |
+| `SheetRequests.ts`         | The GM side: serve each waiting request, once, one pass at a time               |
+| `PartyHomes.ts`            | The GM side: a player's only sheet in no party joins their campaign's party     |
+| `playerCampaigns.ts`       | Which campaigns each player posts in, as ComeOnOverUno said (world setting)     |
+| `extraSheets.ts`           | Who may have a second sheet, as ComeOnOverUno said (world setting)              |
+| `companionKinds.ts`        | Which feats grant a companion (by PF2e slug), and the actor type each gets      |
+| `companionDocuments.ts`    | The GM's listing of characters and companions (a `check:documents` boundary)    |
+| `Companions.ts`            | The GM side: a sheet for each companion, made once, in the character's party    |
+| `startCompanions.ts`       | Its hooks and the Foundry calls: create, join, mark, whisper the player         |
+| `partyListWork.ts`         | The shared party list as work a GM owes, so the helper GM is called to share it |
+| `startSheetRequests.ts`    | The settings, the hooks that wake the GM side, and the Foundry wiring           |
+| `welcomeDocuments.ts`      | Every user and actor listing the welcome makes (a `check:documents` boundary)   |
+| `startWelcome.ts`          | The player side: which face to show, and the checklist for a new sheet          |
+| `helperWake.ts`            | When the player's browser asks for COO's helper GM: once per page load each     |
+| `WelcomeWindow.ts`         | The welcome window: ask, waiting, and turned down                               |
+| `buildGuide.ts`            | The checklist, read from the sheet                                              |
+| `guideView.ts`             | The sheet as the checklist reads it, its dual class and paragon feats included  |
+| `variantRules.ts`          | Which variant rules are on: Workbench's Dual Class and Ancestry Paragon, and FA |
+| `variantSteps.ts`          | The checklist's steps for those rules, each only while its rule is on           |
+| `GuidePanel.ts`            | The checklist panel                                                             |
+| `ClassPicker.ts`           | The welcome's "one class or two", with Dual Class on                            |
+| `welcomeDualClass.ts`      | The two classes kept on the player's user until the sheet exists                |
+| `startWelcomeDualClass.ts` | Sending them as the Dual class window's own request, once the sheet is made     |
+| `importBuild.ts`           | Reading a ComeOnOverUno "Foundry VTT" export, as untrusted input                |
+| `ImportPicker.ts`          | The welcome's optional file picker for that export                              |
+| `applyImport.ts`           | Filling the sheet from PF2e's compendiums, by the names the export gives        |
+| `startImport.ts`           | Running it once, in the owning player's browser                                 |
 
 ## Decided with Lewis, 2026-10-05
 
@@ -40,6 +46,13 @@ proves who asked. The answer travels back on the same User.
 - **The campaign's party**: the party with a campaign code (`bands/partyCampaign.ts`). With several, the
   player picks. With none, the world's primary party (PF2e's active party, "The Party"); with no party at
   all, the request waits and the GM is told once.
+
+## Decided with Lewis, 2026-10-20
+
+- **"We should build more of the dual class macro into the player onboarding experience"**: with PF2e
+  Workbench's Dual Class rule on, the welcome asks one class or two, and the checklist gains a "Pick your
+  dual class" step (opening the Dual class window on this sheet), plus an "Ancestry Paragon" step and a
+  "Free Archetype" step while those rules are on. With a rule off the welcome and checklist are as before.
 
 ## Learnings
 
@@ -105,3 +118,14 @@ proves who asked. The answer travels back on the same User.
   one call turned away (COO allows one visit at a time, ten an hour) left the request for a GM to find. Each
   page load with a request still waiting now calls once. Lewis chose this over retrying on a timer, which
   would cost the VPS a helper visit every few minutes for nothing.
+- ⭐ **The welcome's two classes reuse the Dual class pipeline whole** (2026-10-20). They wait on the player's
+  own user (`welcomeDualClass`, naming the sheet request), and once the sheet made for that request exists,
+  `startWelcomeDualClass` writes exactly the request the tray's window writes. So the GM's side checks it as
+  strictly as ever (their sheet, listed compendiums, two different classes), the class lands from the
+  PLAYER's browser, and `dualClassFor` stops a second one. It waits while an import is still filling the
+  sheet, since the import's own class would replace the dual class.
+- 🔔 **Both rules add SLOTS, not feats** (2026-10-20). Terra was sure Ancestry Paragon "added no feats". The
+  steps say so: drag ancestry feats into the Ancestry Paragon section, pick a dedication for Free Archetype.
+  All three steps are optional: a player may keep one class, and Free Archetype starts at level 2.
+- ⚠️ **Workbench's settings may not exist.** Reading an unregistered setting throws in Foundry, so
+  `variantRules` reads a world without Workbench as every rule off.

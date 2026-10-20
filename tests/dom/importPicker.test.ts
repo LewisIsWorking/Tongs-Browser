@@ -45,7 +45,8 @@ describe('the import picker', () => {
     expect(w.create).toHaveBeenCalledWith(
       'Theo Ironhand',
       null,
-      expect.objectContaining({ level: 1 })
+      expect.objectContaining({ level: 1 }),
+      null
     );
   });
 
@@ -79,7 +80,7 @@ describe('the import picker', () => {
       expect(w.status()).toContain('not a ComeOnOver');
     });
     w.submit();
-    expect(w.create).toHaveBeenCalledWith('', null, null);
+    expect(w.create).toHaveBeenCalledWith('', null, null, null);
   });
 
   it('turns away a file too big to be a character', async () => {
@@ -101,6 +102,6 @@ describe('the import picker', () => {
       expect(w.status()).toBe('');
     });
     w.submit();
-    expect(w.create).toHaveBeenCalledWith('Theo Ironhand', null, null);
+    expect(w.create).toHaveBeenCalledWith('Theo Ironhand', null, null, null);
   });
 });

@@ -27,6 +27,13 @@ const game = (isGM: boolean): WaitingGame => ({
         getFlag: flagged({ sheetRequest: { id: 'r', name: 'Lai', at: 1 } }),
       },
       { id: 'u2', name: 'Kai', getFlag: flagged({}) },
+      {
+        id: 'u3',
+        name: 'Lai',
+        getFlag: flagged({
+          dualClassRequest: { id: 'd', actorId: 'A', first: 'F', second: 'W', at: 1 },
+        }),
+      },
     ],
   },
   messages: {
@@ -40,9 +47,10 @@ const game = (isGM: boolean): WaitingGame => ({
 });
 
 describe('the waiting work', () => {
-  it('names each sheet request and queued card for a GM', () => {
+  it('names each sheet request, dual class request and queued card for a GM', () => {
     expect(waitingWork(game(true))).toEqual([
       `Terra's character sheet "Lai"`,
+      "Lai's dual class",
       "Kai's damage",
       "Oscar's spell saves",
     ]);

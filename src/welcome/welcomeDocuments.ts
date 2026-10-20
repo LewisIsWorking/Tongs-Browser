@@ -51,6 +51,7 @@ export interface WelcomeGame {
   readonly users?: { readonly contents: readonly WelcomeUser[] };
   readonly actors?: { readonly contents: readonly WelcomeActor[] };
   readonly world?: { readonly title?: string };
+  readonly system?: { readonly id?: string };
 }
 
 /** GM only: every player with a request waiting on their user. */
