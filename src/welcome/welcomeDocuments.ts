@@ -93,17 +93,17 @@ export function countedCharacters(game: WelcomeGame | undefined): WelcomeActor[]
   return ownCharacters(game).filter((actor) => !isCompanionSheet(actor));
 }
 
-/** GM only: how many counted character sheets one player owns, for SheetRequests' cap. 2026-10-12. */
-export function countedSheetsOf(game: WelcomeGame | undefined, userId: string): number {
+/** GM only: the counted character sheets one player owns, for SheetRequests' cap. 2026-10-12. */
+export function countedSheetsFor(game: WelcomeGame | undefined, userId: string): WelcomeActor[] {
   if (game?.user?.isGM !== true) {
-    return 0;
+    return [];
   }
   return (game.actors?.contents ?? []).filter(
     (actor) =>
       actor.type === 'character' &&
       actor.ownership?.[userId] === OWNER_LEVEL &&
       !isCompanionSheet(actor)
-  ).length;
+  );
 }
 
 /** How many pieces of gear a sheet carries, for the checklist. */

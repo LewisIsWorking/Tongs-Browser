@@ -15,7 +15,8 @@ proves who asked. The answer travels back on the same User.
 | `SheetRequests.ts`         | The GM side: serve each waiting request, once, one pass at a time               |
 | `PartyHomes.ts`            | The GM side: a player's only sheet in no party joins their campaign's party     |
 | `playerCampaigns.ts`       | Which campaigns each player posts in, as ComeOnOverUno said (world setting)     |
-| `extraSheets.ts`           | Who may have a second sheet, as ComeOnOverUno said (world setting)              |
+| `extraSheets.ts`           | The sheet limit, and who has one more from ComeOnOverUno (world setting)        |
+| `sheetLimit.ts`            | What companions add to the sheet limit, and the welcome remembering Not now     |
 | `companionKinds.ts`        | Which feats grant a companion (by PF2e slug), and the actor type each gets      |
 | `companionDocuments.ts`    | The GM's listing of characters and companions (a `check:documents` boundary)    |
 | `Companions.ts`            | The GM side: a sheet for each companion, made once, in the character's party    |
@@ -100,9 +101,14 @@ proves who asked. The answer travels back on the same User.
   Players read the party list a GM's browser shares, so it stayed empty after the parties got codes, the
   welcome closed, nothing was queued, and the helper GM was never called. Now the welcome calls the helper
   once per page load, and `partyListWork.ts` keeps its visit open until its Tongs has shared the list.
-- ⛔ **A second sheet, at most** (2026-10-12). Lewis: "a maximum of 1 additional sheet ... (maximum 2 in
-  total)". The bot's `/extrasheet` grants it, COO sends `extraSheets` beside `playerCampaigns` (heartbeat and
-  `helper.extraSheets(map)`), and the welcome offers a second sheet, saying so. ⛔ The cap is enforced in
+- ⛔ **The sheet limit: 2, plus grants, plus companions** (2026-10-21). Lewis: "the sheet limit per person
+  should be 2, if you have a companion class or a familiar class then +1 for each instance of that". Each
+  player may own 2 sheets per world, plus 1 from the bot's `/extrasheet` (COO sends `extraSheets` beside
+  `playerCampaigns`, in the heartbeat and `helper.extraSheets(map)`), plus 1 per companion KIND their sheets
+  grant (`companionGrants` in `sheetLimit.ts`, from `companionKindsFor`): upgrades such as Mature or Enhanced Familiar add
+  none, and a Pet adds one only without a familiar. The same sum as COO's daily sheet check
+  (`companion-grants.mjs`), so the post and Tongs agree. Under the limit the welcome offers another
+  character; Not now on that is kept on the user until the sheets or the limit change. ⛔ The cap is enforced in
   `SheetRequests`, not only by the welcome hiding itself: any player can write a request flag.
 - ⚠️ **Companion sheets never count** toward that cap, nor as a player's "one loose sheet" in `PartyHomes`.
   A companion is a sheet Tongs flagged `companionOf`, or one built from Companion Compendia by hand.

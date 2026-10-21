@@ -16,12 +16,13 @@ import { IMPORT_FLAG, storedImport } from './importBuild.js';
 import { JOINED_FLAG, MADE_FOR_FLAG } from './sheetRequest.js';
 import { PartyHomes } from './PartyHomes.js';
 import { campaignsOf, registerPlayerCampaigns } from './playerCampaigns.js';
-import { allowedSheets, registerExtraSheets } from './extraSheets.js';
+import { allowedSheets, extraSheetsOf, registerExtraSheets } from './extraSheets.js';
 import { SheetRequests } from './SheetRequests.js';
+import { companionGrants } from './sheetLimit.js';
 import {
   actorMadeFor,
   answerRequest,
-  countedSheetsOf,
+  countedSheetsFor,
   homeListing,
   pendingRequests,
 } from './welcomeDocuments.js';
@@ -108,10 +109,14 @@ export function startSheetRequests(
     campaignParties: parties,
     campaignsOf: (userId) => campaignsOf(settings, userId),
     madeFor: (requestId) => actorMadeFor(game(), requestId),
-    sheetCount: (userId) => ({
-      owned: countedSheetsOf(game(), userId),
-      allowed: allowedSheets(settings, userId),
-    }),
+    sheetCount: (userId) => {
+      const sheets = countedSheetsFor(game(), userId);
+      return {
+        owned: sheets.length,
+        allowed: allowedSheets(settings, userId, companionGrants(sheets)),
+        extra: extraSheetsOf(settings, userId),
+      };
+    },
     create: async (sheet) =>
       createSheetWithFoundry({
         name: sheet.name,

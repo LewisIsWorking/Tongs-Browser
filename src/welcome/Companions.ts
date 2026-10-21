@@ -6,7 +6,7 @@ import type { CompanionCharacter, CompanionListing } from './companionDocuments.
  * The GM's browser making a sheet for each companion a player's character has. Added 2026-10-12.
  *
  * Lewis, 2026-10-12: companion sheets are made AUTOMATICALLY, owned by the player, in the party, the GM is
- * told, and they never count toward the 2-sheet cap. What grants a companion, and which actor type each
+ * told, and they never count toward the sheet limit (`extraSheets.ts`). What grants a companion, and which actor type each
  * gets, is in `companionKinds.ts`.
  *
  * ⛔ Only the designated GM's browser, one pass at a time, like SheetRequests: creating a companion fires

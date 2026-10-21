@@ -11,7 +11,6 @@ import { ClassOffer } from './welcomeDualClass.js';
 import { startWelcomeDualClass } from './startWelcomeDualClass.js';
 import { GuidePanel } from './GuidePanel.js';
 import { campaignsOf } from './playerCampaigns.js';
-import { allowedSheets } from './extraSheets.js';
 import { MADE_FOR_FLAG, REQUEST_FLAG, RESULT_FLAG, readSheetRequest } from './sheetRequest.js';
 import { askForSheet, readSheetResult } from './sheetRequest.js';
 import { sharedParties, WELCOME_SETTING } from './startSheetRequests.js';
@@ -20,6 +19,7 @@ import { HelperWake } from './helperWake.js';
 import { WelcomeWindow } from './WelcomeWindow.js';
 import type { WelcomeFace } from './WelcomeWindow.js';
 import { countedCharacters, ownCharacters } from './welcomeDocuments.js';
+import { rememberLater, sheetOffer } from './sheetLimit.js';
 import type { WelcomeActor } from './welcomeDocuments.js';
 
 /**
@@ -27,8 +27,9 @@ import type { WelcomeActor } from './welcomeDocuments.js';
  *
  * In order, a player sees: the checklist, if a sheet was made for them and is not finished; "your request
  * is in", while one waits for a GM; why it was turned down, if it was; otherwise, with no character of
- * their own here and a campaign party to join, the welcome itself. With an extra sheet from ComeOnOverUno
- * (2026-10-12), the welcome comes back once more, saying it is their second; companion sheets never count.
+ * their own here and a campaign party to join, the welcome itself. Under their allowance (2026-10-21: 2,
+ * plus a /extrasheet grant, plus one per companion kind their sheets grant; `extraSheets.ts`), the welcome
+ * comes back offering another character (Not now on that is remembered, `sheetLimit.ts`).
  * With Dual Class on (2026-10-20), the welcome also asks one class or two (`welcomeDualClass.ts`), and the
  * checklist has a step for each variant rule that is on (`variantSteps.ts`).
  *
@@ -57,6 +58,8 @@ export function startWelcome(
   const me = (): NonNullable<WelcomeGlobals['game']>['user'] => game()?.user;
   const closed = new Set<string>();
   let showing: string | null = null;
+  /** "owned/allowed" when the welcome last offered a sheet. */
+  let offerKey = '';
   let opened: string | null = null;
   const wake = new HelperWake(summon);
   const offer = new ClassOffer(async () => classChoices(game()), refresh);
@@ -75,6 +78,7 @@ export function startWelcome(
       void askForSheet(me(), { id, name, partyUuid, at: Date.now(), importBuild }, dualClass);
     },
     later: () => {
+      if (showing === `ask:${offerKey}`) rememberLater(me(), offerKey);
       dismiss();
     },
     retry: () => {
@@ -140,14 +144,17 @@ export function startWelcome(
     }
     const myId = me()?.id ?? '';
     const parties = offeredParties(sharedParties(settings), campaignsOf(settings, myId));
-    const owned = countedCharacters(game()).length;
-    if (owned >= allowedSheets(settings, myId)) {
+    const counted = countedCharacters(game());
+    const owned = counted.length;
+    const key = sheetOffer(settings, me(), counted);
+    if (key === null) {
       dismiss();
       return;
     }
+    offerKey = key;
     if (parties.length === 0) {
       /* No list shared yet: ask once for COO's helper GM, whose Tongs shares it (partyListWork.ts). */
-      wake.forPartyList();
+      if (owned === 0) wake.forPartyList();
       dismiss();
       return;
     }
@@ -158,7 +165,7 @@ export function startWelcome(
     }
     const world = game()?.world?.title ?? 'the game';
     const dual = classes.length >= 2 ? { classes } : {};
-    face(`ask:${String(owned)}`, { kind: 'ask', world, parties, second: owned > 0, ...dual });
+    face(`ask:${offerKey}`, { kind: 'ask', world, parties, second: owned > 0, ...dual });
   }
 
   /** The sheet opens by itself once, the first time this browser sees it made. */

@@ -100,7 +100,7 @@ export function startFeatures(parts: FeatureParts): void {
   /* Who plays which campaign, from COO: picks the party where campaigns share a world. */
   const storeCampaigns = async (value: unknown): Promise<void> =>
     storePlayerCampaigns(settings, value);
-  /* Who may make a second sheet, from COO (src/welcome/extraSheets.ts). */
+  /* Who may make one sheet more, from COO (src/welcome/extraSheets.ts). */
   const storeExtra = async (value: unknown): Promise<void> => storeExtraSheets(settings, value);
   const storeOwners = async (value: unknown): Promise<void> => storePartyOwners(settings, value);
   /* No GM online: ask COO's helper GM to come and do what this browser queued. See src/helper. */

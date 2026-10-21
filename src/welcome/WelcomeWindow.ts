@@ -35,7 +35,7 @@ export type WelcomeFace =
       readonly kind: 'ask';
       readonly world: string;
       readonly parties: readonly CampaignParty[];
-      /** An extra sheet (2026-10-12): they have one already, and this is their second. */
+      /** Not their first sheet (2026-10-12): they have one or more already, and this is another. */
       readonly second?: boolean;
       /** Dual Class is on (2026-10-20): the classes offered for "two classes". Absent, nothing changes. */
       readonly classes?: readonly ClassChoice[];
@@ -93,13 +93,13 @@ export class WelcomeWindow {
       this.add(
         card,
         'h2',
-        second ? `A second character in ${face.world}` : `Welcome to ${face.world}!`
+        second ? `Another character in ${face.world}` : `Welcome to ${face.world}!`
       );
       this.add(
         card,
         'p',
         second
-          ? 'You can have a second character sheet here. Your first stays exactly as it is. Give this one a name; you can change it later.'
+          ? 'You can have another character sheet here. The ones you have stay exactly as they are. Give this one a name; you can change it later.'
           : "Let's make your character. Give them a name; you can change it later."
       );
       const name = this.field(card, 'input', 'Character name') as HTMLInputElement;
