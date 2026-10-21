@@ -102,4 +102,14 @@ describe('another sheet', () => {
     press('Not now');
     expect(t.user.setFlag).not.toHaveBeenCalled();
   });
+
+  it('never remembers Not now on a refusal, even for a player with a sheet', () => {
+    const t = player();
+    t.actors.push({ uuid: 'Actor.X', type: 'character', isOwner: true });
+    t.userFlags['sheetResult'] = { kind: 'refused', requestId: 'r0', reason: 'Foundry said no.' };
+    startWelcome(t.hooks, t.settings, t.globals, document);
+    expect(welcomeText()).toContain('Foundry said no.');
+    press('Not now');
+    expect(t.user.setFlag).not.toHaveBeenCalled();
+  });
 });
