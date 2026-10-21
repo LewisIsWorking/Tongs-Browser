@@ -1,5 +1,30 @@
 # tongs-browser
 
+## 0.61.0
+
+### Minor Changes
+
+- [#477](https://github.com/LewisIsWorking/Tongs-Browser/pull/477) [`8dabc73`](https://github.com/LewisIsWorking/Tongs-Browser/commit/8dabc73b8c30e8459eac3acd147baa4404e8b117) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The character sheet limit is now 2 per player in each world, plus 1 from `/extrasheet`, plus 1 for each
+  companion or familiar their sheets grant (an animal companion, familiar, eidolon, undead or construct
+  companion, or drone; upgrades such as Mature or Enhanced Familiar add none, and a Pet adds one only without
+  a familiar). This is the same rule as ComeOnOverUno's daily sheet check, so the post and Tongs agree.
+  Companion and familiar sheets still never count toward it. Under the limit the welcome offers "Another
+  character", and Not now on that offer is remembered until the player's sheets or limit change. A request
+  past the limit is turned down with both numbers, and says how to ask for /extrasheet if they have not.
+
+- [#475](https://github.com/LewisIsWorking/Tongs-Browser/pull/475) [`aa2756f`](https://github.com/LewisIsWorking/Tongs-Browser/commit/aa2756fd99f1b48c26a4aad4a4b081ba06330311) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The new-player welcome knows this world's variant rules. With PF2e Workbench's Dual Class rule on, the
+  welcome asks "How many classes?" and, for two, which 1st and 2nd class; once the GM's browser has made the
+  sheet, Tongs sends the same request as the Dual class window, so the GM side checks it just as strictly and
+  the class lands from the player's browser. The checklist beside a new sheet gains a "Pick your dual class"
+  step (its button opens the Dual class window on that sheet, and it ticks once the sheet has one), an
+  "Ancestry Paragon" step saying the rule adds feat slots on the Feats tab (ticked once a feat is in that
+  section), and a "Free Archetype" step saying a free archetype slot comes at level 2. Each appears only while
+  its rule is on; with them off, the welcome and checklist look as before. COO's helper GM now also counts
+  waiting dual class requests as work.
+
+  A dual class made with the community macro now counts as one too (its "Class1 - Class2" name or its
+  `class:` roll option), and the GM's browser refuses a second dual class on a sheet that already has one.
+
 ## 0.60.0
 
 ### Minor Changes
