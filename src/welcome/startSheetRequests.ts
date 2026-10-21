@@ -18,7 +18,6 @@ import { PartyHomes } from './PartyHomes.js';
 import { campaignsOf, registerPlayerCampaigns } from './playerCampaigns.js';
 import { allowedSheets, extraSheetsOf, registerExtraSheets } from './extraSheets.js';
 import { SheetRequests } from './SheetRequests.js';
-import { companionGrants } from './sheetLimit.js';
 import {
   actorMadeFor,
   answerRequest,
@@ -109,14 +108,11 @@ export function startSheetRequests(
     campaignParties: parties,
     campaignsOf: (userId) => campaignsOf(settings, userId),
     madeFor: (requestId) => actorMadeFor(game(), requestId),
-    sheetCount: (userId) => {
-      const sheets = countedSheetsFor(game(), userId);
-      return {
-        owned: sheets.length,
-        allowed: allowedSheets(settings, userId, companionGrants(sheets)),
-        extra: extraSheetsOf(settings, userId),
-      };
-    },
+    sheetCount: (userId) => ({
+      owned: countedSheetsFor(game(), userId).length,
+      allowed: allowedSheets(settings, userId),
+      extra: extraSheetsOf(settings, userId),
+    }),
     create: async (sheet) =>
       createSheetWithFoundry({
         name: sheet.name,

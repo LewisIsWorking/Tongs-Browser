@@ -111,7 +111,7 @@ const owners = (actor: CompanionActor, players: ReadonlyMap<string, string>): st
   );
 
 /** The slugs of a sheet's items, which say what companions it grants (`companionKindsFor`). */
-export function itemSlugs(actor: Pick<CompanionActor, 'items'>): string[] {
+function itemSlugs(actor: Pick<CompanionActor, 'items'>): string[] {
   return (actor.items?.contents ?? []).flatMap((item) => {
     const slug = item.system?.slug ?? item.slug;
     return typeof slug === 'string' ? [slug] : [];
