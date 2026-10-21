@@ -37,12 +37,15 @@ describe('the welcome', () => {
     expect(welcomeText()).toContain('the next time they are online');
   });
 
-  it('never shows for a GM, when switched off, with a sheet already, or with no campaign party', () => {
+  it('never shows for a GM, when switched off, at the sheet limit, or with no campaign party', () => {
     for (const t of [player({ isGM: true }), player({ on: false }), player({ parties: [] })]) {
       startWelcome(t.hooks, t.settings, t.globals, document);
     }
     const owner = player();
-    owner.actors.push({ uuid: 'Actor.X', type: 'character', isOwner: true });
+    owner.actors.push(
+      { uuid: 'Actor.X', type: 'character', isOwner: true },
+      { uuid: 'Actor.Y', type: 'character', isOwner: true }
+    );
     startWelcome(owner.hooks, owner.settings, owner.globals, document);
     expect(welcomeText()).toBeNull();
   });
@@ -97,7 +100,8 @@ describe('the checklist', () => {
     done.actors.push(madeSheet({ madeForRequest: 'r1', [GUIDE_DONE_FLAG]: true }));
     startWelcome(done.hooks, done.settings, done.globals, document);
     expect(guideText()).toBeNull();
-    expect(welcomeText()).toBeNull();
+    /* Under the limit of 2 (2026-10-21), so another character is offered instead. */
+    expect(welcomeText()).toContain('Another character in Riddleport');
   });
 
   it('Open sheet renders the sheet, and switching off closes the checklist', () => {

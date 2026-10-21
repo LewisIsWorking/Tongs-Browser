@@ -5,7 +5,7 @@ import type { SheetRequestPorts } from '../../src/welcome/SheetRequests.js';
 import type { SheetResult } from '../../src/welcome/sheetRequest.js';
 import {
   countedCharacters,
-  countedSheetsOf,
+  countedSheetsFor,
   homeListing,
 } from '../../src/welcome/welcomeDocuments.js';
 import type { WelcomeGame } from '../../src/welcome/welcomeDocuments.js';
@@ -13,11 +13,12 @@ import type { WelcomeGame } from '../../src/welcome/welcomeDocuments.js';
 /**
  * The sheet cap, enforced by the GM's browser. 2026-10-12.
  *
- * Lewis: "maximum 2 in total", and "Companion sheets never count toward the 2-sheet cap".
+ * Lewis, 2026-10-21: "the sheet limit per person should be 2, if you have a companion class or a familiar
+ * class then +1 for each instance of that". Companion sheets never count.
  */
 const PARTY = { uuid: 'Actor.P', name: 'The Party', code: 'C06' };
 
-function world(count: { owned: number; allowed: number }) {
+function world(count: { owned: number; allowed: number; extra?: number }) {
   const answers: SheetResult[] = [];
   const told: string[] = [];
   const created: string[] = [];
@@ -50,16 +51,16 @@ function world(count: { owned: number; allowed: number }) {
 }
 
 describe('the cap', () => {
-  it('makes a second sheet, in the party, for a player with an extra sheet', async () => {
-    const { requests, answers, created, told } = world({ owned: 1, allowed: 2 });
+  it('makes a second sheet, in the party, for anyone (2026-10-21: 2 each)', async () => {
+    const { requests, answers, created, told } = world({ owned: 1, allowed: 2, extra: 0 });
     await requests.serve();
     expect(created).toEqual(['Kibwe']);
     expect(answers[0]).toMatchObject({ kind: 'created' });
     expect(told).toEqual(['Tongs made Kibwe for Lai, in The Party.']);
   });
 
-  it('turns down a second sheet without a grant, saying how to get one', async () => {
-    const { requests, answers, created, told } = world({ owned: 1, allowed: 1 });
+  it('turns down a third sheet without a grant, saying how to get one', async () => {
+    const { requests, answers, created, told } = world({ owned: 2, allowed: 2, extra: 0 });
     await requests.serve();
     expect(created).toEqual([]);
     expect(answers).toEqual([
@@ -67,26 +68,26 @@ describe('the cap', () => {
         kind: 'refused',
         requestId: 'r2',
         reason:
-          "You already have a character sheet here. For a second one, send /extrasheet in your campaign's Telegram topic.",
+          "You already have 2 character sheets here, and 2 is the most you may have. For one more, send /extrasheet in your campaign's Telegram topic.",
       },
     ]);
     expect(told).toEqual([
-      'Lai asked for another character, but already has 1, the most they may have here.',
+      'Lai asked for another character, but already has 2 of the 2 they may have here.',
     ]);
   });
 
-  it('turns down a third sheet, whatever the grant', async () => {
-    const { requests, answers, created } = world({ owned: 2, allowed: 2 });
+  it('turns down a sheet past the grant and companions, with no hint once the grant is used', async () => {
+    const { requests, answers, created } = world({ owned: 4, allowed: 4, extra: 1 });
     await requests.serve();
     expect(created).toEqual([]);
     expect(answers[0]).toMatchObject({
       kind: 'refused',
-      reason: 'You already have 2 character sheets here, which is the most anyone can have.',
+      reason: 'You already have 4 character sheets here, and 4 is the most you may have.',
     });
   });
 
   it('makes the first sheet as before', async () => {
-    const { requests, created } = world({ owned: 0, allowed: 1 });
+    const { requests, created } = world({ owned: 0, allowed: 2 });
     await requests.serve();
     expect(created).toEqual(['Kibwe']);
   });
@@ -133,9 +134,9 @@ describe('what counts', () => {
       handMade,
       sheet('Actor.O', { ownership: { u2: 3 } }),
     ]);
-    expect(countedSheetsOf(game, 'u1')).toBe(1);
-    expect(countedSheetsOf(gameWith([sheet('Actor.A')], false), 'u1')).toBe(0);
-    expect(countedSheetsOf({ user: { id: 'gm', isGM: true } }, 'u1')).toBe(0);
+    expect(countedSheetsFor(game, 'u1')).toHaveLength(1);
+    expect(countedSheetsFor(gameWith([sheet('Actor.A')], false), 'u1')).toHaveLength(0);
+    expect(countedSheetsFor({ user: { id: 'gm', isGM: true } }, 'u1')).toHaveLength(0);
     expect(
       countedCharacters(gameWith([sheet('Actor.A'), companion, handMade])).map((a) => a.uuid)
     ).toEqual(['Actor.A']);

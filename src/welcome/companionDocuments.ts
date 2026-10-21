@@ -110,6 +110,14 @@ const owners = (actor: CompanionActor, players: ReadonlyMap<string, string>): st
     level === OWNER_LEVEL && players.has(id) ? [id] : []
   );
 
+/** The slugs of a sheet's items, which say what companions it grants (`companionKindsFor`). */
+export function itemSlugs(actor: Pick<CompanionActor, 'items'>): string[] {
+  return (actor.items?.contents ?? []).flatMap((item) => {
+    const slug = item.system?.slug ?? item.slug;
+    return typeof slug === 'string' ? [slug] : [];
+  });
+}
+
 const strings = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((each): each is string => typeof each === 'string') : [];
 
@@ -150,10 +158,7 @@ export function companionListing(game: CompanionGame | undefined): CompanionList
         uuid: actor.uuid,
         name: actor.name ?? 'A character',
         ownerIds,
-        slugs: (actor.items?.contents ?? []).flatMap((item) => {
-          const slug = item.system?.slug ?? item.slug;
-          return typeof slug === 'string' ? [slug] : [];
-        }),
+        slugs: itemSlugs(actor),
         made: strings(actor.getFlag?.(MODULE_ID, COMPANIONS_MADE_FLAG)),
       });
     }

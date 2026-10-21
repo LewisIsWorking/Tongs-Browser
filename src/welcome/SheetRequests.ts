@@ -14,10 +14,19 @@ import type { ImportBuild } from './importBuild.js';
  *    pass started while the first is still creating would see the same request and make a duplicate. A call
  *    that arrives mid-pass asks for one more pass instead.
  *
- * ⛔ The sheet cap is ENFORCED here, not only in the player's browser (2026-10-12). A player may own 1
- *    counted sheet, or 2 with ComeOnOverUno's `extraSheets` (Lewis: "maximum 2 in total"); companion sheets
- *    never count. The welcome only hides itself at the cap, and a request is a flag any player can write.
+ * ⛔ The sheet cap is ENFORCED here, not only in the player's browser (2026-10-12). Since 2026-10-21 a
+ *    player may own 2 counted sheets, plus ComeOnOverUno's `extraSheets` grant, plus one per companion kind
+ *    their sheets grant (Lewis: "the sheet limit per person should be 2, if you have a companion class or a
+ *    familiar class then +1 for each instance of that"); companion sheets never count. The welcome only
+ *    hides itself at the cap, and a request is a flag any player can write.
  */
+export interface SheetCount {
+  readonly owned: number;
+  readonly allowed: number;
+  /** The /extrasheet grant already counted in `allowed`; 0 means the refusal says how to ask for one. */
+  readonly extra?: number;
+}
+
 export interface PendingUser {
   readonly userId: string;
   readonly userName: string;
@@ -43,7 +52,7 @@ export interface SheetRequestPorts {
   /** The actor already made for this request, if a pass made it and then failed to answer. */
   readonly madeFor: (requestId: string) => string | null;
   /** How many counted sheets the player owns, and how many they may (`extraSheets.ts`). */
-  readonly sheetCount?: (userId: string) => { readonly owned: number; readonly allowed: number };
+  readonly sheetCount?: (userId: string) => SheetCount;
   readonly create: (sheet: NewSheet) => Promise<SheetCreationOutcome>;
   /** Clears the request and writes the answer, on the player's user. */
   readonly answer: (userId: string, result: SheetResult) => Promise<void>;
@@ -97,7 +106,7 @@ export class SheetRequests {
     }
     const count = this.ports.sheetCount?.(user.userId);
     if (count !== undefined && count.owned >= count.allowed) {
-      await this.refuseAtCap(user, count.allowed);
+      await this.refuseAtCap(user, count);
       return;
     }
 
@@ -142,17 +151,19 @@ export class SheetRequests {
   }
 
   /** Turned down with the reason, so the player is told rather than left waiting. */
-  private async refuseAtCap(user: PendingUser, allowed: number): Promise<void> {
+  private async refuseAtCap(user: PendingUser, count: SheetCount): Promise<void> {
+    const { owned, allowed } = count;
+    const most = `You already have ${String(owned)} character sheets here, and ${String(allowed)} is the most you may have.`;
     await this.ports.answer(user.userId, {
       kind: 'refused',
       requestId: user.request.id,
       reason:
-        allowed > 1
-          ? `You already have ${String(allowed)} character sheets here, which is the most anyone can have.`
-          : "You already have a character sheet here. For a second one, send /extrasheet in your campaign's Telegram topic.",
+        count.extra === 0
+          ? `${most} For one more, send /extrasheet in your campaign's Telegram topic.`
+          : most,
     });
     this.ports.tellGm(
-      `${user.userName} asked for another character, but already has ${String(allowed)}, the most they may have here.`
+      `${user.userName} asked for another character, but already has ${String(owned)} of the ${String(allowed)} they may have here.`
     );
   }
 

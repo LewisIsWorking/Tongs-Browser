@@ -12,11 +12,17 @@ import type { CampaignSettings } from './playerCampaigns.js';
  * ⚠️ A hidden WORLD setting, stored exactly like `playerCampaigns.ts`, so the GM's browser that hears it and
  *    the one that enforces it need not be the same, and the player's browser can read its own allowance.
  * ⚠️ Untrusted on the way in: only Foundry-shaped ids and whole numbers above 0 are kept, and every count is
- *    capped at `MAX_EXTRA`, so a damaged map can at most let a player make their one second sheet.
+ *    capped at `MAX_EXTRA`, so a damaged map can at most let a player make one sheet more.
  */
 export const EXTRA_SHEETS_SETTING = 'extraSheets';
 
-/** At most one extra: 2 sheets in all (Lewis, 2026-10-12). Companion sheets never count. */
+/**
+ * Every player's allowance before grants. Lewis, 2026-10-21: "the sheet limit per person should be 2, if you
+ * have a companion class or a familiar class then +1 for each instance of that." Companion sheets never count.
+ */
+const BASE_SHEETS = 2;
+
+/** At most one extra from /extrasheet (Lewis, 2026-10-12). */
 const MAX_EXTRA = 1;
 
 export type ExtraSheets = Readonly<Record<string, number>>;
@@ -50,9 +56,18 @@ export function readExtraSheets(value: unknown): ExtraSheets {
   return kept;
 }
 
-/** How many character sheets a player may own here: 1, plus their extra (so 2 at most). */
-export function allowedSheets(settings: CampaignSettings, userId: string): number {
-  return 1 + (readExtraSheets(settings.get(MODULE_ID, EXTRA_SHEETS_SETTING))[userId] ?? 0);
+/** The extra sheets /extrasheet granted this player here: 0 or 1. */
+export function extraSheetsOf(settings: CampaignSettings, userId: string): number {
+  return readExtraSheets(settings.get(MODULE_ID, EXTRA_SHEETS_SETTING))[userId] ?? 0;
+}
+
+/**
+ * How many character sheets a player may own here (2026-10-21): 2, plus their /extrasheet grant, plus one for
+ * each companion kind their sheets grant (`companionGrants` in sheetLimit.ts). The same sum as
+ * ComeOnOverUno's daily sheet check (PathWarsSheetCheckText.cs), so the post and Tongs agree.
+ */
+export function allowedSheets(settings: CampaignSettings, userId: string, companions = 0): number {
+  return BASE_SHEETS + extraSheetsOf(settings, userId) + Math.max(0, companions);
 }
 
 /** Stores what COO said, only when it changed. A GM's browser only: a player cannot write a world setting. */
