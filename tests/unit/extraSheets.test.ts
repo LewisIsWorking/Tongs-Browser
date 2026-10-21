@@ -16,6 +16,7 @@ import { WorldSwapGm } from '../../src/swaps/WorldSwapGm.js';
  * A second character sheet, granted through ComeOnOverUno. 2026-10-12.
  *
  * Lewis: "a maximum of 1 additional sheet if they already have 1 sheet ... (maximum 2 in total)".
+ * Restated 2026-10-21: one sheet each, /extrasheet makes it 2, 2 is the most, and companions add nothing.
  */
 const ANN = 'AnnAnnAnnAnnAnn1';
 const BOB = 'BobBobBobBobBob2';
@@ -44,21 +45,14 @@ describe('what COO said', () => {
     }
   });
 
-  it('allows 2 sheets, or 3 with a grant, however big the grant (2026-10-21)', () => {
+  it('allows 1 sheet, or 2 with a grant, however big the grant (2026-10-21)', () => {
     const settings = settingsHolding({ [ANN]: 1, [BOB]: 9 });
-    expect(allowedSheets(settings, ANN)).toBe(3);
-    expect(allowedSheets(settings, BOB)).toBe(3);
-    expect(allowedSheets(settings, 'CarlCarlCarlCar3')).toBe(2);
-    expect(allowedSheets(settingsHolding(undefined), ANN)).toBe(2);
+    expect(allowedSheets(settings, ANN)).toBe(2);
+    expect(allowedSheets(settings, BOB)).toBe(2);
+    expect(allowedSheets(settings, 'CarlCarlCarlCar3')).toBe(1);
+    expect(allowedSheets(settingsHolding(undefined), ANN)).toBe(1);
     expect(extraSheetsOf(settings, ANN)).toBe(1);
     expect(extraSheetsOf(settings, 'CarlCarlCarlCar3')).toBe(0);
-  });
-
-  it('adds one per companion kind, on top of the grant, and never takes any away', () => {
-    const settings = settingsHolding({ [ANN]: 1 });
-    expect(allowedSheets(settings, ANN, 2)).toBe(5);
-    expect(allowedSheets(settings, 'CarlCarlCarlCar3', 1)).toBe(3);
-    expect(allowedSheets(settings, 'CarlCarlCarlCar3', -4)).toBe(2);
   });
 
   it('is a hidden world setting', () => {
