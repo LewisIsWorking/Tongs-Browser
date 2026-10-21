@@ -27,9 +27,9 @@ import type { WelcomeActor } from './welcomeDocuments.js';
  *
  * In order, a player sees: the checklist, if a sheet was made for them and is not finished; "your request
  * is in", while one waits for a GM; why it was turned down, if it was; otherwise, with no character of
- * their own here and a campaign party to join, the welcome itself. Under their allowance (2026-10-21: 2,
- * plus a /extrasheet grant, plus one per companion kind their sheets grant; `extraSheets.ts`), the welcome
- * comes back offering another character (Not now on that is remembered, `sheetLimit.ts`).
+ * their own here and a campaign party to join, the welcome itself. With a /extrasheet grant (2026-10-21:
+ * 1 sheet each, 2 with the grant, 2 at most; `extraSheets.ts`), the welcome comes back once more, saying it
+ * is their second (Not now on that is remembered, `sheetLimit.ts`).
  * With Dual Class on (2026-10-20), the welcome also asks one class or two (`welcomeDualClass.ts`), and the
  * checklist has a step for each variant rule that is on (`variantSteps.ts`).
  *

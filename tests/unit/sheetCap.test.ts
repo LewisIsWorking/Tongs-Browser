@@ -13,8 +13,8 @@ import type { WelcomeGame } from '../../src/welcome/welcomeDocuments.js';
 /**
  * The sheet cap, enforced by the GM's browser. 2026-10-12.
  *
- * Lewis, 2026-10-21: "the sheet limit per person should be 2, if you have a companion class or a familiar
- * class then +1 for each instance of that". Companion sheets never count.
+ * Lewis, 2026-10-21: every player gets one sheet; /extrasheet makes it 2, and 2 is the most. Companion and
+ * familiar classes add nothing, and companion sheets never count.
  */
 const PARTY = { uuid: 'Actor.P', name: 'The Party', code: 'C06' };
 
@@ -51,16 +51,8 @@ function world(count: { owned: number; allowed: number; extra?: number }) {
 }
 
 describe('the cap', () => {
-  it('makes a second sheet, in the party, for anyone (2026-10-21: 2 each)', async () => {
-    const { requests, answers, created, told } = world({ owned: 1, allowed: 2, extra: 0 });
-    await requests.serve();
-    expect(created).toEqual(['Kibwe']);
-    expect(answers[0]).toMatchObject({ kind: 'created' });
-    expect(told).toEqual(['Tongs made Kibwe for Lai, in The Party.']);
-  });
-
-  it('turns down a third sheet without a grant, saying how to get one', async () => {
-    const { requests, answers, created, told } = world({ owned: 2, allowed: 2, extra: 0 });
+  it('turns down a second sheet without a grant, saying how to get one', async () => {
+    const { requests, answers, created, told } = world({ owned: 1, allowed: 1, extra: 0 });
     await requests.serve();
     expect(created).toEqual([]);
     expect(answers).toEqual([
@@ -68,26 +60,37 @@ describe('the cap', () => {
         kind: 'refused',
         requestId: 'r2',
         reason:
-          "You already have 2 character sheets here, and 2 is the most you may have. For one more, send /extrasheet in your campaign's Telegram topic.",
+          "You already have a character sheet here. For a second one, send /extrasheet in your campaign's Telegram topic.",
       },
     ]);
+    expect(told).toEqual([
+      'Lai asked for another character, but already has 1 of the 1 they may have here.',
+    ]);
+  });
+
+  it('makes a second sheet, in the party, for a player with a /extrasheet grant', async () => {
+    const { requests, answers, created, told } = world({ owned: 1, allowed: 2, extra: 1 });
+    await requests.serve();
+    expect(created).toEqual(['Kibwe']);
+    expect(answers[0]).toMatchObject({ kind: 'created' });
+    expect(told).toEqual(['Tongs made Kibwe for Lai, in The Party.']);
+  });
+
+  it('turns down a third sheet, with no hint once the grant is used', async () => {
+    const { requests, answers, created, told } = world({ owned: 2, allowed: 2, extra: 1 });
+    await requests.serve();
+    expect(created).toEqual([]);
+    expect(answers[0]).toMatchObject({
+      kind: 'refused',
+      reason: 'You already have 2 character sheets here, which is the most anyone can have.',
+    });
     expect(told).toEqual([
       'Lai asked for another character, but already has 2 of the 2 they may have here.',
     ]);
   });
 
-  it('turns down a sheet past the grant and companions, with no hint once the grant is used', async () => {
-    const { requests, answers, created } = world({ owned: 4, allowed: 4, extra: 1 });
-    await requests.serve();
-    expect(created).toEqual([]);
-    expect(answers[0]).toMatchObject({
-      kind: 'refused',
-      reason: 'You already have 4 character sheets here, and 4 is the most you may have.',
-    });
-  });
-
   it('makes the first sheet as before', async () => {
-    const { requests, created } = world({ owned: 0, allowed: 2 });
+    const { requests, created } = world({ owned: 0, allowed: 1 });
     await requests.serve();
     expect(created).toEqual(['Kibwe']);
   });

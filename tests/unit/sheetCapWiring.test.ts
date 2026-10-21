@@ -18,18 +18,18 @@ const sheet = (uuid: string, ...slugs: string[]) => ({
   uuid,
   name: uuid,
   type: 'character',
-  ownership: { u1: 3 },
+  ownership: { LaiLaiLaiLaiLai1: 3 },
   items: { contents: slugs.map((slug) => ({ system: { slug } })) },
   getFlag: flags({}),
 });
 
-function serve(sheets: unknown[]) {
+function serve(sheets: unknown[], extraSheets: Record<string, number> = {}) {
   const create = vi.fn(async () => Promise.resolve(undefined));
   vi.stubGlobal('Actor', { create });
   const update = vi.fn(async () => Promise.resolve());
   const gm = { id: 'gm', name: 'GM', isGM: true };
   const player = {
-    id: 'u1',
+    id: 'LaiLaiLaiLaiLai1',
     name: 'Lai',
     update,
     getFlag: flags({ sheetRequest: { id: 'r2', name: 'Kibwe', at: 1 } }),
@@ -46,7 +46,7 @@ function serve(sheets: unknown[]) {
     users: { activeGM: gm, contents: [gm, player] },
     actors: Object.assign(actors, { contents: actors }),
   };
-  const values: Record<string, unknown> = { [WELCOME_SETTING]: true };
+  const values: Record<string, unknown> = { [WELCOME_SETTING]: true, extraSheets };
   const settings: WelcomeSettings = {
     register: vi.fn(),
     get: (_namespace, key) => values[key],
@@ -59,24 +59,43 @@ function serve(sheets: unknown[]) {
   return { create, update };
 }
 
-describe('wired to Foundry', () => {
-  it('refuses a request from a player who already owns 2 sheets and has no grant', async () => {
-    const { create, update } = serve([sheet('Actor.A'), sheet('Actor.B')]);
-    await vi.waitFor(() => {
-      expect(update).toHaveBeenCalled();
-    });
-    expect(create).not.toHaveBeenCalled();
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        'flags.tongs-browser.sheetResult': expect.objectContaining({ kind: 'refused' }),
-      })
-    );
+const LAI = 'LaiLaiLaiLaiLai1';
+
+async function refused(update: ReturnType<typeof vi.fn>, create: ReturnType<typeof vi.fn>) {
+  await vi.waitFor(() => {
+    expect(update).toHaveBeenCalled();
+  });
+  expect(create).not.toHaveBeenCalled();
+  expect(update).toHaveBeenCalledWith(
+    expect.objectContaining({
+      'flags.tongs-browser.sheetResult': expect.objectContaining({ kind: 'refused' }),
+    })
+  );
+}
+
+describe('wired to Foundry (2026-10-21: 1 each, 2 with /extrasheet, 2 at most)', () => {
+  it('refuses a second sheet from a player with no grant', async () => {
+    const { create, update } = serve([sheet('Actor.A')]);
+    await refused(update, create);
   });
 
-  it('makes a third sheet when one of the two grants a familiar (2026-10-21)', async () => {
-    const { create } = serve([sheet('Actor.A', 'familiar-witch'), sheet('Actor.B')]);
+  it('refuses a second sheet without a grant even when the first grants a familiar', async () => {
+    const { create, update } = serve([sheet('Actor.A', 'familiar-witch', 'animal-companion')]);
+    await refused(update, create);
+  });
+
+  it('makes a second sheet for a player with a grant', async () => {
+    const { create } = serve([sheet('Actor.A')], { [LAI]: 1 });
     await vi.waitFor(() => {
       expect(create).toHaveBeenCalled();
     });
+  });
+
+  it('refuses a third sheet with a grant, whatever companions the two grant', async () => {
+    const { create, update } = serve(
+      [sheet('Actor.A', 'familiar-witch'), sheet('Actor.B', 'eidolon')],
+      { [LAI]: 1 }
+    );
+    await refused(update, create);
   });
 });

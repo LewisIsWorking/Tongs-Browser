@@ -17,13 +17,17 @@ import type { CampaignSettings } from './playerCampaigns.js';
 export const EXTRA_SHEETS_SETTING = 'extraSheets';
 
 /**
- * Every player's allowance before grants. Lewis, 2026-10-21: "the sheet limit per person should be 2, if you
- * have a companion class or a familiar class then +1 for each instance of that." Companion sheets never count.
+ * Every player's allowance before grants. Lewis, 2026-10-21: every player gets ONE sheet; /extrasheet raises
+ * it to 2, and 2 is the hard maximum. Companion and familiar classes add nothing, and companion sheets never
+ * count. (v0.61.0 gave 2 each plus 1 per companion kind: a misunderstanding, removed in the next release.)
  */
-const BASE_SHEETS = 2;
+const BASE_SHEETS = 1;
 
 /** At most one extra from /extrasheet (Lewis, 2026-10-12). */
 const MAX_EXTRA = 1;
+
+/** The hard maximum, whatever the setting holds. */
+const MAX_SHEETS = BASE_SHEETS + MAX_EXTRA;
 
 export type ExtraSheets = Readonly<Record<string, number>>;
 
@@ -61,13 +65,9 @@ export function extraSheetsOf(settings: CampaignSettings, userId: string): numbe
   return readExtraSheets(settings.get(MODULE_ID, EXTRA_SHEETS_SETTING))[userId] ?? 0;
 }
 
-/**
- * How many character sheets a player may own here (2026-10-21): 2, plus their /extrasheet grant, plus one for
- * each companion kind their sheets grant (`companionGrants` in sheetLimit.ts). The same sum as
- * ComeOnOverUno's daily sheet check (PathWarsSheetCheckText.cs), so the post and Tongs agree.
- */
-export function allowedSheets(settings: CampaignSettings, userId: string, companions = 0): number {
-  return BASE_SHEETS + extraSheetsOf(settings, userId) + Math.max(0, companions);
+/** How many character sheets a player may own here (2026-10-21): 1, or 2 with their /extrasheet grant. */
+export function allowedSheets(settings: CampaignSettings, userId: string): number {
+  return Math.min(MAX_SHEETS, BASE_SHEETS + extraSheetsOf(settings, userId));
 }
 
 /** Stores what COO said, only when it changed. A GM's browser only: a player cannot write a world setting. */

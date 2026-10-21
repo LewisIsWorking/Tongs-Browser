@@ -42,10 +42,7 @@ describe('the welcome', () => {
       startWelcome(t.hooks, t.settings, t.globals, document);
     }
     const owner = player();
-    owner.actors.push(
-      { uuid: 'Actor.X', type: 'character', isOwner: true },
-      { uuid: 'Actor.Y', type: 'character', isOwner: true }
-    );
+    owner.actors.push({ uuid: 'Actor.X', type: 'character', isOwner: true });
     startWelcome(owner.hooks, owner.settings, owner.globals, document);
     expect(welcomeText()).toBeNull();
   });
@@ -100,8 +97,7 @@ describe('the checklist', () => {
     done.actors.push(madeSheet({ madeForRequest: 'r1', [GUIDE_DONE_FLAG]: true }));
     startWelcome(done.hooks, done.settings, done.globals, document);
     expect(guideText()).toBeNull();
-    /* Under the limit of 2 (2026-10-21), so another character is offered instead. */
-    expect(welcomeText()).toContain('Another character in Riddleport');
+    expect(welcomeText()).toBeNull();
   });
 
   it('Open sheet renders the sheet, and switching off closes the checklist', () => {

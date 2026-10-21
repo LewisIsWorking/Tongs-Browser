@@ -14,11 +14,10 @@ import type { ImportBuild } from './importBuild.js';
  *    pass started while the first is still creating would see the same request and make a duplicate. A call
  *    that arrives mid-pass asks for one more pass instead.
  *
- * ⛔ The sheet cap is ENFORCED here, not only in the player's browser (2026-10-12). Since 2026-10-21 a
- *    player may own 2 counted sheets, plus ComeOnOverUno's `extraSheets` grant, plus one per companion kind
- *    their sheets grant (Lewis: "the sheet limit per person should be 2, if you have a companion class or a
- *    familiar class then +1 for each instance of that"); companion sheets never count. The welcome only
- *    hides itself at the cap, and a request is a flag any player can write.
+ * ⛔ The sheet cap is ENFORCED here, not only in the player's browser (2026-10-12). A player may own 1
+ *    counted sheet, or 2 with ComeOnOverUno's `extraSheets` grant, and 2 is the most (Lewis, restated
+ *    2026-10-21); companion and familiar classes add nothing, and companion sheets never count. The welcome
+ *    only hides itself at the cap, and a request is a flag any player can write.
  */
 export interface SheetCount {
   readonly owned: number;
@@ -153,14 +152,14 @@ export class SheetRequests {
   /** Turned down with the reason, so the player is told rather than left waiting. */
   private async refuseAtCap(user: PendingUser, count: SheetCount): Promise<void> {
     const { owned, allowed } = count;
-    const most = `You already have ${String(owned)} character sheets here, and ${String(allowed)} is the most you may have.`;
+    const have = owned === 1 ? 'a character sheet' : `${String(owned)} character sheets`;
     await this.ports.answer(user.userId, {
       kind: 'refused',
       requestId: user.request.id,
       reason:
         count.extra === 0
-          ? `${most} For one more, send /extrasheet in your campaign's Telegram topic.`
-          : most,
+          ? `You already have ${have} here. For a second one, send /extrasheet in your campaign's Telegram topic.`
+          : `You already have ${have} here, which is the most anyone can have.`,
     });
     this.ports.tellGm(
       `${user.userName} asked for another character, but already has ${String(owned)} of the ${String(allowed)} they may have here.`
