@@ -103,6 +103,8 @@ export function startCompanions(
 /**
  * ⚠️ Owned AT CREATION by the character's owners, like a new player's sheet (SheetCreation.ts). A familiar
  *    is PF2e's `familiar` actor with its master set; everything else is a `character` (companionKinds.ts).
+ * ⚠️ Made in the character's own Actors folder, so it sits next to it in the sidebar; at the root when the
+ *    character has none. Before 2026-10-22 every companion was made at the root.
  */
 async function createCompanion(
   globals: CompanionGlobals,
@@ -117,6 +119,7 @@ async function createCompanion(
     name: companion.name,
     type: kind.actorType,
     ownership: Object.fromEntries(character.ownerIds.map((id) => [id, OWNER_LEVEL])),
+    folder: character.folderId,
     ...(kind.actorType === 'familiar' ? { system: { master: { id: character.id } } } : {}),
     flags: {
       [MODULE_ID]: { [COMPANION_OF_FLAG]: character.uuid, [COMPANION_KIND_FLAG]: kind.kind },

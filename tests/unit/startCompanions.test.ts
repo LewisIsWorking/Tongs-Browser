@@ -87,6 +87,7 @@ describe('making a companion in a real world', () => {
       name: "Kibwe's Familiar",
       type: 'familiar',
       ownership: { u1: 3 },
+      folder: null,
       system: { master: { id: 'A' } },
       flags: { 'tongs-browser': { companionOf: 'Actor.A', companionKind: 'familiar' } },
     });

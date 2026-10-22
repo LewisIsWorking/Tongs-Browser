@@ -40,13 +40,20 @@ describe("the GM's listing", () => {
     getFlag: flags({ companionsMade: ['eidolon', 7] }),
   };
 
-  it('lists characters a player owns, with their slugs and what Tongs made', () => {
+  it('lists characters a player owns, with their slugs, what Tongs made, and their folder', () => {
     const listing = companionListing(
       game([
         kibwe,
         { id: 'B', uuid: 'Actor.B', name: null, type: 'character', ownership: { gm: 3 } },
         { id: 'N', uuid: 'Actor.N', name: 'Wolf', type: 'npc', ownership: { u1: 3 } },
-        { id: 'C', uuid: 'Actor.C', name: null, type: 'character', ownership: { u2: 3 } },
+        {
+          id: 'C',
+          uuid: 'Actor.C',
+          name: null,
+          type: 'character',
+          ownership: { u2: 3 },
+          folder: { id: 'RIDDLEPORT' },
+        },
       ])
     );
     expect(listing.characters).toEqual([
@@ -57,8 +64,17 @@ describe("the GM's listing", () => {
         ownerIds: ['u1'],
         slugs: ['familiar', 'pet'],
         made: ['eidolon'],
+        folderId: null,
       },
-      { id: 'C', uuid: 'Actor.C', name: 'A character', ownerIds: ['u2'], slugs: [], made: [] },
+      {
+        id: 'C',
+        uuid: 'Actor.C',
+        name: 'A character',
+        ownerIds: ['u2'],
+        slugs: [],
+        made: [],
+        folderId: 'RIDDLEPORT',
+      },
     ]);
     expect([...listing.players]).toEqual([
       ['u1', 'Lai'],

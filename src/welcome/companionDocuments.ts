@@ -30,6 +30,8 @@ export interface CompanionActor {
   readonly ancestry?: unknown;
   /** A PF2e familiar's master. */
   readonly system?: { readonly master?: { readonly id?: string | null } };
+  /** The Actors folder the sheet sits in; null at the root. */
+  readonly folder?: { readonly id?: string | null } | null;
   getFlag?(scope: string, key: string): unknown;
 }
 
@@ -55,6 +57,8 @@ export interface CompanionCharacter {
   readonly slugs: readonly string[];
   /** The kinds Tongs already made for it (`companionsMade`). */
   readonly made: readonly string[];
+  /** Its Actors folder, where its companions are made too; null at the root. */
+  readonly folderId: string | null;
 }
 
 /** A companion that exists: for one character (`of`), or made by hand for whoever owns it (`of` null). */
@@ -160,6 +164,7 @@ export function companionListing(game: CompanionGame | undefined): CompanionList
         ownerIds,
         slugs: itemSlugs(actor),
         made: strings(actor.getFlag?.(MODULE_ID, COMPANIONS_MADE_FLAG)),
+        folderId: actor.folder?.id ?? null,
       });
     }
   }
