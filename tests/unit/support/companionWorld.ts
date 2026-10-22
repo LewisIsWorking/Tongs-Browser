@@ -14,6 +14,7 @@ export const KIBWE: CompanionCharacter = {
   ownerIds: ['u1'],
   slugs: ['animal-companion'],
   made: [],
+  folderId: null,
 };
 export const PARTY = { uuid: 'Actor.P', name: 'The Party' };
 
