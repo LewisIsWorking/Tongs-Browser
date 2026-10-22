@@ -16,13 +16,7 @@ const flags =
     scope === 'tongs-browser' ? values[key] : undefined;
 
 function table(
-  options: {
-    slugs?: string[];
-    isGM?: boolean;
-    packs?: boolean;
-    system?: string;
-    folder?: { id: string } | null;
-  } = {}
+  options: { slugs?: string[]; isGM?: boolean; packs?: boolean; system?: string } = {}
 ) {
   const gm = { id: 'gm', name: 'GM', isGM: true, role: 4 };
   const lai = { id: 'u1', name: 'Lai', role: 1 };
@@ -32,7 +26,6 @@ function table(
     name: 'Kibwe',
     type: 'character',
     ownership: { u1: 3 },
-    folder: options.folder ?? null,
     items: {
       contents: (options.slugs ?? ['familiar-witch']).map((slug) => ({ system: { slug } })),
     },
@@ -108,21 +101,6 @@ describe('making a companion in a real world', () => {
       speaker: { alias: 'Tongs' },
     });
     expect(names).toContain('createItem');
-  });
-
-  it("makes the companion in its master's folder, so it sits next to the character", async () => {
-    const { create, chat } = stubFoundry();
-    startCompanions({ on: vi.fn() }, settings(), {
-      game: table({ folder: { id: 'RIDDLEPORT' } }).game,
-      Actor: { create },
-      ChatMessage: { create: chat },
-    } as never);
-    await vi.waitFor(() => {
-      expect(chat).toHaveBeenCalled();
-    });
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Kibwe's Familiar", folder: 'RIDDLEPORT' })
-    );
   });
 
   it("makes an eidolon as a character, naming SF2e's Companion Compendia pack", async () => {

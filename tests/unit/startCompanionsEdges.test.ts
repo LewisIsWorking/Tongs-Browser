@@ -5,7 +5,10 @@ import { startCompanions } from '../../src/welcome/startCompanions.js';
 import { WELCOME_SETTING } from '../../src/welcome/startSheetRequests.js';
 import type { WelcomeSettings } from '../../src/welcome/startSheetRequests.js';
 
-/** Companion sheets at the edges: no party, a pack with no label, a pass that throws oddly. 2026-10-12. */
+/**
+ * Companion sheets at the edges: no party, a pack with no label, a pass that throws oddly. 2026-10-12.
+ * And the character's folder, which its companion is made in (2026-10-22).
+ */
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -16,7 +19,7 @@ const settings: WelcomeSettings = {
   set: vi.fn(),
 };
 
-function game(members: string[], pack: object | undefined) {
+function game(members: string[], pack: object | undefined, folder?: { id: string }) {
   const gm = { id: 'gm', isGM: true, role: 4 };
   const actors = [
     {
@@ -31,6 +34,7 @@ function game(members: string[], pack: object | undefined) {
       name: 'Kibwe',
       type: 'character',
       ownership: { u1: 3 },
+      folder,
       items: { contents: [{ slug: 'eidolon' }] },
     },
   ];
@@ -50,6 +54,22 @@ describe('companion sheets at the edges', () => {
     startCompanions({ on: vi.fn() }, settings, { game: game([], {}), Actor: { create } } as never);
     await settle();
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("makes the companion in its character's folder, so it sits next to it", async () => {
+    vi.stubGlobal('fromUuid', async () =>
+      Promise.resolve({ addMembers: vi.fn(), setFlag: vi.fn() })
+    );
+    const create = vi.fn(async () => Promise.resolve({ uuid: 'Actor.NEW' }));
+    startCompanions({ on: vi.fn() }, settings, {
+      game: game(['Actor.A'], {}, { id: 'RIDDLEPORT' }),
+      Actor: { create },
+    } as never);
+    await vi.waitFor(() => {
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "Kibwe's Eidolon", folder: 'RIDDLEPORT' })
+      );
+    });
   });
 
   it('names a pack by its title, or by its name when it has neither label nor title', async () => {
