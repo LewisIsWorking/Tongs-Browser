@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.61.2
+
+### Patch Changes
+
+- [#480](https://github.com/LewisIsWorking/Tongs-Browser/pull/480) [`176246f`](https://github.com/LewisIsWorking/Tongs-Browser/commit/176246f60f5271025de75683610b244161fa6892) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - A companion Tongs makes (familiar, eidolon, animal companion and the rest) is now created in its character's Actors folder, so it sits next to the character in the sidebar. A character with no folder still gets its companion at the root.
+
 ## 0.61.1
 
 ### Patch Changes
