@@ -36,6 +36,7 @@ import type { FoundryGame } from './foundry/PartyAccess.js';
 import { startDualClass } from './dualclass/startDualClass.js';
 import { startBreatherMacro } from './breather/breatherMacro.js';
 import type { MacroGlobals } from './breather/breatherMacro.js';
+import { startBreatherPosts } from './breather/breatherPost.js';
 
 /**
  * Starting everything that waits for `ready`. Extracted from main.ts 2026-09-20, when adding world
@@ -121,6 +122,8 @@ export function startFeatures(parts: FeatureParts): void {
     storeExtra,
     storeOwners
   );
+  /* 🫁 Each No-Limit Stamina breather, told to the character's campaign's combat topic (2026-11-02). */
+  startBreatherPosts(hooks, globals, client);
   /* Encounter sync: off per world; its settings exist only if init built the client. */
   startEncounterSync(hooks, settings, globals, client);
   /* World swaps: tells COO a GM is here, and asks before another campaign takes the server. */
