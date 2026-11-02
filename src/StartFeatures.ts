@@ -34,6 +34,8 @@ import type { HelperCall, HelperGlobals } from './helper/startHelperCall.js';
 import { PARTY_LIST_WORK, partyListBehind } from './welcome/partyListWork.js';
 import type { FoundryGame } from './foundry/PartyAccess.js';
 import { startDualClass } from './dualclass/startDualClass.js';
+import { startBreatherMacro } from './breather/breatherMacro.js';
+import type { MacroGlobals } from './breather/breatherMacro.js';
 
 /**
  * Starting everything that waits for `ready`. Extracted from main.ts 2026-09-20, when adding world
@@ -84,6 +86,8 @@ export function startFeatures(parts: FeatureParts): void {
   startImport(hooks, globals as ImportGlobals);
   /* Dual class (2026-10-12): a player asks, the designated GM builds, the sheet gets it. See src/dualclass. */
   startDualClass(hooks, globals, parts.document);
+  /* Take a Breather (No-Limit Stamina), 2026-11-02: a GM's browser puts the macro in Stamina worlds. See src/breather. */
+  startBreatherMacro(settings, globals as MacroGlobals);
   /* Idle GM sign-out: frees the world whether or not COO is signed in, so it starts before that check. */
   const idleSeconds = startAfkGuard(settings, globals, {
     target: parts.document,
