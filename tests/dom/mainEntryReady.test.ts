@@ -28,6 +28,9 @@ describe('at ready', () => {
 
     expect(moduleEntry.api).toBeDefined();
     expect(typeof (moduleEntry.api as { getPointer?: unknown }).getPointer).toBe('function');
+    /* The "Take a Breather (No-Limit Stamina)" macro's one call, 2026-11-02 (src/breather). */
+    const breather = moduleEntry.api as { takeABreatherNoLimit?: () => Promise<unknown> };
+    expect(typeof breather.takeABreatherNoLimit).toBe('function');
   });
 
   it('enables the module when the stored setting says so', async () => {
