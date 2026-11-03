@@ -1,5 +1,13 @@
 # tongs-browser
 
+## 0.62.0
+
+### Minor Changes
+
+- [#484](https://github.com/LewisIsWorking/Tongs-Browser/pull/484) [`915ed71`](https://github.com/LewisIsWorking/Tongs-Browser/commit/915ed71711728b8a307b782060cfd3d8a80f4887) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Each Take a Breather (No-Limit Stamina) is now posted to the character's campaign's Telegram combat topic, in or out of combat: the GM's browser sends the Stamina regained and that no Resolve Point was spent. The campaign is the one whose party lists the character, so a world shared by two campaigns posts to the right one. It needs a GM signed in to ComeOnOverUno, and a ComeOnOverUno server with the new breather endpoint.
+
+- [#482](https://github.com/LewisIsWorking/Tongs-Browser/pull/482) [`a90d0ea`](https://github.com/LewisIsWorking/Tongs-Browser/commit/a90d0ea06c6f2ca59ff90d4ec358de5ea1bd1079) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Take a Breather (No-Limit Stamina), the Gamemastery Guide's option for the Stamina variant: in a Stamina world, Tongs adds a "Take a Breather (No-Limit Stamina)" macro to the Macro Directory once. A player selects their token (or just uses their assigned character), runs it, rests 10 minutes out of combat and has their Stamina Points refilled to max, with no Resolve Point needed or spent. The chat card names No-Limit Stamina. Worlds without the Stamina variant are told it does nothing there, and a character in a started encounter is skipped.
+
 ## 0.61.2
 
 ### Patch Changes
