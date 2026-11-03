@@ -1,0 +1,13 @@
+{
+  "_id": "TongsBreatherNL1",
+  "_key": "!macros!TongsBreatherNL1",
+  "name": "Take a Breather (No-Limit Stamina)",
+  "type": "script",
+  "scope": "global",
+  "img": "icons/svg/unconscious.svg",
+  "command": "const tongs = game.modules.get('tongs-browser');\nif (tongs?.active && tongs.api?.takeABreatherNoLimit) tongs.api.takeABreatherNoLimit();\nelse ui.notifications.warn('Take a Breather (No-Limit Stamina) needs the Tongs Browser module switched on.');",
+  "folder": null,
+  "sort": 0,
+  "ownership": { "default": 1 },
+  "flags": { "tongs-browser": { "breatherNoLimit": true } }
+}

@@ -8,7 +8,8 @@ import type { BreatherGlobals, BreatherOutcome } from './takeABreather.js';
 /**
  * Putting "Take a Breather (No-Limit Stamina)" in the Macro Directory of every Stamina world. Added 2026-11-02.
  *
- * Tongs ships no compendium, so players find it where they find a GM's macros: the active full GM's
+ * The "Tongs Macros" compendium ships it too (packs-src/tongs-macros, 2026-11-03), and its command must
+ * stay equal to BREATHER_COMMAND. Players also find it where they find a GM's macros: the active full GM's
  * browser makes it once, as a world Script macro every player may run (`ownership.default` 1, LIMITED,
  * which is what PF2e's own "Take a Breather" macro carries). A player drags it to their hotbar.
  *

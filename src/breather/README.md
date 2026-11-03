@@ -20,6 +20,10 @@ The **Macro Directory**, as a Script macro named "Take a Breather (No-Limit Stam
 Stamina variant. Any macro or console can also call
 `game.modules.get('tongs-browser').api.takeABreatherNoLimit()`.
 
+The **Compendium tab** too (2026-11-03): the "Tongs Macros" pack ships the same macro, in every world, from
+`packs-src/tongs-macros/`. Lewis looked for it there and it was missing. Its command is held equal to
+`BREATHER_COMMAND` by `tests/unit/breatherPack.test.ts`, so it only calls the `api` and never goes stale.
+
 ## The combat topic
 
 Lewis, 2026-11-02: "Could the macro always post to that campaign's combat topic regardless of if they are in
