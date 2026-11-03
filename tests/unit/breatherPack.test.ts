@@ -44,9 +44,7 @@ describe('the Tongs Macros compendium', () => {
       command: BREATHER_COMMAND,
       ownership: { default: 1 },
     });
-    expect(macro['command']).toContain(
-      "game.modules.get('tongs-browser')"
-    );
+    expect(macro['command']).toContain("game.modules.get('tongs-browser')");
     expect(macro['command']).toContain('takeABreatherNoLimit()');
     expect(macro['_key']).toBe(`!macros!${String(macro['_id'])}`);
     expect(String(macro['_id'])).toMatch(/^[A-Za-z0-9]{16}$/);
