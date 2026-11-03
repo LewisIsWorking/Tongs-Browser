@@ -11,6 +11,7 @@ of this subsystem and simply make Taking a Breather and Rally free". The chat ca
 | ------------------ | ---------------------------------------------------------------------------------- |
 | `takeABreather.ts` | The action, ported from PF2e's `takeABreather`: confirm, refill Stamina, chat card |
 | `breatherMacro.ts` | The world macro a GM's browser makes once, and the `api` call the macro runs       |
+| `breatherPost.ts`  | The GM's browser telling the character's campaign's combat topic about each one    |
 
 ## Where players find it
 
@@ -18,6 +19,19 @@ The **Macro Directory**, as a Script macro named "Take a Breather (No-Limit Stam
 (drag it to the hotbar). The active full GM's browser makes it once per world, only when the world uses the
 Stamina variant. Any macro or console can also call
 `game.modules.get('tongs-browser').api.takeABreatherNoLimit()`.
+
+## The combat topic
+
+Lewis, 2026-11-02: "Could the macro always post to that campaign's combat topic regardless of if they are in
+combat?" Each card carries a `breather` flag (name, Stamina before, max, token art). The active full GM's browser
+hears `createChatMessage` and posts it to ComeOnOverUno's `POST api/pathwars/campaigns/{code}/breather`, which
+renders the line for the campaign's combat topic, fight or no fight.
+
+- ⚠️ **The campaign is the character's**, from the parties listing it (`campaignOfCharacter`, as the HP log
+  reads it), never an encounter's. In a world serving C00 and C01 it is the one whose party lists the character.
+- ⚠️ **Only a GM's browser can post**: the player who ran the macro has no ComeOnOverUno sign-in. With no GM on,
+  the card is in Foundry's chat and nothing reaches the topic.
+- ⚠️ **Silent when it cannot post** (no campaign, not signed in, a server without `breather`); each is logged.
 
 ## What it does, against PF2e 8.6.1's own
 

@@ -9,6 +9,7 @@ export const character = (
   const update = vi.fn(async () => Promise.resolve());
   const actor = {
     id: over.name ?? 'Kibwe',
+    uuid: `Actor.${over.name ?? 'Kibwe'}`,
     name: over.name ?? 'Kibwe',
     inCombat: over.inCombat ?? false,
     system: {
@@ -16,7 +17,9 @@ export const character = (
       resources: { resolve: { value: 0, max: 3 } },
     },
     isOfType: (...types: string[]) => types.includes('character'),
-    getActiveTokens: () => [{ name: `${over.name ?? 'Kibwe'} (token)` }],
+    getActiveTokens: () => [
+      { name: `${over.name ?? 'Kibwe'} (token)`, texture: { src: 'tokens/kibwe.webp' } },
+    ],
     update,
   };
   return { actor: actor as BreatherActor, update };

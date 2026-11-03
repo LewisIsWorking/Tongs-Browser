@@ -1,3 +1,5 @@
+import { MODULE_ID } from '../constants.js';
+
 /**
  * PF2e's "Take a Breather" under the GMG's No-Limit Stamina option: no Resolve Point. Added 2026-11-02.
  *
@@ -20,6 +22,9 @@
  */
 export const BREATHER_TITLE = 'Take a Breather (No-Limit Stamina)';
 
+/** The chat card's flag, under the module's scope, carrying the facts for the combat topic. */
+export const BREATHER_FLAG = 'breather';
+
 interface Pool {
   readonly value: number;
   readonly max: number;
@@ -27,11 +32,16 @@ interface Pool {
 
 export interface BreatherActor {
   readonly id?: string | null;
+  readonly uuid?: string;
+  readonly img?: string;
   readonly name?: string | null;
   readonly inCombat?: boolean;
   readonly system?: { readonly attributes?: { readonly hp?: { readonly sp?: Pool | null } } };
   isOfType?(...types: string[]): boolean;
-  getActiveTokens?(linked?: boolean, document?: boolean): readonly { readonly name?: string }[];
+  getActiveTokens?(
+    linked?: boolean,
+    document?: boolean
+  ): readonly { readonly name?: string; readonly texture?: { readonly src?: string } }[];
   update?(data: object): Promise<unknown>;
 }
 
@@ -131,7 +141,19 @@ export async function takeABreatherNoLimit(globals: BreatherGlobals): Promise<Br
     }
     await actor.update?.({ 'system.attributes.hp.sp.value': sp.max });
     refreshed.push(name);
-    await chat?.create?.({ speaker, content: breatherCard(name, sp) });
+    /* The flag is what the GM's browser posts to the combat topic from (`breatherPost.ts`). */
+    const breather = {
+      actorUuid: actor.uuid,
+      name,
+      spBefore: sp.value,
+      maxSp: sp.max,
+      img: token?.texture?.src ?? actor.img,
+    };
+    await chat?.create?.({
+      speaker,
+      content: breatherCard(name, sp),
+      flags: { [MODULE_ID]: { [BREATHER_FLAG]: breather } },
+    });
   }
   return { kind: 'done', refreshed, skipped };
 }

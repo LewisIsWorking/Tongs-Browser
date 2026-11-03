@@ -53,6 +53,7 @@ describe('take a breather, no resolve, at the edges', () => {
       name: 'Lai',
       system: { attributes: { hp: { sp: { value: 1, max: 9 } } } },
       isOfType: () => true,
+      img: 'lai.webp',
     } as BreatherActor;
     const w = world({ tokens: [{ actor }] });
     w.globals = { ...w.globals, ChatMessage: { create } };
@@ -60,6 +61,9 @@ describe('take a breather, no resolve, at the edges', () => {
     expect(create).toHaveBeenCalledWith({
       speaker: { alias: 'Lai' },
       content: breatherCard('Lai', { value: 1, max: 9 }),
+      flags: {
+        'tongs-browser': { breather: { name: 'Lai', spBefore: 1, maxSp: 9, img: 'lai.webp' } },
+      },
     });
     const nameless = { ...actor, name: null } as BreatherActor;
     const n = world({ tokens: [{ actor: nameless }] });

@@ -30,6 +30,18 @@ describe('take a breather, no resolve', () => {
     expect(w.create).toHaveBeenCalledWith({
       speaker: { alias: 'Kibwe (token)' },
       content: breatherCard('Kibwe (token)', { value: 3, max: 20 }),
+      /* What the GM's browser posts to the combat topic from (breatherPost.ts). */
+      flags: {
+        'tongs-browser': {
+          breather: {
+            actorUuid: 'Actor.Kibwe',
+            name: 'Kibwe (token)',
+            spBefore: 3,
+            maxSp: 20,
+            img: 'tokens/kibwe.webp',
+          },
+        },
+      },
     });
     expect(w.confirm).toHaveBeenCalledWith(
       expect.objectContaining({ window: { title: BREATHER_TITLE } })
