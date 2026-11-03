@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+packs/
 module.zip
 
 # Test and coverage output
