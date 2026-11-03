@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.63.0
+
+### Minor Changes
+
+- [#485](https://github.com/LewisIsWorking/Tongs-Browser/pull/485) [`da4ea9f`](https://github.com/LewisIsWorking/Tongs-Browser/commit/da4ea9f29ac1d617fef248b67be6fd524e0aadfa) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Take a Breather (No-Limit Stamina) now ships in a Tongs Macros compendium too, so players find it in the Compendium tab as well as the Macro Directory. It calls the module API, so it never goes stale.
+
 ## 0.62.0
 
 ### Minor Changes
