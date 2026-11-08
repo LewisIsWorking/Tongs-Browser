@@ -8,6 +8,7 @@ import { registerPlayerHitSetting, buildPlayerHits } from './startPlayerHits.js'
 import { buildHpLog } from './startHpLog.js';
 import { registerSignInMenu } from './cooSignIn.js';
 import { registerTelegramSignInMenu } from './telegramSignIn.js';
+import { watchSignInLabel } from './signInLabel.js';
 import type { SignInGlobals } from './cooSignIn.js';
 import { readPartyCampaigns } from '../foundry/PartyAccess.js';
 import type { FoundryGame } from '../foundry/PartyAccess.js';
@@ -93,6 +94,7 @@ export function registerBandMenus(
   );
   /* 🩺 What Tongs has done, 2026-10-19: see tongsStatus.ts. */
   registerActivityMenu(settings, globals, activity, () => isSignedIn(settings));
+  watchSignInLabel(globals.Hooks, () => isSignedIn(settings));
 }
 
 /** True when this browser keeps a ComeOnOverUno sign-in (not whether COO still honours it). */

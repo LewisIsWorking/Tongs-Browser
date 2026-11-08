@@ -12,7 +12,7 @@ import { MODULE_ID } from '../constants.js';
  * Foundry 14's button: `<button data-action="openSubmenu" data-key="<module>.<key>"><i/><span>label</span>`
  * (templates/settings/config-category.hbs).
  */
-export const SIGN_IN_KEYS = ['cooSignIn', 'cooTelegramSignIn'] as const;
+const SIGN_IN_KEYS = ['cooSignIn', 'cooTelegramSignIn'] as const;
 export const SIGNED_IN_LABEL = 'Signed in (sign in again)';
 
 interface ButtonRoot {
@@ -34,7 +34,7 @@ export function relabelSignInButtons(root: ButtonRoot, signedIn: boolean): numbe
   return changed;
 }
 
-interface HooksOn {
+export interface SignInLabelHooks {
   on(name: string, fn: (app: unknown, element: unknown) => unknown): unknown;
 }
 
@@ -42,8 +42,11 @@ const isRoot = (value: unknown): value is ButtonRoot =>
   typeof (value as { querySelectorAll?: unknown } | null)?.querySelectorAll === 'function';
 
 /** Relabels on every render of Foundry's settings window. Never throws into Foundry's render. */
-export function watchSignInLabel(hooks: HooksOn, signedIn: () => boolean): void {
-  hooks.on('renderSettingsConfig', (_app, element) => {
+export function watchSignInLabel(
+  hooks: SignInLabelHooks | undefined,
+  signedIn: () => boolean
+): void {
+  hooks?.on('renderSettingsConfig', (_app, element) => {
     try {
       if (isRoot(element)) {
         relabelSignInButtons(element, signedIn());

@@ -1,6 +1,7 @@
 import type { CooClient } from './CooClient.js';
 import { registerGmMenu } from './settingsMenu.js';
 import type { MenuGlobals, MenuSettings } from './settingsMenu.js';
+import type { SignInLabelHooks } from './signInLabel.js';
 
 /**
  * Signing the GM's browser in to ComeOnOverUno, from Foundry's module settings. Added 2026-09-14.
@@ -26,6 +27,8 @@ export const SIGN_IN_HINT =
   'Without it, a player pressing Play for another campaign closes this world without asking. Only the GM needs to.';
 
 export interface SignInGlobals {
+  /** Foundry's own, for keeping the sign-in buttons' text true (`signInLabel.ts`). */
+  readonly Hooks?: SignInLabelHooks;
   readonly foundry?: {
     readonly applications?: {
       readonly api?: {

@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import type { CooClient } from '../../src/bands/CooClient.js';
 import {
   relabelSignInButtons,
   SIGNED_IN_LABEL,
   watchSignInLabel,
 } from '../../src/bands/signInLabel.js';
+import { registerBandMenus } from '../../src/bands/startBands.js';
 
 /** Lewis, 2026-11-08: signed in, and the settings button still said "Sign in". */
 const settingsWindow = () => {
@@ -47,6 +49,15 @@ describe('the sign-in buttons', () => {
     const after = settingsWindow();
     render({}, after);
     expect(labels(after)[0]).toBe(SIGNED_IN_LABEL);
+  });
+
+  it('are wired up when the menus register, and need Foundry's hooks only if it has them', () => {
+    const on = vi.fn();
+    registerBandMenus({}, {} as CooClient, { Hooks: { on } });
+    expect(on).toHaveBeenCalledWith('renderSettingsConfig', expect.any(Function));
+    expect(() => {
+      registerBandMenus({}, {} as CooClient, {});
+    }).not.toThrow();
   });
 
   it('never break the settings window: no element, or a state that throws', () => {

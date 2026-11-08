@@ -14,13 +14,7 @@ import { SettingsStore } from './settings/SettingsStore.js';
 import { registerAutoApplySetting } from './automation/startAutoApply.js';
 import { registerSpellSavesSetting } from './automation/startSpellSaves.js';
 import { registerSpellDamageSetting } from './automation/startSpellDamage.js';
-import {
-  buildCooClient,
-  isSignedIn,
-  registerBandMenus,
-  registerBandSettings,
-} from './bands/startBands.js';
-import { watchSignInLabel } from './bands/signInLabel.js';
+import { buildCooClient, registerBandMenus, registerBandSettings } from './bands/startBands.js';
 import type { MenuStartGlobals } from './bands/startBands.js';
 import type { CooClient } from './bands/CooClient.js';
 import { registerEncounterSync } from './encounter/startEncounterSync.js';
@@ -80,7 +74,6 @@ Hooks.once('init', () => {
   /* ⚠️ ONE client for the sign-in menu and the reporter: COO rotates refresh tokens. */
   cooClient = buildCooClient(settingsApi, globalThis);
   registerBandMenus(settingsApi, cooClient, globalThis as MenuStartGlobals);
-  watchSignInLabel(Hooks, () => isSignedIn(settingsApi));
   registerEncounterSync(settingsApi, cooClient, globalThis as MenuStartGlobals);
   registerWorldSwaps(settingsApi);
   registerAfkGuard(settingsApi);
