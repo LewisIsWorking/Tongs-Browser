@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.63.2
+
+### Patch Changes
+
+- [#491](https://github.com/LewisIsWorking/Tongs-Browser/pull/491) [`c85e6d3`](https://github.com/LewisIsWorking/Tongs-Browser/commit/c85e6d3519efd41ed886280d3a81cae382e169dc) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - The sign-in buttons in the module settings now say "Signed in (sign in again)" once this browser is signed in, instead of always saying "Sign in".
+
 ## 0.63.1
 
 ### Patch Changes
