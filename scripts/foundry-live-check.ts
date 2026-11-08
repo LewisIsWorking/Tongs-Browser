@@ -31,6 +31,7 @@ import {
   captureModuleLog,
   ensureActiveScene,
   ensureModuleEnabled,
+  ensurePointerOn,
   joinWorld,
   launchBrowser,
   removeProbeScene,
@@ -141,6 +142,7 @@ async function main() {
     const heartbeat = awaitHeartbeat(page);
     await joinWorld(page);
     await ensureModuleEnabled(page);
+    await ensurePointerOn(page);
 
     const enabled = await page.evaluate(
       (id) => game.modules.get(id)?.api?.isEnabled() ?? false,

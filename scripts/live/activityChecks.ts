@@ -10,26 +10,32 @@ import type { Recorder } from './recorder.ts';
  * exactly like a world nobody has opened.
  */
 const STATUS_PATH = '/api/tongs/status';
-/** The first report goes 30 s after the world loads (`FIRST_REPORT_MS`); this allows for a slow join. */
+/** The first report goes 30 s after the world loads (`FIRST_REPORT_MS`); this allows for a slow machine. */
 const HEARTBEAT_WAIT_MS = 75_000;
+const DIALOG_WAIT_MS = 60_000;
 
 /**
  * Starts listening for the first heartbeat. Call it BEFORE joining the world, because the report is timed
- * from the module's start and a listener added later can miss it.
+ * from the module's start and a listener added later can miss it. It has no limit of its own: a world can
+ * take minutes to load here, so the limit starts in `checkHeartbeat`, once the world is up.
  */
-export function awaitHeartbeat(page: Page): Promise<Response | null> {
-  return page
-    .waitForResponse((r) => r.url().includes(STATUS_PATH) && r.request().method() === 'POST', {
-      timeout: HEARTBEAT_WAIT_MS,
-    })
-    .catch(() => null);
+export function awaitHeartbeat(page: Page): Promise<Response> {
+  return new Promise((resolve) => {
+    const onResponse = (response: Response) => {
+      if (response.url().includes(STATUS_PATH) && response.request().method() === 'POST') {
+        page.off('response', onResponse);
+        resolve(response);
+      }
+    };
+    page.on('response', onResponse);
+  });
 }
 
 /** The heartbeat reached COO and named this world and this version of the module. */
 export async function checkHeartbeat(
   page: Page,
   recorder: Recorder,
-  heartbeat: Promise<Response | null>
+  heartbeat: Promise<Response>
 ) {
   const expected = await page.evaluate(
     (id) => ({
@@ -43,7 +49,10 @@ export async function checkHeartbeat(
     recorder.skip('heartbeat reaches COO', 'only a full GM reports; join as one to check it');
     return;
   }
-  const response = await heartbeat;
+  const response = await Promise.race([
+    heartbeat,
+    page.waitForTimeout(HEARTBEAT_WAIT_MS).then(() => null),
+  ]);
   if (response === null) {
     recorder.record(
       'heartbeat reaches COO',
@@ -73,19 +82,32 @@ export async function checkActivityMenu(page: Page, recorder: Recorder) {
     const Menu = game.settings.menus.get(k).type;
     new Menu().render(true);
   }, key);
-  const dialog = page.locator('.application', { hasText: 'Tongs activity' }).last();
-  const shown = await dialog
-    .waitFor({ state: 'visible', timeout: 10_000 })
-    .then(() => dialog.innerText())
+  /*
+   * Read in the page on a 1 s timer, not with a locator: locators wait on animation frames, which headless
+   * Chromium barely draws with the Foundry canvas up (same reason as `waitForReady`).
+   */
+  const shown = await page
+    .waitForFunction(
+      () => {
+        const dialog = [...document.querySelectorAll<HTMLElement>('.application')].find((a) =>
+          a.textContent.includes('Tongs activity')
+        );
+        return dialog === undefined ? false : dialog.innerText;
+      },
+      undefined,
+      { timeout: DIALOG_WAIT_MS, polling: 1_000 }
+    )
+    .then((handle) => handle.jsonValue() as Promise<string>)
     .catch(() => '');
   recorder.record(
     'activity menu opens on the sign-in state',
     /signed in/i.test(shown),
     shown === '' ? 'no dialog appeared' : shown.replace(/\s+/g, ' ').slice(0, 160)
   );
-  await dialog
-    .getByRole('button', { name: 'Close' })
-    .first()
-    .click({ timeout: 5_000 })
-    .catch(() => undefined);
+  await page.evaluate(() => {
+    const dialog = [...document.querySelectorAll('.application')].find((a) =>
+      a.textContent.includes('Tongs activity')
+    );
+    dialog?.querySelector<HTMLElement>('button[data-action="ok"]')?.click();
+  });
 }
