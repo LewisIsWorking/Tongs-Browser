@@ -1,4 +1,5 @@
 import { LoadingOverlay } from './LoadingOverlay.js';
+import { expectedLoadMs, rememberLoadMs } from './loadingTimes.js';
 
 /**
  * ⏳ Puts LoadingOverlay up the moment Tongs' script is imported, the earliest point a module runs, and moves it
@@ -10,8 +11,16 @@ import { LoadingOverlay } from './LoadingOverlay.js';
 export interface LoadingOverlayGlobals {
   readonly Hooks: { once(hook: string, fn: () => void): unknown };
   readonly game?:
-    { readonly ready?: boolean; readonly world?: { readonly title?: string } } | undefined;
+    | {
+        readonly ready?: boolean;
+        readonly world?: { readonly id?: string; readonly title?: string };
+      }
+    | undefined;
   readonly document?: Document | undefined;
+  /** Where the last load's time is kept (2026-11-08); none means the sliding bar, as before. */
+  readonly storage?: Storage | undefined;
+  /** The clock, for tests; performance.now() otherwise. */
+  readonly now?: (() => number) | undefined;
 }
 
 /** The text for each stage, in order. Exported so a test reads the same words the player does. */
@@ -29,8 +38,16 @@ export function startLoadingOverlay(globals: LoadingOverlayGlobals): LoadingOver
   // Already running (a hot reload), or no page at all (Foundry's server-side tooling): nothing to cover.
   if (!doc || globals.game?.ready === true) return null;
 
+  const now = globals.now ?? ((): number => performance.now());
+  const startedAt = now();
   const overlay = new LoadingOverlay(doc);
-  overlay.show('Opening Foundry', LOADING_STAGES.start);
+  // ⏱️ 2026-11-08: fill the bar over the last load's time. The world is not known yet this early, so the most
+  //    recent load stands in; it is the same world on almost every reload.
+  overlay.show(
+    'Opening Foundry',
+    LOADING_STAGES.start,
+    expectedLoadMs(globals.storage, globals.game?.world?.id)
+  );
   const worldTitle = (): void => {
     const title = globals.game?.world?.title;
     if (title) overlay.setTitle(`Opening ${title}`);
@@ -44,6 +61,7 @@ export function startLoadingOverlay(globals: LoadingOverlayGlobals): LoadingOver
     overlay.setStage(LOADING_STAGES.setup);
   });
   globals.Hooks.once('ready', () => {
+    rememberLoadMs(globals.storage, now() - startedAt, globals.game?.world?.id);
     overlay.hide();
   });
   setTimeout(() => {

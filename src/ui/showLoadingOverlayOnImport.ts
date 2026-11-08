@@ -5,4 +5,13 @@ import { startLoadingOverlay } from './startLoadingOverlay.js';
  * the earliest moment Tongs runs (startLoadingOverlay explains the stages). Kept out of main.ts, which sits at
  * its size limit, and so a test can import startLoadingOverlay without putting a screen up.
  */
-startLoadingOverlay({ Hooks, game, document: globalThis.document });
+startLoadingOverlay({ Hooks, game, document: globalThis.document, storage: browserStorage() });
+
+/** localStorage, or none where the browser refuses it (reading the property itself can throw). */
+function browserStorage(): Storage | undefined {
+  try {
+    return globalThis.localStorage;
+  } catch {
+    return undefined;
+  }
+}
