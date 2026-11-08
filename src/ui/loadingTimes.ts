@@ -54,3 +54,12 @@ export function rememberLoadMs(storage: Storage | undefined, ms: number, worldId
     // Storage refused: next time is simply the sliding bar again.
   }
 }
+
+/** localStorage, or none where the browser refuses it: in a private window reading the property itself throws. */
+export function browserStorage(scope: { readonly localStorage: Storage }): Storage | undefined {
+  try {
+    return scope.localStorage;
+  } catch {
+    return undefined;
+  }
+}

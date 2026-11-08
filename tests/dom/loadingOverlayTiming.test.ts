@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { expectedHint } from '../../src/ui/LoadingOverlay.js';
-import { expectedLoadMs, LOADING_TIME_MAX_MS, rememberLoadMs } from '../../src/ui/loadingTimes.js';
+import {
+  browserStorage,
+  expectedLoadMs,
+  LOADING_TIME_MAX_MS,
+  rememberLoadMs,
+} from '../../src/ui/loadingTimes.js';
 import { startLoadingOverlay } from '../../src/ui/startLoadingOverlay.js';
 
 /**
@@ -118,5 +123,22 @@ describe('the loading bar that fills over the last load', () => {
   it('says minutes for a long load', () => {
     expect(expectedHint(150_000)).toBe('Last time this took about 3 minutes.');
     expect(expectedHint(45_000)).toBe('Last time this took about 45 seconds.');
+  });
+
+  it('reads nothing from a stored value that is not a saved record', () => {
+    localStorage.setItem('tongs-loading-times', '42');
+    expect(expectedLoadMs(localStorage)).toBeUndefined();
+    localStorage.setItem('tongs-loading-times', 'null');
+    expect(expectedLoadMs(localStorage)).toBeUndefined();
+  });
+
+  it('finds no storage where reading localStorage itself throws (a private window)', () => {
+    const scope = {
+      get localStorage(): Storage {
+        throw new Error('SecurityError');
+      },
+    };
+    expect(browserStorage(scope)).toBeUndefined();
+    expect(browserStorage({ localStorage })).toBe(localStorage);
   });
 });
