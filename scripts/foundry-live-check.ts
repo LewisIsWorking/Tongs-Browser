@@ -25,13 +25,13 @@ import { createRecorder, describeOutcome, isFailure, type Recorder } from './liv
 import { checkChromeRespondsToClick } from './live/chromeChecks.ts';
 import { checkSceneControlToggle } from './live/sceneControlChecks.ts';
 import { awaitHeartbeat, checkActivityMenu, checkHeartbeat } from './live/activityChecks.ts';
+import { ensurePointerOn } from './live/ensurePointerOn.ts';
 import {
   BASE,
   MODULE_ID,
   captureModuleLog,
   ensureActiveScene,
   ensureModuleEnabled,
-  ensurePointerOn,
   joinWorld,
   launchBrowser,
   removeProbeScene,
