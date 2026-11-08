@@ -28,6 +28,7 @@ player character is hurt: the damage, from what, and the HP left, with the chara
 | `CooClient.ts`          | Pairing with ComeOnOverUno and posting, keeping only a refresh token          |
 | `cooSignIn.ts`          | The GM-only sign-in menu in the module settings                               |
 | `telegramSignIn.ts`     | The GM-only Sign in with Telegram menu: COO's bot DMs the pairing code        |
+| `signInLabel.ts`        | The sign-in buttons say "Signed in" once this browser is                      |
 | `activityLog.ts`        | What Tongs did with COO in this browser: request paths, warnings, sign-ins    |
 | `tongsStatus.ts`        | The GM-only Tongs activity menu, and the status heartbeat COO keeps per world |
 | `startBands.ts`         | The settings, and connecting the reporter to Foundry's hooks                  |

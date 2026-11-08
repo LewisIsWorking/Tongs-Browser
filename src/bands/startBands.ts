@@ -6,8 +6,9 @@ import { combatSubjects, subjectsForActor } from './bandTokens.js';
 import { sharedBandPorts } from './bandPorts.js';
 import { registerPlayerHitSetting, buildPlayerHits } from './startPlayerHits.js';
 import { buildHpLog } from './startHpLog.js';
-import { registerSignInMenu } from './cooSignIn.js';
+import { LOST_SESSION, NO_SESSION, registerSignInMenu } from './cooSignIn.js';
 import { registerTelegramSignInMenu } from './telegramSignIn.js';
+import { watchSignInLabel } from './signInLabel.js';
 import type { SignInGlobals } from './cooSignIn.js';
 import { readPartyCampaigns } from '../foundry/PartyAccess.js';
 import type { FoundryGame } from '../foundry/PartyAccess.js';
@@ -93,6 +94,7 @@ export function registerBandMenus(
   );
   /* 🩺 What Tongs has done, 2026-10-19: see tongsStatus.ts. */
   registerActivityMenu(settings, globals, activity, () => isSignedIn(settings));
+  watchSignInLabel(globals.Hooks, () => isSignedIn(settings));
 }
 
 /** True when this browser keeps a ComeOnOverUno sign-in (not whether COO still honours it). */
@@ -100,16 +102,6 @@ export function isSignedIn(settings: { get?(namespace: string, key: string): unk
   const value = settings.get?.(MODULE_ID, REFRESH_SETTING);
   return typeof value === 'string' && value.trim() !== '';
 }
-
-export const LOST_SESSION =
-  "ComeOnOverUno ended Tongs Browser's sign-in, so hits, health bands and the encounter tracker are not " +
-  "reaching Telegram. Sign in again from Tongs Browser's module settings with a code from the " +
-  'ComeOnOverUno app (Settings, Pair a device).';
-
-export const NO_SESSION =
-  'Tongs Browser is not signed in to ComeOnOverUno, so hits, health bands and the encounter tracker are ' +
-  "not reaching Telegram. Sign in from Tongs Browser's module settings with a code from the " +
-  'ComeOnOverUno app (Settings, Pair a device).';
 
 export function buildCooClient(settings: BandSettings, globals: StartGlobals): CooClient {
   const text = (key: string) => {
