@@ -52,9 +52,12 @@ describe('the sign-in buttons', () => {
   });
 
   it('are wired up when the menus register, and need Foundry hooks only if it has them', () => {
-    const on = vi.fn();
-    registerBandMenus({}, {} as CooClient, { Hooks: { on } });
+    const on = vi.fn<(name: string, fn: (app: unknown, element: unknown) => unknown) => unknown>();
+    registerBandMenus({ get: () => 'a refresh token' }, {} as CooClient, { Hooks: { on } });
     expect(on).toHaveBeenCalledWith('renderSettingsConfig', expect.any(Function));
+    const root = settingsWindow();
+    on.mock.calls[0]?.[1]({}, root);
+    expect(labels(root)[0]).toBe(SIGNED_IN_LABEL);
     expect(() => {
       registerBandMenus({}, {} as CooClient, {});
     }).not.toThrow();
