@@ -42,9 +42,14 @@ export async function requireActiveWorld(hostBase: string) {
  *
  * The UI renders well before game.ready, and asserting against a half initialised game reports races
  * as failures.
+ *
+ * Polled on a 1 s timer, not the default animation frame: headless Chromium draws the Foundry canvas
+ * with SwiftShader at about 1 FPS, so frame polling barely runs and a world that loaded fine timed out
+ * here (C99 on the VPS, 2026-11-08). The 5 minute limit matches Invisi-Rolls' live check on that server.
  */
 export async function waitForReady(page: Page): Promise<void> {
   await page.waitForFunction(() => globalThis.game?.ready === true, undefined, {
-    timeout: 120_000,
+    timeout: 300_000,
+    polling: 1_000,
   });
 }
