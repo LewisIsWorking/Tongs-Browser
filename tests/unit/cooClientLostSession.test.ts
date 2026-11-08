@@ -2,12 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { CooClient } from '../../src/bands/CooClient.js';
 import type { BandPost, CooPorts } from '../../src/bands/CooClient.js';
-import {
-  LOST_SESSION,
-  NO_SESSION,
-  REFRESH_SETTING,
-  buildCooClient,
-} from '../../src/bands/startBands.js';
+import { LOST_SESSION, NO_SESSION } from '../../src/bands/cooSignIn.js';
+import { REFRESH_SETTING, buildCooClient } from '../../src/bands/startBands.js';
 
 /**
  * Losing the sign-in to ComeOnOverUno. Written 2026-10-13.

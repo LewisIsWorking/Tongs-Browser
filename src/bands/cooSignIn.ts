@@ -26,6 +26,16 @@ export const SIGN_IN_HINT =
   'Sign this browser in to ComeOnOverUno for health bands, encounter sync and world-swap requests. ' +
   'Without it, a player pressing Play for another campaign closes this world without asking. Only the GM needs to.';
 
+export const LOST_SESSION =
+  "ComeOnOverUno ended Tongs Browser's sign-in, so hits, health bands and the encounter tracker are not " +
+  "reaching Telegram. Sign in again from Tongs Browser's module settings with a code from the " +
+  'ComeOnOverUno app (Settings, Pair a device).';
+
+export const NO_SESSION =
+  'Tongs Browser is not signed in to ComeOnOverUno, so hits, health bands and the encounter tracker are ' +
+  "not reaching Telegram. Sign in from Tongs Browser's module settings with a code from the " +
+  'ComeOnOverUno app (Settings, Pair a device).';
+
 export interface SignInGlobals {
   /** Foundry's own, for keeping the sign-in buttons' text true (`signInLabel.ts`). */
   readonly Hooks?: SignInLabelHooks;
