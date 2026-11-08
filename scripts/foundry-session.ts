@@ -76,16 +76,25 @@ export async function requireActiveWorld() {
  */
 async function readJoinUsers(page: Page): Promise<JoinUser[]> {
   return page.evaluate(() => {
-    const listed = globalThis.game?.users;
-    if (listed) {
-      return [...listed]
-        .map((user: { id?: string; _id?: string; name?: string }) => ({
-          id: user.id ?? user._id ?? '',
-          name: user.name ?? '',
-        }))
-        .filter((user) => user.id !== '' && user.name !== '');
+    const listed = [...(globalThis.game?.users ?? [])]
+      .map((user: { id?: string; _id?: string; name?: string }) => ({
+        id: user.id ?? user._id ?? '',
+        name: user.name ?? '',
+      }))
+      .filter((user) => user.id !== '' && user.name !== '');
+    if (listed.length > 0) {
+      return listed;
     }
-    return [...document.querySelectorAll<HTMLOptionElement>("select[name='userid'] option")]
+    /*
+     * ⚠️ Foundry 14.369 names the picker `userId`; older builds used `userid`. Attribute values are case
+     * sensitive, so the old selector alone found nothing on 14.370 and every live check died at the join
+     * page (2026-11-08). An empty `game.users` also falls through to here now instead of returning nothing.
+     */
+    return [
+      ...document.querySelectorAll<HTMLOptionElement>(
+        "select[name='userId'] option, select[name='userid'] option"
+      ),
+    ]
       .map((option) => ({ id: option.value, name: (option.textContent ?? '').trim() }))
       .filter((user) => user.id !== '' && user.name !== '');
   });
@@ -93,7 +102,8 @@ async function readJoinUsers(page: Page): Promise<JoinUser[]> {
 
 /** Resolve the user id from the name, post the join directly, then wait for the world. */
 export async function joinWorld(page: Page): Promise<void> {
-  await page.goto(`${BASE}/join`, { waitUntil: 'networkidle', timeout: 60_000 });
+  /* A query string: the COO server sends a bare /join to its own portal; Foundry ignores the query. */
+  await page.goto(`${BASE}/join?live-check`, { waitUntil: 'networkidle', timeout: 60_000 });
 
   /**
    * networkidle is a network gate, not a render gate, and those are not the same event. Foundry 14
