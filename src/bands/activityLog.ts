@@ -22,13 +22,33 @@ export const MAX_EVENTS = 40;
 export class ActivityLog {
   private readonly events: ActivityEvent[] = [];
   private readonly now: () => number;
+  /* The newest event as recorded, before any count, and how many times in a row it has happened. */
+  private last: { kind: ActivityKind; text: string; since: string } | null = null;
+  private repeats = 0;
 
   public constructor(now: () => number) {
     this.now = now;
   }
 
+  /**
+   * ⚠️ THE SAME EVENT AGAIN REPLACES THE NEWEST LINE WITH A COUNT. Found 2026-11-08 on C06: the presence ping
+   * every 30 s filled all 40 lines in 20 minutes, so a fight's hits and warnings were gone before anyone read
+   * them. A changed answer ("... 200" to "... 401") is a different event and gets its own line.
+   */
   public record(kind: ActivityKind, text: string): void {
-    this.events.push({ at: new Date(this.now()).toISOString(), kind, text });
+    const at = new Date(this.now()).toISOString();
+    if (this.last !== null && this.last.kind === kind && this.last.text === text) {
+      this.repeats += 1;
+      this.events[this.events.length - 1] = {
+        at,
+        kind,
+        text: `${text} (${String(this.repeats)} times since ${this.last.since.slice(11, 19)})`,
+      };
+      return;
+    }
+    this.last = { kind, text, since: at };
+    this.repeats = 1;
+    this.events.push({ at, kind, text });
     if (this.events.length > MAX_EVENTS) {
       this.events.shift();
     }
