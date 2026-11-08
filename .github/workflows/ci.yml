@@ -53,7 +53,9 @@ jobs:
 
   browser:
     name: Browser tests
-    runs-on: ubuntu-latest
+    # ⚠️ Pinned 2026-11-08: ubuntu-latest became 26.04, where "playwright install" refuses chromium
+    # ("Playwright does not support chromium on ubuntu26.04-x64"). Move back once Playwright supports it.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 

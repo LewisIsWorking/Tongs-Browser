@@ -31,6 +31,27 @@ describe('the activity log', () => {
     expect(entries.at(-1)?.at).toBe('2026-10-19T10:00:44.000Z');
   });
 
+  /* 2026-11-08, C06: a ping every 30 s filled all 40 lines in 20 minutes and pushed the fight out. */
+  it('counts the same event in a row on one line, and starts a new line when the answer changes', () => {
+    let now = Date.UTC(2026, 10, 7, 16, 51, 53);
+    const log = new ActivityLog(() => now);
+    log.record('warning', 'no campaign');
+    for (let i = 0; i < 100; i++) {
+      log.record('request', 'POST /api/foundry/presence 200');
+      now += 30_000;
+    }
+    log.record('request', 'POST /api/foundry/presence 401');
+    log.record('request', 'POST /api/foundry/presence 200');
+
+    expect(log.entries().map((e) => e.text)).toEqual([
+      'no campaign',
+      'POST /api/foundry/presence 200 (100 times since 16:51:53)',
+      'POST /api/foundry/presence 401',
+      'POST /api/foundry/presence 200',
+    ]);
+    expect(log.entries()[1]?.at).toBe('2026-11-07T17:41:23.000Z');
+  });
+
   it('names a request by its path, never its server or query string', () => {
     expect(
       requestText(
