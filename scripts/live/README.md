@@ -2,11 +2,12 @@
 
 The broad "is anything obviously wrong" pass, run by `npm run check:foundry`.
 
-| File                    | What it is                                                 |
-| ----------------------- | ---------------------------------------------------------- |
-| `chromeChecks.ts`       | Foundry's own interface still responds to us               |
-| `sceneControlChecks.ts` | The module's toggle is registered, rendered, and reachable |
-| `recorder.ts`           | Collecting results and page errors into one report         |
+| File                    | What it is                                                        |
+| ----------------------- | ----------------------------------------------------------------- |
+| `chromeChecks.ts`       | Foundry's own interface still responds to us                      |
+| `sceneControlChecks.ts` | The module's toggle is registered, rendered, and reachable        |
+| `activityChecks.ts`     | The GM's Tongs activity menu opens, and the heartbeat reaches COO |
+| `recorder.ts`           | Collecting results and page errors into one report                |
 
 ## Registered, rendered, reachable
 

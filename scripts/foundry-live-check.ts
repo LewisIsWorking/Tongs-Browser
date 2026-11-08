@@ -24,6 +24,7 @@ import type { Page } from 'playwright';
 import { createRecorder, describeOutcome, isFailure, type Recorder } from './live/recorder.ts';
 import { checkChromeRespondsToClick } from './live/chromeChecks.ts';
 import { checkSceneControlToggle } from './live/sceneControlChecks.ts';
+import { awaitHeartbeat, checkActivityMenu, checkHeartbeat } from './live/activityChecks.ts';
 import {
   BASE,
   MODULE_ID,
@@ -136,6 +137,8 @@ async function main() {
   let createdScene = null;
 
   try {
+    /* Listening before the join: the first report is timed from the module's start. */
+    const heartbeat = awaitHeartbeat(page);
     await joinWorld(page);
     await ensureModuleEnabled(page);
 
@@ -149,6 +152,8 @@ async function main() {
     await checkCursorNotHitTestable(page, recorder);
     await checkChromeRespondsToClick(page, recorder);
     await checkSceneControlToggle(page, recorder);
+    await checkActivityMenu(page, recorder);
+    await checkHeartbeat(page, recorder, heartbeat);
 
     createdScene = await ensureActiveScene(page);
     await checkCanvasRespondsToMove(page, recorder);
