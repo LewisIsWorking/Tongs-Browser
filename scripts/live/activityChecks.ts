@@ -32,11 +32,7 @@ export function awaitHeartbeat(page: Page): Promise<Response> {
 }
 
 /** The heartbeat reached COO and named this world and this version of the module. */
-export async function checkHeartbeat(
-  page: Page,
-  recorder: Recorder,
-  heartbeat: Promise<Response>
-) {
+export async function checkHeartbeat(page: Page, recorder: Recorder, heartbeat: Promise<Response>) {
   const expected = await page.evaluate(
     (id) => ({
       world: game.world.id as string,
