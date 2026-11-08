@@ -51,7 +51,7 @@ describe('the sign-in buttons', () => {
     expect(labels(after)[0]).toBe(SIGNED_IN_LABEL);
   });
 
-  it('are wired up when the menus register, and need Foundry's hooks only if it has them', () => {
+  it('are wired up when the menus register, and need Foundry hooks only if it has them', () => {
     const on = vi.fn();
     registerBandMenus({}, {} as CooClient, { Hooks: { on } });
     expect(on).toHaveBeenCalledWith('renderSettingsConfig', expect.any(Function));
