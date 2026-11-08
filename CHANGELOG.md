@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.63.1
+
+### Patch Changes
+
+- [#487](https://github.com/LewisIsWorking/Tongs-Browser/pull/487) [`b08a088`](https://github.com/LewisIsWorking/Tongs-Browser/commit/b08a088804e5b6da66d01eee65c05a111a473061) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Tongs activity: the same event several times in a row is now one line with a count, so the presence ping every 30 seconds no longer pushes a fight's hits and warnings out of the log within 20 minutes.
+
 ## 0.63.0
 
 ### Minor Changes
