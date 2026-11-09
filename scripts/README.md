@@ -31,6 +31,7 @@ Guards that run in CI, and harnesses that drive a real Foundry.
 | `foundry-probe.ts`             | The keyboard strategy answer (`probe:foundry`)        |
 | `foundry-android-check.ts`     | All of it, on a real tablet (`check:android`)         |
 | `foundry-sheets-check.ts`      | The sheet-creation buttons (`check:sheets`)           |
+| `check-coo-routes.ts`          | Does COO accept every path we call (`check:routes`)   |
 | `foundry-session.ts`           | Getting a browser into a world; shared by all of them |
 | `cdp-page.ts`                  | A minimal CDP client, for the phone                   |
 | `await-device-then.ts`         | Waiting for a device to appear                        |
