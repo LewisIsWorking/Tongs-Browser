@@ -53,6 +53,7 @@
     "check:keybindings": "node scripts/check-keybinding-coverage.ts --self-test && node scripts/check-keybinding-coverage.ts",
     "check:mutations": "node scripts/check-mutations.ts --self-test && node scripts/check-mutations.ts",
     "check:sheets": "node scripts/foundry-sheets-check.ts",
+    "check:routes": "node scripts/check-coo-routes.ts",
     "check:keybindings:live": "node scripts/foundry-keybindings-live-check.ts",
     "check:sheets:create": "node scripts/foundry-sheet-create-check.ts"
   },

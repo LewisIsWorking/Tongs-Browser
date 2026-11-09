@@ -9,6 +9,7 @@ The broad "is anything obviously wrong" pass, run by `npm run check:foundry`.
 | `activityChecks.ts`     | The GM's Tongs activity menu opens, and the heartbeat reaches COO     |
 | `ensurePointerOn.ts`    | Turns the pointer on in the test browser, off by default with a mouse |
 | `recorder.ts`           | Collecting results and page errors into one report                    |
+| `cooRoutes.ts`          | Finds the COO paths in the source for `check-coo-routes.ts`           |
 
 ## Registered, rendered, reachable
 
