@@ -1,5 +1,11 @@
 # tongs-browser
 
+## 0.63.3
+
+### Patch Changes
+
+- [#494](https://github.com/LewisIsWorking/Tongs-Browser/pull/494) [`18513cb`](https://github.com/LewisIsWorking/Tongs-Browser/commit/18513cb635cfac781b14d52723a205e3ce3077f6) Thanks [@LewisIsWorking](https://github.com/LewisIsWorking)! - Only a player's attack is named in public. When an enemy, hazard or other GM-run creature hurts or heals someone, the combat topic and the HP record name the creature alone ("takes 2 from Skeleton Infantry."), not its attack. A player's attack or spell is still named, persistent damage is still named by its condition, and the GM's DM still gets the full cause.
+
 ## 0.63.2
 
 ### Patch Changes
