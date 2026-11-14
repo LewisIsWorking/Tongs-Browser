@@ -65,7 +65,9 @@ describe('the loading screen, at its edges', () => {
     });
     handlers.get('init')?.();
     expect(document.querySelector('.tongs-loading-title')?.textContent).toBe('Opening Foundry');
-    expect(document.querySelector('.tongs-loading-stage')?.textContent).toBe(LOADING_STAGES.init);
+    expect(document.querySelector('.tongs-loading-stage')?.textContent).toMatch(
+      new RegExp(`^${LOADING_STAGES.init}: \\d+%`)
+    );
   });
 
   it('goes up from the side-effect import main.ts starts with', async () => {
