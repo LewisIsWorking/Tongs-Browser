@@ -76,8 +76,8 @@ describe('the loading estimate', () => {
       seconds: 17, // 85% of 20 s
     });
     const late = estimateLoading({ stage: 'init', elapsedSeconds: 18 }, HISTORY).glide;
-    expect(late?.fill).toBeCloseTo(58); // 20 + 40 * 0.95
-    expect(late?.seconds).toBe(60);
+    expect(late.fill).toBeCloseTo(58); // 20 + 40 * 0.95
+    expect(late.seconds).toBe(60);
   });
 });
 
