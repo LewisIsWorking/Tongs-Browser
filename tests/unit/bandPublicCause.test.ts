@@ -39,7 +39,11 @@ const card = (isHealing = false): DamageTakenMessage => ({
     '<span data-applications="[{&quot;category&quot;:&quot;resistance&quot;,&quot;type&quot;:&quot;acid&quot;,&quot;adjustment&quot;:-2}]"></span>',
 });
 const names = (uuid: string) => (uuid.includes('Item') ? 'Turret Disintegrator' : 'Changer');
-const changer = { name: 'Changer', image: 'https://assets.forge-vtt.com/u/changer.webp' };
+const changer = {
+  name: 'Changer',
+  image: 'https://assets.forge-vtt.com/u/changer.webp',
+  player: true,
+};
 
 describe('the public cause', () => {
   it('names the weapon and the attacker, never the resistance, and says healing', () => {
