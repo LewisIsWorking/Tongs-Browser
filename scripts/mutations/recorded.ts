@@ -5,6 +5,7 @@ import { ENEMIES_MUTATIONS } from './enemies.ts';
 import { CREATION_MUTATIONS } from './creation.ts';
 import { DECK_MUTATIONS } from './deck.ts';
 import { INTERACTION_MUTATIONS } from './interaction.ts';
+import { LOADING_MUTATIONS } from './loading.ts';
 import { SPELL_CAST_MUTATIONS } from './spellCasts.ts';
 import { SWAP_MUTATIONS } from './swaps.ts';
 import { WELCOME_MUTATIONS } from './welcome.ts';
@@ -37,4 +38,5 @@ export const RECORDED: readonly RecordedMutation[] = [
   ...DUAL_CLASS_MUTATIONS,
   ...FACING_MUTATIONS,
   ...LEVEL_MUTATIONS,
+  ...LOADING_MUTATIONS,
 ];

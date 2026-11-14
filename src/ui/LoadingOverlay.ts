@@ -7,6 +7,10 @@
  * in JavaScript can update while that runs, so the bar's motion is a CSS `transform` animation, which browsers
  * run on the compositor thread and keep moving while the page itself is blocked. The stage text changes between
  * Foundry's start-up hooks, the only moments the page is free.
+ *
+ * 📊 2026-11-14: the bar FILLS rather than slides, to a real percentage (startLoadingOverlay works it out). It still
+ * moves only by `transform`: each update sets where it is now and glides it, with a CSS transition, towards where
+ * it should be by the time Foundry is likely to let go of the page, so it keeps moving through a block.
  */
 
 const ROOT_ID = 'tongs-loading-overlay';
@@ -20,10 +24,9 @@ const CSS = `
 #${ROOT_ID} .tongs-loading-title { font-size: 1.15rem; margin: 0 0 .4rem; }
 #${ROOT_ID} .tongs-loading-stage { color: #a8a8b3; margin: 0 0 1rem; min-height: 1.3em; }
 #${ROOT_ID} .tongs-loading-bar { height: 6px; border-radius: 3px; overflow: hidden; background: #26262c; }
-#${ROOT_ID} .tongs-loading-bar > div { width: 30%; height: 100%; background: #c9a227;
-  animation: tongs-loading-slide 1.4s ease-in-out infinite; will-change: transform; }
+#${ROOT_ID} .tongs-loading-bar > div { width: 100%; height: 100%; background: #c9a227;
+  transform-origin: left center; transform: scaleX(0); transition: transform 0ms linear; will-change: transform; }
 #${ROOT_ID} .tongs-loading-hint { color: #7d7d88; font-size: .85rem; margin-top: 1rem; }
-@keyframes tongs-loading-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
 `;
 
 /** The loading screen itself: one element, added once, replaced text, removed once. */
@@ -43,6 +46,8 @@ export class LoadingOverlay {
     root.id = ROOT_ID;
     root.setAttribute('role', 'progressbar');
     root.setAttribute('aria-label', 'Loading the world');
+    root.setAttribute('aria-valuemin', '0');
+    root.setAttribute('aria-valuemax', '100');
     root.innerHTML =
       `<style>${CSS}</style><div class="tongs-loading-card">` +
       '<p class="tongs-loading-title"></p><p class="tongs-loading-stage"></p>' +
@@ -68,6 +73,23 @@ export class LoadingOverlay {
   public setStage(stage: string): void {
     const el = this.root?.querySelector('.tongs-loading-stage');
     if (el) el.textContent = stage;
+  }
+
+  /**
+   * Fills the bar to `fill` percent at once, then, given a `glide`, carries on to `glide.fill` over `glide.ms`
+   * on the compositor, which keeps going even while Foundry holds the page. `percent` is what is read out.
+   */
+  public setProgress(percent: number, fill: number, glide?: { fill: number; ms: number }): void {
+    const bar = this.root?.querySelector<HTMLElement>('.tongs-loading-bar > div');
+    if (!this.root || !bar) return;
+    this.root.setAttribute('aria-valuenow', String(percent));
+    bar.style.transition = 'transform 0ms linear';
+    bar.style.transform = `scaleX(${String(fill / 100)})`;
+    if (!glide || glide.fill <= fill || glide.ms <= 0) return;
+    // Lay out the jump first, or the browser merges it into the glide and animates from the old place.
+    void bar.offsetWidth;
+    bar.style.transition = `transform ${String(Math.round(glide.ms))}ms linear`;
+    bar.style.transform = `scaleX(${String(glide.fill / 100)})`;
   }
 
   /** Fades the screen out and removes it. */
