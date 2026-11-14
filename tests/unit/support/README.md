@@ -13,6 +13,7 @@ Fixtures shared by the pure tests. No DOM, no assertions.
 | `companionWorld.ts`      | A GM's world for companion sheets, every write recorded       |
 | `dualClasses.ts`         | Class items shaped as PF2e's own, for the dual class port     |
 | `facingWorld.ts`         | A GM's world for default token facing, hooks caught by name   |
+| `levelWorld.ts`          | Actors with pending levels, every write and note in one log   |
 
 ## Time is an argument here
 
