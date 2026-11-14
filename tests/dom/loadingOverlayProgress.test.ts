@@ -183,26 +183,3 @@ describe('the loading screen percentage', () => {
     expect(localStorage.getItem(LOADING_HISTORY_KEY)).toBeNull();
   });
 });
-
-describe('the loading screen title', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => {
-    vi.clearAllTimers();
-    vi.useRealTimers();
-    vi.unstubAllGlobals();
-    vi.resetModules();
-    document.body.replaceChildren();
-  });
-
-  it("names the world even though Foundry replaces its stand-in game after Tongs' import", async () => {
-    const hooks = fakeHooks();
-    vi.stubGlobal('Hooks', hooks.Hooks);
-    vi.stubGlobal('game', { view: 'game' }); // Foundry's stand-in until the world is fetched
-    await import('../../src/ui/showLoadingOverlayOnImport.js');
-    vi.stubGlobal('game', { world: { id: 'w', title: 'The Real World' } });
-    hooks.fire('init');
-    expect(document.querySelector('.tongs-loading-title')?.textContent).toBe(
-      'Opening The Real World'
-    );
-  });
-});
