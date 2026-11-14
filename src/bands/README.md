@@ -73,6 +73,16 @@ player character is hurt: the damage, from what, and the HP left, with the chara
   takes over compares with the real before. A character first seen mid-change is recorded with no before.
 - ⚠️ A 404 from `hp-change` (or an older server's web page) means COO is not updated yet: the GM is told once.
 
+## Decided with Lewis, 2026-11-14: only a player's attack is named
+
+- **"The tongs browser should not be saying enemy's attack name, only player attack's name."** Tongs 0.63.2 had
+  posted "takes 2 from Skeleton Infantry's Lower Spears!.". Now an enemy is named alone: "takes 2 from Skeleton
+  Infantry.", "healed by Cult Shaman". One rule in `causeWatch.ts` covers the player-hit post, the HP record and
+  a band's public cause.
+- **A player's** is a `type: "character"` actor, owned or not, or anything a player owns. NPCs and hazards are not.
+- A condition on the actor itself (persistent damage) is nobody's attack and keeps its name. The GM's DM keeps
+  the full cause.
+
 ## Measured, not assumed
 
 - **PF2e's Stamina variant spends Stamina Points first** (2026-10-07, the Kibwe world). A hit soaked by Stamina

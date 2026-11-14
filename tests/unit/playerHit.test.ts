@@ -27,7 +27,7 @@ const arktos: TokenView = {
 };
 const vex: PublicCause = {
   text: 'Cutlass from Captain Vex',
-  attacker: { name: 'Captain Vex', image: null },
+  attacker: { name: 'Captain Vex', image: null, player: true },
   item: 'Cutlass',
 };
 
