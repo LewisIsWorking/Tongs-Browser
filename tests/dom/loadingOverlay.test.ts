@@ -12,8 +12,9 @@ import {
  * bar"). Driven through fake hooks the way Foundry calls them: init, setup, ready.
  */
 const overlay = (): HTMLElement | null => document.getElementById('tongs-loading-overlay');
+/** The stage's name, without the percentage after it (loadingOverlayProgress.test.ts covers that). */
 const stage = (): string | null | undefined =>
-  overlay()?.querySelector('.tongs-loading-stage')?.textContent;
+  overlay()?.querySelector('.tongs-loading-stage')?.textContent.split(':')[0];
 const title = (): string | null | undefined =>
   overlay()?.querySelector('.tongs-loading-title')?.textContent;
 
@@ -87,10 +88,13 @@ describe('the loading screen', () => {
     expect(overlay()?.querySelector('style')?.textContent).toContain('pointer-events: none');
   });
 
-  it('animates the bar with transform, which keeps moving while Foundry blocks the page', () => {
-    new LoadingOverlay(document).show('a', 'b');
-    expect(overlay()?.querySelector('style')?.textContent).toMatch(
-      /@keyframes tongs-loading-slide[^}]*transform/
-    );
+  it('moves the bar only by transform, which keeps moving while Foundry blocks the page', () => {
+    const screen = new LoadingOverlay(document);
+    screen.show('a', 'b');
+    screen.setProgress(10, 10.5, { fill: 30, ms: 5000 });
+    const bar = overlay()?.querySelector<HTMLElement>('.tongs-loading-bar > div');
+    expect(bar?.style.transform).toBe('scaleX(0.3)');
+    expect(bar?.style.transition).toBe('transform 5000ms linear');
+    expect(overlay()?.querySelector('style')?.textContent).toMatch(/transform-origin: left/);
   });
 });
