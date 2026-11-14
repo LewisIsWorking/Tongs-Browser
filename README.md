@@ -133,6 +133,36 @@ lists for them to add by hand.
 The world setting **Welcome new players** (on by
 default) switches it off.
 
+## Levelling a sheet from outside Foundry
+
+PF2e grants class features, and asks their ChoiceSet questions, only when a character's level changes
+inside a running Foundry. A script that writes a closed world's database directly cannot do that, so it
+leaves a **pending level** on the actor instead, and Tongs applies it once a GM is on the world.
+
+**The flag a script writes**, on the actor document:
+
+```json
+{ "flags": { "tongs-browser": { "pendingLevel": 7 } } }
+```
+
+- Key: `flags.tongs-browser.pendingLevel`. Value: a JSON **number**, a whole number from **1 to 20**.
+  Lowering is allowed. A string (`"7"`), a fraction, `0`, `21` or `null` is refused: the GM is warned
+  and the flag is cleared.
+- Write **only** the flag. Leave `system.details.level.value` at the old level: if it already reads the
+  new one, PF2e sees no change and grants nothing (the GM is warned when that happens).
+- Keep any other `flags.tongs-browser` keys the actor already has: merge into that object, never
+  replace it.
+
+At `ready`, one GM's browser (Foundry's designated GM, `game.users.activeGM`) takes each flagged actor
+in turn: it sets the level the way the sheet would, so PF2e grants that level's class features and asks
+its choices; then sets HP to the new maximum; then unsets the flag; then tells the GM "Tongs levelled
+Name to 7". The next actor waits until the last one, prompts included, is done. The flag is unset even
+when the level change fails, with a warning, so it is never applied twice.
+
+The same happens when the flag is set on a running world, and a GM's macro can run it at any time with
+`game.modules.get('tongs-browser').api.applyPendingLevels()`, which resolves to how many actors were
+levelled. See [src/levels](src/levels/README.md).
+
 ## Settings
 
 All settings are per client, so every player configures their own device.

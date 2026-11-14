@@ -34,11 +34,13 @@ import type { HelperCall, HelperGlobals } from './helper/startHelperCall.js';
 import { PARTY_LIST_WORK, partyListBehind } from './welcome/partyListWork.js';
 import type { FoundryGame } from './foundry/PartyAccess.js';
 import { startDualClass } from './dualclass/startDualClass.js';
-import { startBreatherMacro } from './breather/breatherMacro.js';
+import { breatherApi, startBreatherMacro } from './breather/breatherMacro.js';
 import type { MacroGlobals } from './breather/breatherMacro.js';
 import { startBreatherPosts } from './breather/breatherPost.js';
-import { startTokenFacing } from './facing/startTokenFacing.js';
+import { facingApi, startTokenFacing } from './facing/startTokenFacing.js';
 import type { FacingGlobals } from './facing/startTokenFacing.js';
+import { pendingLevelApi, startPendingLevels } from './levels/startPendingLevels.js';
+import type { LevelGlobals } from './levels/startPendingLevels.js';
 
 /**
  * Starting everything that waits for `ready`. Extracted from main.ts 2026-09-20, when adding world
@@ -60,6 +62,11 @@ export interface FeatureParts {
   readonly globals: typeof globalThis;
   readonly document: Document;
   readonly client: CooClient | null;
+}
+
+/** What the module's `api` gains beyond the instance: each feature's call for a GM's macro. */
+export function featureApi(globals: object): object {
+  return { ...breatherApi(globals), ...facingApi(globals), ...pendingLevelApi(globals) };
 }
 
 export function startFeatures(parts: FeatureParts): void {
@@ -93,6 +100,8 @@ export function startFeatures(parts: FeatureParts): void {
   startBreatherMacro(settings, globals as MacroGlobals);
   /* Default token facing (2026-11-14): new tokens mirrored both ways and free to turn. See src/facing. */
   startTokenFacing(hooks, settings, globals as FacingGlobals);
+  /* Pending levels (2026-11-14): a level a script left on an actor, applied by one GM. See src/levels. */
+  startPendingLevels(hooks, globals as LevelGlobals);
   /* Idle GM sign-out: frees the world whether or not COO is signed in, so it starts before that check. */
   const idleSeconds = startAfkGuard(settings, globals, {
     target: parts.document,

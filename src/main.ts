@@ -21,9 +21,7 @@ import { registerEncounterSync } from './encounter/startEncounterSync.js';
 import { registerWorldSwaps } from './swaps/startWorldSwaps.js';
 import { registerAfkGuard } from './swaps/startAfkGuard.js';
 import { registerWorldSizeSetting } from './world/startWorldSize.js';
-import { startFeatures } from './StartFeatures.js';
-import { breatherApi } from './breather/breatherMacro.js';
-import { facingApi } from './facing/startTokenFacing.js';
+import { featureApi, startFeatures } from './StartFeatures.js';
 
 /**
  * Module entry point.
@@ -192,7 +190,7 @@ Hooks.once('ready', () => {
 
   const moduleEntry = game?.modules.get(MODULE_ID);
   if (moduleEntry !== undefined) {
-    moduleEntry.api = Object.assign(instance, breatherApi(globalThis), facingApi(globalThis));
+    moduleEntry.api = Object.assign(instance, featureApi(globalThis)); // + each feature's macro call
   }
 
   logger.info(`Ready. Keyboard strategy: ${instance.getKeyboardStrategy()}.`);

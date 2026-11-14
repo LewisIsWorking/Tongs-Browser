@@ -113,6 +113,12 @@ const BOUNDARY: readonly string[] = [
    * renders nothing it lists: the GM is told a count, nothing else.
    */
   'src/facing/startTokenFacing.ts',
+  /*
+   * ⚠️ Added 2026-11-14 with pending levels. It DOES enumerate every actor, GM only, failing closed on
+   * `game.user.isGM !== true`, and by itself only in the designated GM's browser. It keeps only actors
+   * carrying its own flag, and the only thing shown is such an actor's name, to the GM.
+   */
+  'src/levels/startPendingLevels.ts',
 ];
 
 const sources = listSourceFiles().filter(
