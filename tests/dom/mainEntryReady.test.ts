@@ -31,6 +31,9 @@ describe('at ready', () => {
     /* The "Take a Breather (No-Limit Stamina)" macro's one call, 2026-11-02 (src/breather). */
     const breather = moduleEntry.api as { takeABreatherNoLimit?: () => Promise<unknown> };
     expect(typeof breather.takeABreatherNoLimit).toBe('function');
+    /* Default token facing's apply-to-every-actor call, for a GM's macro, 2026-11-14 (src/facing). */
+    const facing = moduleEntry.api as { applyTokenFacingToAllActors?: () => Promise<unknown> };
+    expect(typeof facing.applyTokenFacingToAllActors).toBe('function');
   });
 
   it('enables the module when the stored setting says so', async () => {
