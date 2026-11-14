@@ -58,7 +58,7 @@ export interface LoadingView {
   readonly secondsLeft: number | null;
   /** This stage has run past its usual length. */
   readonly slow: boolean;
-  readonly glide: LoadingGlide | null;
+  readonly glide: LoadingGlide;
 }
 
 /** A stage's share from elapsed over usual length: straight up to 85%, then ever slower towards 95%. */

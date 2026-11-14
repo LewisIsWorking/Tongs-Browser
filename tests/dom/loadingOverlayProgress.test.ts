@@ -157,6 +157,24 @@ describe('the loading screen percentage', () => {
     expect(line()).toMatch(/^Preparing characters and items: \d+%$/);
   });
 
+  it('still shows the percentage on a page with no window to keep history in', () => {
+    const doc = document.implementation.createHTMLDocument('foundry');
+    const hooks = fakeHooks();
+    startLoadingOverlay({ Hooks: hooks.Hooks, game: { world: { id: 'w' } }, document: doc });
+    hooks.fire('init');
+    expect(doc.querySelector('.tongs-loading-stage')?.textContent).toMatch(
+      /^Preparing characters and items: \d+%$/
+    );
+  });
+
+  it('stays out of the way of a map drawn after the world is ready', () => {
+    const hooks = opening('w');
+    hooks.fire('ready');
+    hooks.fire('canvasInit');
+    expect(line()).toBe('Ready');
+    expect(overlay()?.getAttribute('aria-valuenow')).toBe('100');
+  });
+
   it('remembers nothing from a load that gave up waiting', () => {
     const hooks = opening('w');
     hooks.fire('init');

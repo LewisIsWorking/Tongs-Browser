@@ -65,11 +65,16 @@ describe('the loading history', () => {
       LOADING_HISTORY_KEY,
       JSON.stringify({
         last: 'w',
-        worlds: { w: { at: 1, stages: { init: [-1, 'x', null, 6] } }, bad: 3 },
+        worlds: {
+          w: { at: 1, stages: { init: [-1, 'x', null, 6] } },
+          bad: 3,
+          v: { stages: { init: 'x' } },
+        },
       })
     );
     history(store).record('w', { start: Number.NaN, init: 8 });
     expect(history(store).typical('w')).toEqual({ init: 7 });
+    expect(history(store).typical('v')).toEqual({});
   });
 
   it('starts again from nothing when what is stored is not its own', () => {

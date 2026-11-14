@@ -114,8 +114,8 @@ export function startLoadingOverlay(globals: LoadingOverlayGlobals): LoadingOver
   return overlay;
 }
 
-function glideOf(view: LoadingView): { fill: number; ms: number } | undefined {
-  return view.glide ? { fill: view.glide.fill, ms: view.glide.seconds * 1000 } : undefined;
+function glideOf(view: LoadingView): { fill: number; ms: number } {
+  return { fill: view.glide.fill, ms: view.glide.seconds * 1000 };
 }
 
 /** The page's localStorage, or null where the browser refuses it (reading the property itself can throw). */

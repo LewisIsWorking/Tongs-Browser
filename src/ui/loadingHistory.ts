@@ -120,7 +120,7 @@ export function median(values: readonly number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1
-    ? (sorted[mid] ?? null)
-    : ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
+  // One middle value for an odd count, two for an even one.
+  const middle = sorted.slice(mid - 1 + (sorted.length % 2), mid + 1);
+  return middle.reduce((sum, value) => sum + value, 0) / middle.length;
 }
