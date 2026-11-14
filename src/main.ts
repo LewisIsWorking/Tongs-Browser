@@ -23,6 +23,7 @@ import { registerAfkGuard } from './swaps/startAfkGuard.js';
 import { registerWorldSizeSetting } from './world/startWorldSize.js';
 import { startFeatures } from './StartFeatures.js';
 import { breatherApi } from './breather/breatherMacro.js';
+import { facingApi } from './facing/startTokenFacing.js';
 
 /**
  * Module entry point.
@@ -191,7 +192,7 @@ Hooks.once('ready', () => {
 
   const moduleEntry = game?.modules.get(MODULE_ID);
   if (moduleEntry !== undefined) {
-    moduleEntry.api = Object.assign(instance, breatherApi(globalThis)); // + the breather macro's call
+    moduleEntry.api = Object.assign(instance, breatherApi(globalThis), facingApi(globalThis));
   }
 
   logger.info(`Ready. Keyboard strategy: ${instance.getKeyboardStrategy()}.`);

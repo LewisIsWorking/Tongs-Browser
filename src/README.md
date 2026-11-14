@@ -36,6 +36,7 @@ The module itself. Everything shipped in `dist/tongs-browser.js` comes from here
 | `dualclass/`    | A player's two classes, built by a GM       |
 | `rollpad/`      | A player's rolls as big buttons, for phones |
 | `helper/`       | Queued work done with no GM on the world    |
+| `facing/`       | New tokens mirrored both ways, free to turn |
 
 ## The composition root is separate from the parts
 

@@ -107,6 +107,12 @@ const BOUNDARY: readonly string[] = [
    * GM who can already see it.
    */
   'src/dualclass/dualClassDocuments.ts',
+  /*
+   * ⚠️ Added 2026-11-14 with default token facing. It DOES enumerate every actor, GM only, failing closed
+   * on `game.user.isGM !== true`, and only when the GM presses its settings button or calls the API. It
+   * renders nothing it lists: the GM is told a count, nothing else.
+   */
+  'src/facing/startTokenFacing.ts',
 ];
 
 const sources = listSourceFiles().filter(
