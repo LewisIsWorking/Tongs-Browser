@@ -11,6 +11,7 @@ import { WELCOME_MUTATIONS } from './welcome.ts';
 import { WELCOME_IMPORT_MUTATIONS } from './welcomeImport.ts';
 import { DUAL_CLASS_MUTATIONS } from './dualClass.ts';
 import { FACING_MUTATIONS } from './facing.ts';
+import { LEVEL_MUTATIONS } from './levels.ts';
 import type { RecordedMutation } from './shape.ts';
 
 export type { RecordedMutation } from './shape.ts';
@@ -35,4 +36,5 @@ export const RECORDED: readonly RecordedMutation[] = [
   ...WELCOME_IMPORT_MUTATIONS,
   ...DUAL_CLASS_MUTATIONS,
   ...FACING_MUTATIONS,
+  ...LEVEL_MUTATIONS,
 ];

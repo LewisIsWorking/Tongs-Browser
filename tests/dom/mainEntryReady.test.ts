@@ -34,6 +34,9 @@ describe('at ready', () => {
     /* Default token facing's apply-to-every-actor call, for a GM's macro, 2026-11-14 (src/facing). */
     const facing = moduleEntry.api as { applyTokenFacingToAllActors?: () => Promise<unknown> };
     expect(typeof facing.applyTokenFacingToAllActors).toBe('function');
+    /* Pending levels' apply call, for a GM's macro, 2026-11-14 (src/levels). */
+    const levels = moduleEntry.api as { applyPendingLevels?: () => Promise<unknown> };
+    expect(typeof levels.applyPendingLevels).toBe('function');
   });
 
   it('enables the module when the stored setting says so', async () => {
