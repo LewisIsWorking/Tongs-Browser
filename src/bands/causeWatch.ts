@@ -129,6 +129,10 @@ function readOrigin(
  * Resolves with the cause of this actor's change, read ONCE from PF2e's card within the window: the GM's
  * wording, and the table's when `seen` says players can see who dealt it. No card is a manual change,
  * which the table is never told about.
+ *
+ * ⛔ THE TABLE HEARS AN ATTACK'S NAME ONLY FROM A PLAYER (Lewis, 2026-11-14, after "takes 2 from Skeleton
+ * Infantry's Lower Spears!."). An enemy is named alone. A condition on the actor itself, such as persistent
+ * damage, is nobody's attack and keeps its name. The GM's wording always keeps everything.
  */
 export async function watchCause(
   hooks: CauseHooks,
@@ -144,7 +148,8 @@ export async function watchCause(
   }
   const origin = readOrigin(message, systemId);
   const attacker = origin.actorUuid === null ? null : seen(origin.actorUuid);
-  const item = origin.itemUuid === null ? null : nameOf(origin.itemUuid);
+  const named = attacker?.player === true || origin.actorUuid === actorUuid;
+  const item = origin.itemUuid === null || !named ? null : nameOf(origin.itemUuid);
   return {
     gm: describeCause(readCauseFacts(message, systemId, nameOf)),
     shown:

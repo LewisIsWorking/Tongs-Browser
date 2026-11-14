@@ -42,6 +42,7 @@ describe('an attacker the players can see', () => {
     expect(readSeenAttacker(world(actor, [tokenOf(actor)]), 'Actor.A')).toEqual({
       name: 'Sniper 2',
       image: 'https://assets.forge-vtt.com/u/sniper.webp',
+      player: false,
     });
   });
 
@@ -54,6 +55,7 @@ describe('an attacker the players can see', () => {
     expect(readSeenAttacker(world(pc), 'Actor.A')).toEqual({
       name: 'Changer',
       image: 'https://lewis.forge-vtt.com/tokens/changer.webp',
+      player: true,
     });
   });
 
@@ -72,6 +74,7 @@ describe('an attacker the players can see', () => {
     expect(readSeenAttacker(world(bare), 'Actor.A')).toEqual({
       name: 'someone',
       image: 'https://assets.forge-vtt.com/u/pc.webp',
+      player: true,
     });
     expect(readSeenAttacker(world(creature({ isToken: true, token: null })), 'Actor.A')).toBeNull();
   });

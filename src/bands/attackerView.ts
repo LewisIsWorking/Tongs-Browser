@@ -21,10 +21,18 @@ import type { BandGlobals, TokenDocLike } from './bandTokens.js';
 export interface SeenAttacker {
   readonly name: string;
   readonly image: string | null;
+  /**
+   * A player's character or creature, whose attack may be named. ⛔ LEWIS, 2026-11-14: "The tongs browser
+   * should not be saying enemy's attack name, only player attack's name." A player character counts owned or
+   * not (none is owned on the self-hosted Foundry), and so does anything a player owns; NPCs and hazards the
+   * GM runs never do.
+   */
+  readonly player: boolean;
 }
 
 interface AttackerActor {
   readonly name?: string;
+  readonly type?: string;
   readonly img?: string | null;
   readonly isToken?: boolean;
   readonly token?: TokenDocLike | null;
@@ -67,6 +75,7 @@ export function readSeenAttacker(globals: AttackerGlobals, actorUuid: string): S
   }
   return {
     name: token?.name ?? actor.name ?? 'someone',
+    player: owned || actor.type === 'character',
     image: imageUrl(
       token?.texture?.src ?? actor.prototypeToken?.texture?.src ?? actor.img,
       globals

@@ -163,4 +163,20 @@ export const BANDS_MUTATIONS: readonly RecordedMutation[] = [
       'a band or tracker in Telegram cannot say which Tongs version sent it, so a stale install goes unnoticed',
     tests: ['tests/unit/cooClientVersion.test.ts'],
   },
+  {
+    /* Lewis 2026-11-14: "only player attack's name". Tongs 0.63.2 posted "Skeleton Infantry's Lower Spears!". */
+    file: 'src/bands/causeWatch.ts',
+    find: '  const named = attacker?.player === true || origin.actorUuid === actorUuid;',
+    replace: '  const named = attacker !== null || origin.actorUuid === actorUuid;',
+    defect: "the combat topic names an enemy's attack, not only a player's",
+    tests: ['tests/unit/enemyAttackName.test.ts'],
+  },
+  {
+    file: 'src/bands/attackerView.ts',
+    find: "    player: owned || actor.type === 'character',",
+    replace: '    player: owned,',
+    defect:
+      "an unowned player character's attack is no longer named, since no PC is owned on the VPS",
+    tests: ['tests/unit/enemyAttackName.test.ts'],
+  },
 ];
