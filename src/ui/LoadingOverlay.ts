@@ -24,7 +24,19 @@ const CSS = `
   animation: tongs-loading-slide 1.4s ease-in-out infinite; will-change: transform; }
 #${ROOT_ID} .tongs-loading-hint { color: #7d7d88; font-size: .85rem; margin-top: 1rem; }
 @keyframes tongs-loading-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
+#${ROOT_ID} .tongs-loading-bar > div.tongs-loading-fill { width: 100%; transform-origin: left;
+  animation: tongs-loading-fill var(--tongs-expected, 60s) cubic-bezier(.2,.6,.4,1) forwards; }
+#${ROOT_ID} .tongs-loading-bar > div.tongs-loading-done { width: 100%; animation: none; transform: scaleX(1); }
+@keyframes tongs-loading-fill { 0% { transform: scaleX(0); } 100% { transform: scaleX(.95); } }
 `;
+
+/** The line under the bar when the last load's time is known. Exported so a test reads the player's words. */
+export function expectedHint(ms: number): string {
+  const seconds = Math.max(1, Math.round(ms / 1000));
+  return seconds < 90
+    ? `Last time this took about ${String(seconds)} seconds.`
+    : `Last time this took about ${String(Math.round(seconds / 60))} minutes.`;
+}
 
 /** The loading screen itself: one element, added once, replaced text, removed once. */
 export class LoadingOverlay {
@@ -36,8 +48,12 @@ export class LoadingOverlay {
     return this.root !== null;
   }
 
-  /** Adds the screen if it is not already there. Safe before `<body>` exists: it waits for it. */
-  public show(title: string, stage: string): void {
+  /**
+   * Adds the screen if it is not already there. Safe before `<body>` exists: it waits for it. With `expectedMs`
+   * (how long this took last time, loadingTimes.ts) the bar FILLS over that long instead of sliding: still a
+   * transform animation, so it keeps moving while Foundry holds the page.
+   */
+  public show(title: string, stage: string, expectedMs?: number): void {
     if (this.root || this.doc.getElementById(ROOT_ID)) return;
     const root = this.doc.createElement('div');
     root.id = ROOT_ID;
@@ -48,6 +64,13 @@ export class LoadingOverlay {
       '<p class="tongs-loading-title"></p><p class="tongs-loading-stage"></p>' +
       '<div class="tongs-loading-bar"><div></div></div>' +
       '<p class="tongs-loading-hint">Big worlds can take a minute or two to open. Hang tight.</p></div>';
+    if (expectedMs) {
+      const fill = root.querySelector<HTMLElement>('.tongs-loading-bar > div');
+      fill?.classList.add('tongs-loading-fill');
+      fill?.style.setProperty('--tongs-expected', `${String(Math.round(expectedMs))}ms`);
+      const hint = root.querySelector('.tongs-loading-hint');
+      if (hint) hint.textContent = expectedHint(expectedMs);
+    }
     this.root = root;
     this.setTitle(title);
     this.setStage(stage);
@@ -70,10 +93,11 @@ export class LoadingOverlay {
     if (el) el.textContent = stage;
   }
 
-  /** Fades the screen out and removes it. */
+  /** Fades the screen out and removes it, with the bar shown full first. */
   public hide(fadeMs = 400): void {
     const root = this.root;
     if (!root) return;
+    root.querySelector('.tongs-loading-bar > div')?.classList.add('tongs-loading-done');
     this.root = null;
     root.classList.add('tongs-leaving');
     setTimeout(() => {

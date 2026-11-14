@@ -14,6 +14,7 @@
 | `LoadingOverlay.ts`             | The screen over Foundry's black start-up (CSS-animated bar)    |
 | `startLoadingOverlay.ts`        | Moving that screen through init, setup and ready               |
 | `showLoadingOverlayOnImport.ts` | Putting it up as Tongs is imported, first thing in main.ts     |
+| `loadingTimes.ts`               | How long the world took last time, so the bar fills over that  |
 
 > ⚠️ **This table listed ONE of eight files until 2026-09-09, and said "One file" in prose.** Six
 > modules had been added since it was written and none of them appeared here. An incomplete contents
