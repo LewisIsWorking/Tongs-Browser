@@ -1,15 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  FACING_SETTING,
-  keepMirrorTicks,
-  startTokenFacing,
-} from '../../src/facing/startTokenFacing.js';
+import { FACING_SETTING, startTokenFacing } from '../../src/facing/startTokenFacing.js';
 import { facingWorld as world } from './support/facingWorld.js';
 
 /**
  * Default token facing's wiring, 2026-11-14: the world setting, the creation hooks, and keeping the
- * Mirror ticks when PF2e's auto-scale locks the Scale slider. The GM's button: applyTokenFacing.test.ts.
+ * Mirror ticks when PF2e's auto-scale locks the Scale slider (keepMirrorTicks.test.ts). The GM's button:
+ * applyTokenFacing.test.ts. Since 2026-11-18 the hooks also turn vision on at 160 degrees.
  */
 const creating = (source: object) => ({ _source: source, updateSource: vi.fn() });
 
@@ -22,7 +19,7 @@ describe('the default token facing setting', () => {
       'tongs-browser',
       FACING_SETTING,
       expect.objectContaining({
-        name: 'Default token facing: mirror both ways, unlocked rotation',
+        name: 'Default token facing: mirror both ways, unlocked rotation, vision on at 160 degrees',
         scope: 'world',
         config: true,
         type: Boolean,
@@ -43,18 +40,42 @@ describe('a new actor', () => {
     w.handlers.get('preCreateActor')?.(actor, { name: 'Goblin' }, {}, 'gm');
 
     expect(actor.updateSource).toHaveBeenCalledWith({
-      prototypeToken: { texture: { scaleX: -1, scaleY: -1 }, lockRotation: false },
+      prototypeToken: {
+        texture: { scaleX: -1, scaleY: -1 },
+        lockRotation: false,
+        sight: { enabled: true, angle: 160 },
+      },
     });
   });
 
-  it('keeps a mirror its creator asked for', () => {
+  it('keeps a mirror its creator asked for, and still gets the vision', () => {
     const w = world();
     startTokenFacing(w.hooks, w.settings, w.globals);
     const actor = creating({ prototypeToken: { texture: { scaleX: -1, scaleY: 1 } } });
 
     w.handlers.get('preCreateActor')?.(actor, { prototypeToken: { texture: { scaleX: -1 } } });
 
-    expect(actor.updateSource).not.toHaveBeenCalled();
+    expect(actor.updateSource).toHaveBeenCalledWith({
+      prototypeToken: { sight: { enabled: true, angle: 160 } },
+    });
+  });
+
+  it("gets vision over PF2e's switched-off NPC vision, keeping a chosen angle", () => {
+    const w = world();
+    startTokenFacing(w.hooks, w.settings, w.globals);
+    const npc = creating({
+      prototypeToken: {
+        texture: { scaleX: -1, scaleY: -1 },
+        lockRotation: false,
+        sight: { enabled: false, angle: 90 },
+      },
+    });
+
+    w.handlers.get('preCreateActor')?.(npc, {});
+
+    expect(npc.updateSource).toHaveBeenCalledWith({
+      prototypeToken: { sight: { enabled: true, angle: 90 } },
+    });
   });
 
   it('is left alone when a GM has switched the setting off', () => {
@@ -72,18 +93,39 @@ describe('a new token', () => {
   it('with art mirrored both ways is placed at 180, upright', () => {
     const w = world();
     startTokenFacing(w.hooks, w.settings, w.globals);
-    const token = creating({ texture: { scaleX: -1, scaleY: -1 }, rotation: 0 });
+    const token = creating({
+      texture: { scaleX: -1, scaleY: -1 },
+      rotation: 0,
+      sight: { enabled: true, angle: 160 },
+    });
 
     w.handlers.get('preCreateToken')?.(token, {}, {}, 'player');
 
     expect(token.updateSource).toHaveBeenCalledWith({ rotation: 180 });
   });
 
-  it('is left alone when unmirrored, already turned, or the setting is off', () => {
+  it('gets the vision when it has none, with or without turning', () => {
     const w = world();
     startTokenFacing(w.hooks, w.settings, w.globals);
-    const plain = creating({ texture: { scaleX: 1, scaleY: 1 }, rotation: 0 });
-    const turned = creating({ texture: { scaleX: -1, scaleY: -1 }, rotation: 45 });
+    const blind = creating({ texture: { scaleX: 1, scaleY: 1 }, sight: { enabled: false } });
+    const mirrored = creating({ texture: { scaleX: -1, scaleY: -1 } });
+
+    w.handlers.get('preCreateToken')?.(blind);
+    w.handlers.get('preCreateToken')?.(mirrored);
+
+    expect(blind.updateSource).toHaveBeenCalledWith({ sight: { enabled: true, angle: 160 } });
+    expect(mirrored.updateSource).toHaveBeenCalledWith({
+      rotation: 180,
+      sight: { enabled: true, angle: 160 },
+    });
+  });
+
+  it('is left alone when unmirrored, already turned and seeing, or the setting is off', () => {
+    const w = world();
+    startTokenFacing(w.hooks, w.settings, w.globals);
+    const seeing = { sight: { enabled: true, angle: 160 } };
+    const plain = creating({ texture: { scaleX: 1, scaleY: 1 }, rotation: 0, ...seeing });
+    const turned = creating({ texture: { scaleX: -1, scaleY: -1 }, rotation: 45, ...seeing });
     const bare = { updateSource: vi.fn() };
     w.handlers.get('preCreateToken')?.(plain);
     w.handlers.get('preCreateToken')?.(turned);
@@ -93,64 +135,9 @@ describe('a new token', () => {
     const mirrored = creating({ texture: { scaleX: -1, scaleY: -1 } });
     off.handlers.get('preCreateToken')?.(mirrored);
 
-    for (const token of [plain, turned, bare, mirrored]) {
+    expect(bare.updateSource).toHaveBeenCalledWith({ sight: { enabled: true, angle: 160 } });
+    for (const token of [plain, turned, mirrored]) {
       expect(token.updateSource).not.toHaveBeenCalled();
     }
-  });
-});
-
-describe('the Mirror ticks with PF2e auto-scale on (PF2e 8.7, Foundry 14.370)', () => {
-  const form = () => {
-    const listeners: ((event: Event) => void)[] = [];
-    return {
-      listeners,
-      addEventListener: vi.fn((_type: string, listener: (event: Event) => void) =>
-        listeners.push(listener)
-      ),
-      fire: (object: Record<string, unknown>) => {
-        for (const listener of listeners) {
-          listener({ formData: { object } } as unknown as Event);
-        }
-        return object;
-      },
-    };
-  };
-
-  it('fills in the saved size the locked slider left out, so core keeps the ticks', () => {
-    const f = form();
-    keepMirrorTicks({
-      form: f as unknown as EventTarget,
-      token: { _source: { texture: { scaleX: -0.8 } } },
-    });
-
-    expect(f.addEventListener).toHaveBeenCalledWith('formdata', expect.any(Function));
-    expect(f.fire({ mirrorX: true, mirrorY: true })).toEqual({
-      mirrorX: true,
-      mirrorY: true,
-      scale: 0.8,
-    });
-  });
-
-  it('leaves a submitted scale alone, as once PF2e or core fixes this', () => {
-    const f = form();
-    keepMirrorTicks({ form: f as unknown as EventTarget });
-
-    expect(f.fire({ scale: 1.2, mirrorX: true })).toEqual({ scale: 1.2, mirrorX: true });
-    expect(f.fire({ mirrorY: true })).toEqual({ mirrorY: true, scale: 1 });
-    f.listeners[0]?.({} as Event);
-  });
-
-  it('listens once per form, however often it renders, and on every Prototype Token form', () => {
-    const f = form();
-    const app = { form: f as unknown as EventTarget };
-    keepMirrorTicks(app);
-    keepMirrorTicks(app);
-    keepMirrorTicks({ form: null });
-    keepMirrorTicks({});
-    const w = world();
-    startTokenFacing(w.hooks, w.settings, w.globals);
-
-    expect(f.addEventListener).toHaveBeenCalledTimes(1);
-    expect(w.handlers.get('renderPrototypeTokenConfig')).toBe(keepMirrorTicks);
   });
 });
