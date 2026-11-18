@@ -5,6 +5,8 @@ import type { FacingGlobals } from '../../../src/facing/startTokenFacing.js';
 /**
  * A world for default token facing (src/facing), 2026-11-14: hooks captured by name, a settings stub
  * with a restricted-menu slot, and four actors, one already facing the default way and one unsaved.
+ * Since 2026-11-18 also one scene with three placed tokens: one without vision, one at the default, and
+ * one unsaved.
  */
 export type Handler = (...args: unknown[]) => unknown;
 
@@ -28,6 +30,7 @@ export function facingWorld(options: FacingWorldOptions = {}) {
   } as unknown as FoundryHooks;
   const settings = { register: vi.fn(), get: vi.fn(() => options.on), registerMenu: vi.fn() };
   const updateDocuments = vi.fn(async () => Promise.resolve([]));
+  const updateEmbeddedDocuments = vi.fn(async () => Promise.resolve([]));
   const info = vi.fn();
   const confirm = vi.fn(async () => Promise.resolve(options.confirm ?? true));
   class ApplicationV2 {
@@ -43,18 +46,46 @@ export function facingWorld(options: FacingWorldOptions = {}) {
           { id: 'new', prototypeToken: { texture: { scaleX: 1, scaleY: 1 }, lockRotation: true } },
           {
             id: 'done',
-            prototypeToken: { texture: { scaleX: -1, scaleY: -1 }, lockRotation: false },
+            prototypeToken: {
+              texture: { scaleX: -1, scaleY: -1 },
+              lockRotation: false,
+              sight: { enabled: true, angle: 160 },
+            },
           },
           { id: null, prototypeToken: {} },
           { id: 'small', prototypeToken: { texture: { scaleX: 0.8, scaleY: 0.8 } } },
         ],
         documentClass: { updateDocuments },
       },
+      scenes: {
+        contents: [
+          {
+            tokens: {
+              contents: [
+                { id: 'blind', sight: { enabled: false, angle: 360 } },
+                { id: 'seeing', sight: { enabled: true, angle: 160 } },
+                { id: null },
+              ],
+            },
+            updateEmbeddedDocuments,
+          },
+          {},
+        ],
+      },
     },
     foundry: { applications: { api: { ApplicationV2, DialogV2: { confirm } } } },
     ...(options.ui === false ? {} : { ui: { notifications: { info } } }),
   } as unknown as FacingGlobals;
-  return { handlers, hooks, settings, globals, updateDocuments, info, confirm };
+  return {
+    handlers,
+    hooks,
+    settings,
+    globals,
+    updateDocuments,
+    updateEmbeddedDocuments,
+    info,
+    confirm,
+  };
 }
 
 export type FacingWorld = ReturnType<typeof facingWorld>;

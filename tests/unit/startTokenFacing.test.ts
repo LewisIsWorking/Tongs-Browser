@@ -22,7 +22,7 @@ describe('the default token facing setting', () => {
       'tongs-browser',
       FACING_SETTING,
       expect.objectContaining({
-        name: 'Default token facing: mirror both ways, unlocked rotation',
+        name: 'Default token facing: mirror both ways, unlocked rotation, vision on at 160 degrees',
         scope: 'world',
         config: true,
         type: Boolean,
@@ -43,18 +43,42 @@ describe('a new actor', () => {
     w.handlers.get('preCreateActor')?.(actor, { name: 'Goblin' }, {}, 'gm');
 
     expect(actor.updateSource).toHaveBeenCalledWith({
-      prototypeToken: { texture: { scaleX: -1, scaleY: -1 }, lockRotation: false },
+      prototypeToken: {
+        texture: { scaleX: -1, scaleY: -1 },
+        lockRotation: false,
+        sight: { enabled: true, angle: 160 },
+      },
     });
   });
 
-  it('keeps a mirror its creator asked for', () => {
+  it('keeps a mirror its creator asked for, and still gets the vision', () => {
     const w = world();
     startTokenFacing(w.hooks, w.settings, w.globals);
     const actor = creating({ prototypeToken: { texture: { scaleX: -1, scaleY: 1 } } });
 
     w.handlers.get('preCreateActor')?.(actor, { prototypeToken: { texture: { scaleX: -1 } } });
 
-    expect(actor.updateSource).not.toHaveBeenCalled();
+    expect(actor.updateSource).toHaveBeenCalledWith({
+      prototypeToken: { sight: { enabled: true, angle: 160 } },
+    });
+  });
+
+  it("gets vision over PF2e's switched-off NPC vision, keeping a chosen angle", () => {
+    const w = world();
+    startTokenFacing(w.hooks, w.settings, w.globals);
+    const npc = creating({
+      prototypeToken: {
+        texture: { scaleX: -1, scaleY: -1 },
+        lockRotation: false,
+        sight: { enabled: false, angle: 90 },
+      },
+    });
+
+    w.handlers.get('preCreateActor')?.(npc, {});
+
+    expect(npc.updateSource).toHaveBeenCalledWith({
+      prototypeToken: { sight: { enabled: true, angle: 90 } },
+    });
   });
 
   it('is left alone when a GM has switched the setting off', () => {
@@ -72,18 +96,39 @@ describe('a new token', () => {
   it('with art mirrored both ways is placed at 180, upright', () => {
     const w = world();
     startTokenFacing(w.hooks, w.settings, w.globals);
-    const token = creating({ texture: { scaleX: -1, scaleY: -1 }, rotation: 0 });
+    const token = creating({
+      texture: { scaleX: -1, scaleY: -1 },
+      rotation: 0,
+      sight: { enabled: true, angle: 160 },
+    });
 
     w.handlers.get('preCreateToken')?.(token, {}, {}, 'player');
 
     expect(token.updateSource).toHaveBeenCalledWith({ rotation: 180 });
   });
 
-  it('is left alone when unmirrored, already turned, or the setting is off', () => {
+  it('gets the vision when it has none, with or without turning', () => {
     const w = world();
     startTokenFacing(w.hooks, w.settings, w.globals);
-    const plain = creating({ texture: { scaleX: 1, scaleY: 1 }, rotation: 0 });
-    const turned = creating({ texture: { scaleX: -1, scaleY: -1 }, rotation: 45 });
+    const blind = creating({ texture: { scaleX: 1, scaleY: 1 }, sight: { enabled: false } });
+    const mirrored = creating({ texture: { scaleX: -1, scaleY: -1 } });
+
+    w.handlers.get('preCreateToken')?.(blind);
+    w.handlers.get('preCreateToken')?.(mirrored);
+
+    expect(blind.updateSource).toHaveBeenCalledWith({ sight: { enabled: true, angle: 160 } });
+    expect(mirrored.updateSource).toHaveBeenCalledWith({
+      rotation: 180,
+      sight: { enabled: true, angle: 160 },
+    });
+  });
+
+  it('is left alone when unmirrored, already turned and seeing, or the setting is off', () => {
+    const w = world();
+    startTokenFacing(w.hooks, w.settings, w.globals);
+    const seeing = { sight: { enabled: true, angle: 160 } };
+    const plain = creating({ texture: { scaleX: 1, scaleY: 1 }, rotation: 0, ...seeing });
+    const turned = creating({ texture: { scaleX: -1, scaleY: -1 }, rotation: 45, ...seeing });
     const bare = { updateSource: vi.fn() };
     w.handlers.get('preCreateToken')?.(plain);
     w.handlers.get('preCreateToken')?.(turned);
@@ -93,7 +138,8 @@ describe('a new token', () => {
     const mirrored = creating({ texture: { scaleX: -1, scaleY: -1 } });
     off.handlers.get('preCreateToken')?.(mirrored);
 
-    for (const token of [plain, turned, bare, mirrored]) {
+    expect(bare.updateSource).toHaveBeenCalledWith({ sight: { enabled: true, angle: 160 } });
+    for (const token of [plain, turned, mirrored]) {
       expect(token.updateSource).not.toHaveBeenCalled();
     }
   });
