@@ -7,7 +7,8 @@ Default token facing: every new token mirrored both ways and free to rotate. Add
 | --------------------- | ------------------------------------------------------------------------------------------- |
 | `tokenFacing.ts`      | The rules: a prototype's facing, a new token's rotation, the scale a locked slider left out |
 | `tokenVision.ts`      | The vision rule: on, at 160 degrees unless someone chose another angle                      |
-| `startTokenFacing.ts` | The world setting, the creation hooks, the GM's button and API call, the Mirror tick fix    |
+| `startTokenFacing.ts` | The world setting, the creation hooks, the Mirror tick fix                                  |
+| `applyTokenFacing.ts` | The GM's button and API call: facing and vision for every actor, vision for placed tokens   |
 
 ## What it does
 

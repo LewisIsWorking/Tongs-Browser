@@ -1,14 +1,20 @@
 import { MODULE_ID } from '../constants.js';
 import { logger } from '../core/Logger.js';
 import { registerGmMenu } from '../bands/settingsMenu.js';
-import type { MenuGlobals, MenuSettings } from '../bands/settingsMenu.js';
-import { facingChange, missingScale, newActorFacing, uprightRotation } from './tokenFacing.js';
-import type { FacingChange, PlacedFacing, PrototypeFacing } from './tokenFacing.js';
+import type { MenuSettings } from '../bands/settingsMenu.js';
+import { missingScale, newActorFacing, uprightRotation } from './tokenFacing.js';
+import type { PlacedFacing, PrototypeFacing } from './tokenFacing.js';
 import { visionChange } from './tokenVision.js';
-import type { SightFacing, VisionChange } from './tokenVision.js';
+import type { SightFacing } from './tokenVision.js';
+import { applyTokenFacing, confirmAndApply, facingApi, together } from './applyTokenFacing.js';
+import type { FacingGlobals } from './applyTokenFacing.js';
+
+export { applyTokenFacing, facingApi };
+export type { FacingGlobals };
 
 /**
- * Default token facing: a world setting, its creation hooks, the GM's "apply to every actor" button, and
+ * Default token facing: a world setting, its creation hooks, the GM's "apply to every actor" button
+ * (applyTokenFacing.ts), and
  * keeping the Mirror ticks in PF2e's Prototype Token form. Added 2026-11-14; the rules are in
  * tokenFacing.ts. Since 2026-11-18 the same setting also turns every token's vision on at 160 degrees
  * (tokenVision.ts), and the button gives that vision to tokens already on a scene too.
@@ -32,21 +38,6 @@ interface Creating<Source> {
   updateSource?(changes: object): unknown;
 }
 
-interface WorldActor {
-  readonly id: string | null;
-  readonly prototypeToken?: PrototypeFacing & SightFacing;
-}
-
-/** A token already on a scene: only its vision is changed, never its look. */
-interface PlacedToken extends SightFacing {
-  readonly id: string | null;
-}
-
-interface WorldScene {
-  readonly tokens?: { readonly contents: readonly PlacedToken[] };
-  updateEmbeddedDocuments?(type: 'Token', updates: object[]): Promise<unknown>;
-}
-
 interface FormDataLike {
   readonly object?: Record<string, unknown>;
 }
@@ -54,96 +45,6 @@ interface FormDataLike {
 interface PrototypeConfig {
   readonly form?: EventTarget | null;
   readonly token?: { readonly _source?: PlacedFacing };
-}
-
-export interface FacingGlobals extends MenuGlobals {
-  readonly game?: {
-    readonly user?: { readonly isGM?: boolean };
-    readonly actors?: {
-      readonly contents: readonly WorldActor[];
-      readonly documentClass: { updateDocuments(updates: object[]): Promise<unknown> };
-    };
-    readonly scenes?: { readonly contents: readonly WorldScene[] };
-  };
-  readonly foundry?: MenuGlobals['foundry'] & {
-    readonly applications?: {
-      readonly api?: { readonly DialogV2?: { confirm?(options: object): Promise<unknown> } };
-    };
-  };
-  readonly ui?: { readonly notifications?: { info?(message: string): unknown } };
-}
-
-/** Facing and vision in one change, so a document is written once. Null when neither changes anything. */
-function together(
-  facing: FacingChange | null,
-  vision: VisionChange | null
-): (Partial<FacingChange> & Partial<VisionChange>) | null {
-  return facing === null && vision === null ? null : { ...facing, ...vision };
-}
-
-/** Gives every token already on a scene the default vision. Resolves to how many changed. */
-async function applyPlacedVision(scenes: readonly WorldScene[]): Promise<number> {
-  let changed = 0;
-  for (const scene of scenes) {
-    const updates = (scene.tokens?.contents ?? []).flatMap((token) => {
-      const change = token.id === null ? null : visionChange(token);
-      return change === null ? [] : [{ _id: token.id, ...change }];
-    });
-    if (updates.length > 0 && scene.updateEmbeddedDocuments !== undefined) {
-      await scene.updateEmbeddedDocuments('Token', updates);
-      changed += updates.length;
-    }
-  }
-  return changed;
-}
-
-const plural = (n: number, one: string): string => `${String(n)} ${n === 1 ? one : `${one}s`}`;
-
-/**
- * Gives every actor in the world the default facing and vision, and every placed token the vision. Resolves to how many changed, or null when this
- * browser is not a GM's. Never run by itself: the GM's settings button and the API call are its callers.
- */
-export async function applyTokenFacing(globals: FacingGlobals): Promise<number | null> {
-  /* ⛔ GM only, failing closed: it changes every actor in the world. The menu is restricted too. */
-  const game = globals.game;
-  if (game?.user?.isGM !== true || game.actors === undefined) {
-    return null;
-  }
-  const updates = game.actors.contents.flatMap((actor) => {
-    const change =
-      actor.id === null
-        ? null
-        : together(facingChange(actor.prototypeToken), visionChange(actor.prototypeToken));
-    return change === null ? [] : [{ _id: actor.id, prototypeToken: change }];
-  });
-  if (updates.length > 0) {
-    await game.actors.documentClass.updateDocuments(updates);
-  }
-  const placed = await applyPlacedVision(game.scenes?.contents ?? []);
-  globals.ui?.notifications?.info?.(
-    `Tongs set the default token facing and vision on ${plural(updates.length, 'actor')}, and the ` +
-      `vision on ${plural(placed, 'token')} already on a scene.`
-  );
-  return updates.length;
-}
-
-/** The settings button: asks first, because it changes every actor in the world. */
-async function confirmAndApply(globals: FacingGlobals): Promise<number | null> {
-  const confirmed = await globals.foundry?.applications?.api?.DialogV2?.confirm?.({
-    window: { title: 'Default token facing for every actor' },
-    content:
-      "<p>Mirror every actor's prototype token both ways, unlock its rotation and turn its vision on at " +
-      '160 degrees? Tokens already on a scene get the vision only; their look is not changed. New tokens ' +
-      'are placed at rotation 180, so they show upright.</p>',
-  });
-  return confirmed === true ? applyTokenFacing(globals) : null;
-}
-
-/** What the module's `api` gains: `applyTokenFacingToAllActors()`, for a GM's macro. */
-export function facingApi(globals: object): {
-  applyTokenFacingToAllActors(): Promise<number | null>;
-} {
-  return { applyTokenFacingToAllActors: async () => applyTokenFacing(globals) };
 }
 
 /** Wired forms, so a form re-rendered many times still gets one listener. */

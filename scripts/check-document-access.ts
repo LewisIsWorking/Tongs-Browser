@@ -112,7 +112,7 @@ const BOUNDARY: readonly string[] = [
    * on `game.user.isGM !== true`, and only when the GM presses its settings button or calls the API. It
    * renders nothing it lists: the GM is told a count, nothing else.
    */
-  'src/facing/startTokenFacing.ts',
+  'src/facing/applyTokenFacing.ts',
   /*
    * ⚠️ Added 2026-11-14 with pending levels. It DOES enumerate every actor, GM only, failing closed on
    * `game.user.isGM !== true`, and by itself only in the designated GM's browser. It keeps only actors

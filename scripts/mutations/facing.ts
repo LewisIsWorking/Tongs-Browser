@@ -23,7 +23,7 @@ export const FACING_MUTATIONS: readonly RecordedMutation[] = [
     tests: ['tests/unit/tokenFacing.test.ts'],
   },
   {
-    file: 'src/facing/startTokenFacing.ts',
+    file: 'src/facing/applyTokenFacing.ts',
     find: '  if (game?.user?.isGM !== true || game.actors === undefined) {',
     replace: '  if (game?.actors === undefined) {',
     defect:
