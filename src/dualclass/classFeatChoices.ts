@@ -31,7 +31,7 @@ export function dualClassSlugs(item: ClassLike): string[] {
   }
   const system = isBag(item.system) ? item.system : {};
   const halves = (item.name ?? '').split(' - ');
-  const slugs = new Set([slugOf(system, halves[0] ?? '')]);
+  const slugs = new Set([slugOf(system, halves.slice(0, 1).join(''))]);
   /* ⚠️ Read, never `list()`: that stores a missing array on the bag, and this is a live item's data. */
   const rules: unknown[] = Array.isArray(system.rules) ? system.rules : [];
   for (const rule of rules) {
