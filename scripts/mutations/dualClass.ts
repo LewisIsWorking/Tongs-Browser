@@ -57,4 +57,19 @@ export const DUAL_CLASS_MUTATIONS: readonly RecordedMutation[] = [
     defect: 'a class copy with no id is the one kept, and the real dual class is deleted',
     tests: ['tests/unit/landDualClass.test.ts'],
   },
+  {
+    file: 'src/dualclass/classFeatChoices.ts',
+    find: '    return { or: slugs.map((slug) => `item:trait:${slug}`) };',
+    replace: '    return { or: slugs.slice(0, 1).map((slug) => `item:trait:${slug}`) };',
+    defect: "a dual class's Natural Ambition still offers only the first class's feats",
+    tests: ['tests/unit/classFeatChoices.test.ts'],
+  },
+  {
+    file: 'src/dualclass/startClassFeatChoices.ts',
+    find: '    return filter === undefined ? choices : { ...choices, filter };',
+    replace: "    if (filter !== undefined) { choices['filter'] = filter; } return choices;",
+    defect:
+      "the item's own ChoiceSet query is rewritten, so the widened filter is saved on the feat",
+    tests: ['tests/unit/classFeatChoices.test.ts'],
+  },
 ];

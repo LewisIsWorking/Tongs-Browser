@@ -9,18 +9,20 @@ in the Tongs tray (the `C×2` button), picks one of their own sheets and two cla
 the welcome's sheet request does (`src/welcome`): a flag on the player's own User, answered by the designated
 GM's browser on the same User. The GM is told "Tongs gave Lai's Kibwe the Fighter - Wizard dual class."
 
-| File                      | What it is                                                                     |
-| ------------------------- | ------------------------------------------------------------------------------ |
-| `buildDualClass.ts`       | The macro, ported: two classes in, one dual class item out (pure)              |
-| `classFields.ts`          | Safe reads and merges over a class's `system` for that port                    |
-| `dualClassRequest.ts`     | The request and answer flags, read defensively, and the class compendium list  |
-| `DualClassRequests.ts`    | The GM side: check, build and answer each request, once, one pass at a time    |
-| `dualClassDocuments.ts`   | The GM's user and actor reads (a `check:documents` boundary)                   |
-| `startDualClass.ts`       | Both sides started at `ready`, and the GM side's Foundry wiring                |
-| `startDualClassPlayer.ts` | The player side: open the window, send the request, land the answer            |
-| `classChoices.ts`         | The classes offered, from this world's class compendiums, and the variant note |
-| `DualClassWindow.ts`      | The window: which sheet, 1st and 2nd class, then on its way, done or why not   |
-| `landDualClass.ts`        | Putting the item on the sheet, in the player's browser, leaving one class      |
+| File                       | What it is                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| `buildDualClass.ts`        | The macro, ported: two classes in, one dual class item out (pure)              |
+| `classFields.ts`           | Safe reads and merges over a class's `system` for that port                    |
+| `dualClassRequest.ts`      | The request and answer flags, read defensively, and the class compendium list  |
+| `DualClassRequests.ts`     | The GM side: check, build and answer each request, once, one pass at a time    |
+| `dualClassDocuments.ts`    | The GM's user and actor reads (a `check:documents` boundary)                   |
+| `startDualClass.ts`        | Both sides started at `ready`, and the GM side's Foundry wiring                |
+| `startDualClassPlayer.ts`  | The player side: open the window, send the request, land the answer            |
+| `classChoices.ts`          | The classes offered, from this world's class compendiums, and the variant note |
+| `DualClassWindow.ts`       | The window: which sheet, 1st and 2nd class, then on its way, done or why not   |
+| `landDualClass.ts`         | Putting the item on the sheet, in the player's browser, leaving one class      |
+| `classFeatChoices.ts`      | Which classes a dual class counts as, and a ChoiceSet filter widened to them   |
+| `startClassFeatChoices.ts` | PF2e's ChoiceSet query wrapped once, so class feat picks offer both classes    |
 
 ## Decided with Lewis, 2026-10-12
 
@@ -59,3 +61,11 @@ GM's browser on the same User. The GM is told "Tongs gave Lai's Kibwe the Fighte
   flag of ours, so `isDualClass` also reads the macro's `RollOption` naming another class
   (`class:<2nd class>`) and its "Class1 - Class2" name. The checklist ticks on one, the welcome sends no
   request for it, and the GM's side refuses a second dual class on a sheet that has one.
+
+- ⭐ **"A class feat of your class" offers both classes** (2026-11-23, `classFeatChoices.ts`). A Thaumaturge -
+  Cleric's Natural Ambition listed only thaumaturge feats: a dual class is one class item, so PF2e's
+  `system.details.class.trait` is the first class's slug alone, and the feat's ChoiceSet filters on
+  `item:trait:{actor|system.details.class.trait}`. `startClassFeatChoices` wraps PF2e's
+  `ChoiceSetRuleElement.queryCompendium` once, in every browser, and on a dual class's sheet hands it a COPY
+  of the query with each such entry widened to `{ or: [item:trait:<class1>, item:trait:<class2>] }`. Any
+  failure, or a PF2e without that method, leaves PF2e's own query: one class's feats, as before.

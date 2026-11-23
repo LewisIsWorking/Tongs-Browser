@@ -7,6 +7,8 @@ import { answerDualClass, dualClassSheet, pendingDualClasses } from './dualClass
 import type { DualClassGame } from './dualClassDocuments.js';
 import { DualClassRequests } from './DualClassRequests.js';
 import type { LoadedClass } from './DualClassRequests.js';
+import { startClassFeatChoices } from './startClassFeatChoices.js';
+import type { ClassFeatChoiceGlobals } from './startClassFeatChoices.js';
 import { startDualClassPlayer } from './startDualClassPlayer.js';
 import type { DualClassPlayerGlobals } from './startDualClassPlayer.js';
 
@@ -37,6 +39,8 @@ export function startDualClass(
   globals: DualClassGlobals,
   doc: Document
 ): void {
+  /* 2026-11-23: a dual class's "class feat of your class" questions offer both classes, in every browser. */
+  startClassFeatChoices(globals as ClassFeatChoiceGlobals);
   startDualClassPlayer(hooks, globals, doc);
   const game = (): DualClassGlobals['game'] => globals.game;
   if (game()?.user?.isGM !== true) {
