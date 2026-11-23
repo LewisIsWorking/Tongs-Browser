@@ -17,7 +17,8 @@
  *
  * ⚠️ THIS WRITES TO A LIVE WORLD. It creates a scene, because the canvas check needs one and a world
  *    can legitimately have none. Everything it creates is named with PROBE_PREFIX and deleted in a
- *    finally block, so anything a crash leaves behind is identifiable and safe to remove by hand.
+ *    finally block, so anything a crash leaves behind is identifiable and safe to remove by hand. On a
+ *    PF2e world it also makes two throwaway character sheets (live/classFeatChoiceChecks.ts), the same way.
  */
 import type { Page } from 'playwright';
 
@@ -26,6 +27,7 @@ import { checkChromeRespondsToClick } from './live/chromeChecks.ts';
 import { checkSceneControlToggle } from './live/sceneControlChecks.ts';
 import { awaitHeartbeat, checkActivityMenu, checkHeartbeat } from './live/activityChecks.ts';
 import { ensurePointerOn } from './live/ensurePointerOn.ts';
+import { checkClassFeatChoices } from './live/classFeatChoiceChecks.ts';
 import {
   BASE,
   MODULE_ID,
@@ -156,6 +158,7 @@ async function main() {
     await checkSceneControlToggle(page, recorder);
     await checkActivityMenu(page, recorder);
     await checkHeartbeat(page, recorder, heartbeat);
+    await checkClassFeatChoices(page, recorder);
 
     createdScene = await ensureActiveScene(page);
     await checkCanvasRespondsToMove(page, recorder);
