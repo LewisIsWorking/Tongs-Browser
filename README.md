@@ -222,6 +222,8 @@ the original design assumptions turned out to be wrong.
 
 Requires Node 22 or newer.
 
+The work queue lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ```
 npm ci
 npm run verify     # lint, typecheck, test, build
